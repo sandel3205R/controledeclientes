@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Edit, Users, Phone, Calendar } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -111,6 +111,18 @@ export default function Sellers() {
 
     setSellers(sellersWithStats);
     setLoading(false);
+  };
+
+  const sendWhatsApp = (whatsapp: string, type: 'billing' | 'renewal' | 'reminder', sellerName: string) => {
+    const phone = whatsapp.replace(/\D/g, '');
+    
+    const messages = {
+      billing: `Olá ${sellerName}! 👋\n\nSeu pagamento mensal está pendente.\n\nPor favor, entre em contato para regularizar sua situação.\n\nObrigado!`,
+      renewal: `Olá ${sellerName}! 🎉\n\nSeu aplicativo foi renovado com sucesso!\n\nAgradecemos pela confiança e parceria.\n\nQualquer dúvida, estamos à disposição!`,
+      reminder: `Olá ${sellerName}! ⏰\n\nEste é um lembrete sobre seu pagamento que vence em breve.\n\nEvite interrupções no serviço realizando o pagamento antecipadamente.\n\nObrigado!`,
+    };
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
   };
 
   useEffect(() => { fetchSellers(); }, []);
@@ -230,6 +242,38 @@ export default function Sellers() {
                     </span>
                   </div>
                 </div>
+
+                {seller.whatsapp && (
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+                    <Button 
+                      variant="whatsapp" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => sendWhatsApp(seller.whatsapp!, 'billing', seller.full_name || 'Vendedor')}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="hidden sm:inline">Cobrança</span>
+                    </Button>
+                    <Button 
+                      variant="whatsapp" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => sendWhatsApp(seller.whatsapp!, 'renewal', seller.full_name || 'Vendedor')}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span className="hidden sm:inline">Renovação</span>
+                    </Button>
+                    <Button 
+                      variant="whatsapp" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => sendWhatsApp(seller.whatsapp!, 'reminder', seller.full_name || 'Vendedor')}
+                    >
+                      <Bell className="w-4 h-4" />
+                      <span className="hidden sm:inline">Lembrete</span>
+                    </Button>
+                  </div>
+                )}
 
                 <Button variant="outline" size="sm" className="w-full mt-4" onClick={() => setEditingSeller(seller)}>
                   <Edit className="w-4 h-4 mr-2" />
