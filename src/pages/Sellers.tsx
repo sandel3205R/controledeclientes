@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,6 +24,7 @@ interface SellerProfile {
   whatsapp: string | null;
   created_at: string | null;
   is_active: boolean | null;
+  deleted_at: string | null;
 }
 
 const sellerSchema = z.object({
@@ -66,10 +69,13 @@ const formatWhatsApp = (value: string): string => {
 
 export default function Sellers() {
   const [sellers, setSellers] = useState<SellerWithStats[]>([]);
+  const [trashedSellers, setTrashedSellers] = useState<SellerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSeller, setEditingSeller] = useState<SellerWithStats | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<SellerWithStats | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState<SellerWithStats | null>(null);
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -121,7 +127,12 @@ export default function Sellers() {
       })
     );
 
-    setSellers(sellersWithStats);
+    // Separate active and trashed sellers
+    const active = sellersWithStats.filter(s => !s.deleted_at);
+    const trashed = sellersWithStats.filter(s => s.deleted_at);
+
+    setSellers(active);
+    setTrashedSellers(trashed);
     setLoading(false);
   };
 
@@ -138,6 +149,40 @@ export default function Sellers() {
       setSellers(prev => prev.map(s => s.id === sellerId ? { ...s, is_active: isActive } : s));
     } catch (error: any) {
       toast.error('Erro ao alterar status do vendedor');
+    }
+  };
+
+  const handleDelete = async (seller: SellerWithStats) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
+        .eq('id', seller.id);
+
+      if (error) throw error;
+
+      toast.success('Vendedor movido para a lixeira!');
+      setDeleteConfirm(null);
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao remover vendedor');
+    }
+  };
+
+  const handleRestore = async (seller: SellerWithStats) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deleted_at: null, is_active: true })
+        .eq('id', seller.id);
+
+      if (error) throw error;
+
+      toast.success('Vendedor restaurado com sucesso!');
+      setRestoreConfirm(null);
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao restaurar vendedor');
     }
   };
 
@@ -223,6 +268,133 @@ export default function Sellers() {
     }
   };
 
+  const SellerCard = ({ seller, isTrash = false }: { seller: SellerWithStats; isTrash?: boolean }) => (
+    <Card variant="gradient" className={`animate-scale-in ${!seller.is_active ? 'opacity-60' : ''}`}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-secondary to-primary flex items-center justify-center text-lg font-bold text-primary-foreground">
+              {seller.full_name?.charAt(0)?.toUpperCase() || seller.email.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="font-semibold">{seller.full_name || 'Sem nome'}</h3>
+              <p className="text-xs text-muted-foreground">{seller.email}</p>
+            </div>
+          </div>
+          {!isTrash && (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={seller.is_active ?? true}
+                onCheckedChange={(checked) => toggleSellerActive(seller.id, checked)}
+              />
+              <Badge variant={seller.is_active ? 'default' : 'secondary'}>
+                {seller.is_active ? 'Ativo' : 'Inativo'}
+              </Badge>
+            </div>
+          )}
+          {isTrash && (
+            <Badge variant="destructive">Na Lixeira</Badge>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {seller.whatsapp && (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Phone className="w-4 h-4" />
+                <span>WhatsApp</span>
+              </div>
+              <span className="text-xs">{seller.whatsapp}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Users className="w-4 h-4" />
+              <span>Clientes</span>
+            </div>
+            <Badge variant="secondary">{seller.clientCount}</Badge>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              <span>{isTrash ? 'Removido em' : 'Cadastrado em'}</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {isTrash && seller.deleted_at 
+                ? format(new Date(seller.deleted_at), 'dd/MM/yyyy')
+                : seller.created_at 
+                  ? format(new Date(seller.created_at), 'dd/MM/yyyy') 
+                  : '-'}
+            </span>
+          </div>
+        </div>
+
+        {!isTrash && seller.whatsapp && (
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+            <Button 
+              variant="whatsapp" 
+              size="sm" 
+              className="flex-1"
+              onClick={() => sendWhatsApp(seller.whatsapp!, 'billing', seller.full_name || 'Vendedor')}
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Cobrança</span>
+            </Button>
+            <Button 
+              variant="whatsapp" 
+              size="sm" 
+              className="flex-1"
+              onClick={() => sendWhatsApp(seller.whatsapp!, 'renewal', seller.full_name || 'Vendedor')}
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Renovação</span>
+            </Button>
+            <Button 
+              variant="whatsapp" 
+              size="sm" 
+              className="flex-1"
+              onClick={() => sendWhatsApp(seller.whatsapp!, 'reminder', seller.full_name || 'Vendedor')}
+            >
+              <Bell className="w-4 h-4" />
+              <span className="hidden sm:inline">Lembrete</span>
+            </Button>
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-4">
+          {!isTrash ? (
+            <>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingSeller(seller)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(seller)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setRestoreConfirm(seller)}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Restaurar
+              </Button>
+              <Button variant="whatsapp" size="sm" className="flex-1" onClick={() => {
+                if (seller.whatsapp) {
+                  const phone = seller.whatsapp.replace(/\D/g, '');
+                  const message = `Olá ${seller.full_name || 'Vendedor'}! 👋\n\nSentimos sua falta! Gostaríamos de conversar sobre sua volta para a equipe.\n\nPodemos conversar?`;
+                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                }
+              }} disabled={!seller.whatsapp}>
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Chamar
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <AppLayout>
@@ -239,7 +411,7 @@ export default function Sellers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold">Vendedores</h1>
-            <p className="text-muted-foreground">{sellers.length} vendedores cadastrados</p>
+            <p className="text-muted-foreground">{sellers.length} ativos · {trashedSellers.length} na lixeira</p>
           </div>
           <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
@@ -247,100 +419,60 @@ export default function Sellers() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sellers.map((seller) => (
-            <Card key={seller.id} variant="gradient" className={`animate-scale-in ${!seller.is_active ? 'opacity-60' : ''}`}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-secondary to-primary flex items-center justify-center text-lg font-bold text-primary-foreground">
-                      {seller.full_name?.charAt(0)?.toUpperCase() || seller.email.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{seller.full_name || 'Sem nome'}</h3>
-                      <p className="text-xs text-muted-foreground">{seller.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={seller.is_active ?? true}
-                      onCheckedChange={(checked) => toggleSellerActive(seller.id, checked)}
-                    />
-                    <Badge variant={seller.is_active ? 'default' : 'secondary'}>
-                      {seller.is_active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </div>
-                </div>
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="active" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Ativos ({sellers.length})
+            </TabsTrigger>
+            <TabsTrigger value="trash" className="flex items-center gap-2">
+              <Archive className="w-4 h-4" />
+              Lixeira ({trashedSellers.length})
+            </TabsTrigger>
+          </TabsList>
 
-                <div className="space-y-3">
-                  {seller.whatsapp && (
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        <span>WhatsApp</span>
-                      </div>
-                      <span className="text-xs">{seller.whatsapp}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="w-4 h-4" />
-                      <span>Clientes</span>
-                    </div>
-                    <Badge variant="secondary">{seller.clientCount}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>Cadastrado em</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {seller.created_at ? format(new Date(seller.created_at), 'dd/MM/yyyy') : '-'}
-                    </span>
-                  </div>
-                </div>
+          <TabsContent value="active" className="mt-6">
+            {sellers.length === 0 ? (
+              <Card variant="glow">
+                <CardContent className="p-8 text-center">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum vendedor cadastrado</h3>
+                  <p className="text-muted-foreground mb-4">Adicione seu primeiro vendedor para começar.</p>
+                  <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Vendedor
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sellers.map((seller) => (
+                  <SellerCard key={seller.id} seller={seller} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-                {seller.whatsapp && (
-                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
-                    <Button 
-                      variant="whatsapp" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => sendWhatsApp(seller.whatsapp!, 'billing', seller.full_name || 'Vendedor')}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span className="hidden sm:inline">Cobrança</span>
-                    </Button>
-                    <Button 
-                      variant="whatsapp" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => sendWhatsApp(seller.whatsapp!, 'renewal', seller.full_name || 'Vendedor')}
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      <span className="hidden sm:inline">Renovação</span>
-                    </Button>
-                    <Button 
-                      variant="whatsapp" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => sendWhatsApp(seller.whatsapp!, 'reminder', seller.full_name || 'Vendedor')}
-                    >
-                      <Bell className="w-4 h-4" />
-                      <span className="hidden sm:inline">Lembrete</span>
-                    </Button>
-                  </div>
-                )}
+          <TabsContent value="trash" className="mt-6">
+            {trashedSellers.length === 0 ? (
+              <Card variant="glow">
+                <CardContent className="p-8 text-center">
+                  <Archive className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Lixeira vazia</h3>
+                  <p className="text-muted-foreground">Vendedores removidos aparecerão aqui.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trashedSellers.map((seller) => (
+                  <SellerCard key={seller.id} seller={seller} isTrash />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
-                <Button variant="outline" size="sm" className="w-full mt-4" onClick={() => setEditingSeller(seller)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Editar
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
+        {/* Create Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -403,6 +535,7 @@ export default function Sellers() {
           </DialogContent>
         </Dialog>
 
+        {/* Edit Dialog */}
         <Dialog open={!!editingSeller} onOpenChange={() => setEditingSeller(null)}>
           <DialogContent>
             <DialogHeader>
@@ -438,6 +571,51 @@ export default function Sellers() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mover para Lixeira?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O vendedor <strong>{deleteConfirm?.full_name || deleteConfirm?.email}</strong> será movido para a lixeira. 
+                Você poderá restaurá-lo a qualquer momento.
+                {deleteConfirm && deleteConfirm.clientCount > 0 && (
+                  <span className="block mt-2 text-warning">
+                    Atenção: Este vendedor possui {deleteConfirm.clientCount} cliente(s) cadastrado(s).
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+              >
+                Mover para Lixeira
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Restore Confirmation */}
+        <AlertDialog open={!!restoreConfirm} onOpenChange={() => setRestoreConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Restaurar Vendedor?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O vendedor <strong>{restoreConfirm?.full_name || restoreConfirm?.email}</strong> será restaurado e poderá acessar o sistema novamente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => restoreConfirm && handleRestore(restoreConfirm)}>
+                Restaurar Vendedor
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
