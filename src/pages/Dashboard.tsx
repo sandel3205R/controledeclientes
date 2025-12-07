@@ -277,24 +277,28 @@ export default function Dashboard() {
             value={sellerStats.totalClients}
             icon={Users}
             variant="primary"
+            linkTo="/clients"
           />
           <StatCard
             title="Clientes Ativos"
             value={sellerStats.activeClients}
             icon={UserCheck}
             variant="success"
+            linkTo="/clients?status=active"
           />
           <StatCard
             title="Vencendo"
             value={sellerStats.expiringClients}
             icon={Clock}
             variant="warning"
+            linkTo="/clients?status=expiring"
           />
           <StatCard
             title="Vencidos"
             value={sellerStats.expiredClients}
             icon={AlertTriangle}
             variant="default"
+            linkTo="/clients?status=expired"
           />
         </div>
 

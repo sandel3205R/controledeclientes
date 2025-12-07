@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
@@ -63,13 +64,20 @@ interface WhatsAppTemplate {
 
 export default function Clients() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const status = searchParams.get('status');
+    if (status === 'active' || status === 'expiring' || status === 'expired') {
+      return status;
+    }
+    return 'all';
+  });
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
