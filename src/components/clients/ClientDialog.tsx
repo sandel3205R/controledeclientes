@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Server } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,9 +42,15 @@ const clientSchema = z.object({
   app_name: z.string().optional(),
   mac_address: z.string().optional(),
   server_name: z.string().optional(),
+  server_id: z.string().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
+
+interface ServerOption {
+  id: string;
+  name: string;
+}
 
 interface ClientDialogProps {
   open: boolean;
@@ -55,6 +68,7 @@ interface ClientDialogProps {
     app_name: string | null;
     mac_address: string | null;
     server_name: string | null;
+    server_id?: string | null;
   } | null;
   onSuccess: () => void;
 }
@@ -82,6 +96,7 @@ const formatWhatsApp = (value: string): string => {
 
 export default function ClientDialog({ open, onOpenChange, client, onSuccess }: ClientDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [servers, setServers] = useState<ServerOption[]>([]);
 
   const {
     register,
@@ -99,6 +114,25 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     setValue('phone', formatted);
   };
 
+  const fetchServers = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('servers')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name');
+
+    if (data) setServers(data);
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchServers();
+    }
+  }, [open]);
+
   useEffect(() => {
     if (client) {
       reset({
@@ -113,6 +147,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         app_name: client.app_name || '',
         mac_address: client.mac_address || '',
         server_name: client.server_name || '',
+        server_id: client.server_id || '',
       });
     } else {
       reset({
@@ -127,6 +162,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         app_name: '',
         mac_address: '',
         server_name: '',
+        server_id: '',
       });
     }
   }, [client, reset]);
@@ -136,6 +172,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
+
+      // Find server name if server_id is provided
+      const selectedServer = servers.find(s => s.id === data.server_id);
 
       const clientData = {
         name: data.name,
@@ -148,7 +187,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
         app_name: data.app_name || null,
         mac_address: data.mac_address || null,
-        server_name: data.server_name || null,
+        server_name: selectedServer?.name || data.server_name || null,
+        server_id: data.server_id || null,
         seller_id: user.id,
       };
 
@@ -320,8 +360,29 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="server_name">Servidor</Label>
-            <Input id="server_name" {...register('server_name')} placeholder="Nome do servidor (opcional)" />
+            <Label>Servidor</Label>
+            <Select 
+              value={watch('server_id') || ''} 
+              onValueChange={(value) => setValue('server_id', value)}
+            >
+              <SelectTrigger>
+                <Server className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Selecione um servidor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Nenhum</SelectItem>
+                {servers.map((server) => (
+                  <SelectItem key={server.id} value={server.id}>
+                    {server.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="server_name">Nome do Servidor (manual)</Label>
+            <Input id="server_name" {...register('server_name')} placeholder="Se não estiver na lista" />
           </div>
 
           <div className="flex gap-2 pt-4">

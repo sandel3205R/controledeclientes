@@ -13,6 +13,7 @@ import Templates from "./pages/Templates";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Install from "./pages/Install";
+import Servers from "./pages/Servers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -116,6 +117,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Templates />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/servers"
+        element={
+          <ProtectedRoute>
+            <Servers />
           </ProtectedRoute>
         }
       />

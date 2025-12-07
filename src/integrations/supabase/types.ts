@@ -31,6 +31,7 @@ export type Database = {
           plan_name: string | null
           plan_price: number | null
           seller_id: string
+          server_id: string | null
           server_name: string | null
           updated_at: string | null
         }
@@ -50,6 +51,7 @@ export type Database = {
           plan_name?: string | null
           plan_price?: number | null
           seller_id: string
+          server_id?: string | null
           server_name?: string | null
           updated_at?: string | null
         }
@@ -69,6 +71,7 @@ export type Database = {
           plan_name?: string | null
           plan_price?: number | null
           seller_id?: string
+          server_id?: string | null
           server_name?: string | null
           updated_at?: string | null
         }
@@ -78,6 +81,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
             referencedColumns: ["id"]
           },
         ]
@@ -148,6 +158,48 @@ export type Database = {
           is_active?: boolean | null
           updated_at?: string | null
           whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      servers: {
+        Row: {
+          created_at: string | null
+          credit_cost: number | null
+          id: string
+          is_active: boolean | null
+          monthly_cost: number | null
+          name: string
+          notes: string | null
+          seller_id: string
+          total_credits: number | null
+          updated_at: string | null
+          used_credits: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          credit_cost?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_cost?: number | null
+          name: string
+          notes?: string | null
+          seller_id: string
+          total_credits?: number | null
+          updated_at?: string | null
+          used_credits?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          credit_cost?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_cost?: number | null
+          name?: string
+          notes?: string | null
+          seller_id?: string
+          total_credits?: number | null
+          updated_at?: string | null
+          used_credits?: number | null
         }
         Relationships: []
       }
