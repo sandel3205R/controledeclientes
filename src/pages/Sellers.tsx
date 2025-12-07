@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -244,16 +244,141 @@ export default function Sellers() {
     return { label: `${daysRemaining}d restantes`, class: 'bg-green-500/20 text-green-600', icon: Clock };
   };
 
+  // Message templates with 3 layout options each
+  const messageTemplates = {
+    billing: {
+      1: (name: string) => `Olá ${name}!
+
+💰 PAGAMENTO PENDENTE
+
+Identificamos que seu pagamento mensal está em aberto.
+
+📌 Por favor, entre em contato para regularizar sua situação e evitar interrupções no serviço.
+
+Aguardamos seu retorno!
+Atenciosamente, SANDEL`,
+
+      2: (name: string) => `${name}, tudo bem?
+
+Passando para lembrar sobre o pagamento pendente do seu painel.
+
+💳 Valor: [valor]
+📅 Vencimento: [data]
+
+Qualquer dúvida, estou à disposição!
+
+Abraço,
+SANDEL`,
+
+      3: (name: string) => `Olá ${name}!
+
+🔔 Aviso Importante
+
+Seu pagamento está pendente. Para continuar utilizando o sistema sem interrupções, por favor regularize o quanto antes.
+
+PIX: [chave]
+
+Após o pagamento, envie o comprovante aqui.
+
+SANDEL`
+    },
+    renewal: {
+      1: (name: string) => `Olá ${name}!
+
+✅ RENOVAÇÃO CONFIRMADA
+
+Seu acesso foi renovado com sucesso!
+
+📅 Nova validade: +30 dias
+
+Agradecemos pela confiança e parceria!
+
+Qualquer dúvida, estamos à disposição.
+SANDEL`,
+
+      2: (name: string) => `${name}, ótima notícia!
+
+🎉 Pagamento confirmado!
+
+Seu painel foi renovado por mais 30 dias.
+
+Obrigado por continuar conosco!
+
+Boas vendas,
+SANDEL`,
+
+      3: (name: string) => `Olá ${name}!
+
+✨ Tudo certo!
+
+Recebemos seu pagamento e seu acesso já está liberado.
+
+📆 Válido até: [nova data]
+
+Conte conosco!
+SANDEL`
+    },
+    reminder: {
+      1: (name: string) => `Olá ${name}!
+
+⏰ LEMBRETE DE VENCIMENTO
+
+Seu plano vence em breve!
+
+📅 Data de vencimento: [data]
+
+Para evitar interrupções, realize o pagamento antecipadamente.
+
+Estamos à disposição!
+SANDEL`,
+
+      2: (name: string) => `${name}, tudo bem?
+
+Passando para lembrar que seu plano está próximo do vencimento.
+
+⚠️ Faltam poucos dias!
+
+Não deixe para última hora, renove já e continue vendendo sem parar.
+
+SANDEL`,
+
+      3: (name: string) => `Olá ${name}!
+
+📢 Aviso de Renovação
+
+Seu acesso expira em breve.
+
+💡 Dica: Renove com antecedência e evite ficar sem o sistema.
+
+Aguardo seu contato!
+SANDEL`
+    }
+  };
+
+  const [messageLayoutPreference, setMessageLayoutPreference] = useState<{
+    billing: 1 | 2 | 3;
+    renewal: 1 | 2 | 3;
+    reminder: 1 | 2 | 3;
+  }>(() => {
+    const saved = localStorage.getItem('sellerMessageLayouts');
+    return saved ? JSON.parse(saved) : { billing: 1, renewal: 1, reminder: 1 };
+  });
+
+  const [messageConfigOpen, setMessageConfigOpen] = useState(false);
+
+  const saveMessagePreference = (type: 'billing' | 'renewal' | 'reminder', layout: 1 | 2 | 3) => {
+    const newPrefs = { ...messageLayoutPreference, [type]: layout };
+    setMessageLayoutPreference(newPrefs);
+    localStorage.setItem('sellerMessageLayouts', JSON.stringify(newPrefs));
+    toast.success('Preferência salva!');
+  };
+
   const sendWhatsApp = (whatsapp: string, type: 'billing' | 'renewal' | 'reminder', sellerName: string) => {
     const phone = whatsapp.replace(/\D/g, '');
-    
-    const messages = {
-      billing: `Olá ${sellerName}! 👋\n\nSeu pagamento mensal está pendente.\n\nPor favor, entre em contato para regularizar sua situação.\n\nObrigado!`,
-      renewal: `Olá ${sellerName}! 🎉\n\nSeu aplicativo foi renovado com sucesso!\n\nAgradecemos pela confiança e parceria.\n\nQualquer dúvida, estamos à disposição!`,
-      reminder: `Olá ${sellerName}! ⏰\n\nEste é um lembrete sobre seu pagamento que vence em breve.\n\nEvite interrupções no serviço realizando o pagamento antecipadamente.\n\nObrigado!`,
-    };
+    const layout = messageLayoutPreference[type];
+    const message = messageTemplates[type][layout](sellerName);
 
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   useEffect(() => { fetchSellers(); }, []);
@@ -518,10 +643,16 @@ export default function Sellers() {
             <h1 className="text-2xl lg:text-3xl font-bold">Vendedores</h1>
             <p className="text-muted-foreground">{sellers.length} ativos · {trashedSellers.length} na lixeira</p>
           </div>
-          <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Vendedor
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setMessageConfigOpen(true)}>
+              <Settings2 className="w-4 h-4 mr-2" />
+              Mensagens
+            </Button>
+            <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Vendedor
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="active" className="w-full">
@@ -755,6 +886,94 @@ export default function Sellers() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Message Templates Configuration */}
+        <Dialog open={messageConfigOpen} onOpenChange={setMessageConfigOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings2 className="w-5 h-5" />
+                Configurar Mensagens WhatsApp
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              {/* Billing Messages */}
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-yellow-500" />
+                  Mensagens de Cobrança
+                </h3>
+                <RadioGroup
+                  value={String(messageLayoutPreference.billing)}
+                  onValueChange={(v) => saveMessagePreference('billing', Number(v) as 1 | 2 | 3)}
+                  className="space-y-3"
+                >
+                  {[1, 2, 3].map((num) => (
+                    <div key={num} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value={String(num)} id={`billing-${num}`} className="mt-1" />
+                      <Label htmlFor={`billing-${num}`} className="flex-1 cursor-pointer">
+                        <span className="font-medium text-sm">Layout {num}</span>
+                        <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-sans">
+                          {messageTemplates.billing[num as 1 | 2 | 3]('[Nome]')}
+                        </pre>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Renewal Messages */}
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-green-500" />
+                  Mensagens de Renovação
+                </h3>
+                <RadioGroup
+                  value={String(messageLayoutPreference.renewal)}
+                  onValueChange={(v) => saveMessagePreference('renewal', Number(v) as 1 | 2 | 3)}
+                  className="space-y-3"
+                >
+                  {[1, 2, 3].map((num) => (
+                    <div key={num} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value={String(num)} id={`renewal-${num}`} className="mt-1" />
+                      <Label htmlFor={`renewal-${num}`} className="flex-1 cursor-pointer">
+                        <span className="font-medium text-sm">Layout {num}</span>
+                        <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-sans">
+                          {messageTemplates.renewal[num as 1 | 2 | 3]('[Nome]')}
+                        </pre>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Reminder Messages */}
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-orange-500" />
+                  Mensagens de Lembrete
+                </h3>
+                <RadioGroup
+                  value={String(messageLayoutPreference.reminder)}
+                  onValueChange={(v) => saveMessagePreference('reminder', Number(v) as 1 | 2 | 3)}
+                  className="space-y-3"
+                >
+                  {[1, 2, 3].map((num) => (
+                    <div key={num} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value={String(num)} id={`reminder-${num}`} className="mt-1" />
+                      <Label htmlFor={`reminder-${num}`} className="flex-1 cursor-pointer">
+                        <span className="font-medium text-sm">Layout {num}</span>
+                        <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-sans">
+                          {messageTemplates.reminder[num as 1 | 2 | 3]('[Nome]')}
+                        </pre>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
