@@ -90,6 +90,27 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     return phone.replace(/\D/g, '');
   };
 
+  const formatPhoneDisplay = (phone: string) => {
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    
+    // Format as +55 XX XXXXX-XXXX or +55 XX XXXX-XXXX
+    if (digits.length === 13) {
+      // 55 + DDD (2) + number (9)
+      return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9)}`;
+    } else if (digits.length === 12) {
+      // 55 + DDD (2) + number (8)
+      return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 8)}-${digits.slice(8)}`;
+    } else if (digits.length === 11) {
+      // DDD (2) + number (9)
+      return `+55 ${digits.slice(0, 2)} ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    } else if (digits.length === 10) {
+      // DDD (2) + number (8)
+      return `+55 ${digits.slice(0, 2)} ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return phone;
+  };
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copiado!`);
@@ -205,17 +226,25 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <span className="truncate">{format(expirationDate, 'dd/MM/yyyy')}</span>
             </div>
             {client.phone && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-1 text-muted-foreground">
                 <Phone className="w-3.5 h-3.5 shrink-0 text-primary" />
-                <span className="truncate">
-                  {showPhone ? client.phone : client.phone.replace(/[\d]/g, '•')}
+                <span className="truncate text-xs">
+                  {showPhone ? formatPhoneDisplay(client.phone) : client.phone.replace(/[\d]/g, '•')}
                 </span>
                 <button
                   onClick={() => setShowPhone(!showPhone)}
-                  className="ml-1 hover:text-foreground transition-colors"
+                  className="hover:text-foreground transition-colors"
                 >
-                  {showPhone ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showPhone ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 </button>
+                {showPhone && (
+                  <button
+                    onClick={() => copyToClipboard(formatPhoneDisplay(client.phone!), 'WhatsApp')}
+                    className="hover:text-foreground transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
           </div>
