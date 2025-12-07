@@ -77,7 +77,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Tv className="w-5 h-5 text-primary-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="font-bold text-lg gradient-text truncate">StreamControl</h1>
+              <h1 className="font-bold text-lg gradient-text truncate">Controle de Clientes</h1>
               <p className="text-xs text-muted-foreground capitalize">{role || 'Usuário'}</p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                   <Tv className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-bold gradient-text">StreamControl</span>
+                <span className="font-bold gradient-text">Controle de Clientes</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
