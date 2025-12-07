@@ -139,29 +139,21 @@ export default function Sellers() {
   const onCreateSubmit = async (data: SellerForm) => {
     setSubmitting(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-seller`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.session?.access_token}`,
-          },
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            full_name: data.full_name,
-            whatsapp: data.whatsapp || null,
-          }),
-        }
-      );
+      const { data: result, error } = await supabase.functions.invoke('create-seller', {
+        body: {
+          email: data.email,
+          password: data.password,
+          full_name: data.full_name,
+          whatsapp: data.whatsapp || null,
+        },
+      });
 
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Erro ao criar vendedor');
+      if (error) {
+        throw new Error(error.message || 'Erro ao criar vendedor');
+      }
+
+      if (result?.error) {
+        throw new Error(result.error);
       }
 
       toast.success('Vendedor criado com sucesso!');
