@@ -91,7 +91,9 @@ export default function Auth() {
             toast.error(error.message);
           }
         } else {
-          toast.success('Conta criada com sucesso!');
+          toast.success('🎉 Conta criada! Você ganhou 3 dias de teste grátis!', {
+            duration: 5000,
+          });
           navigate('/dashboard');
         }
       }
@@ -127,7 +129,12 @@ export default function Auth() {
             <CardDescription>
               {isLogin
                 ? 'Entre com suas credenciais'
-                : 'Preencha os dados para criar sua conta'}
+                : (
+                  <span className="flex flex-col gap-1">
+                    <span>Preencha os dados para criar sua conta</span>
+                    <span className="text-primary font-medium">🎁 Ganhe 3 dias de teste grátis!</span>
+                  </span>
+                )}
             </CardDescription>
           </CardHeader>
           <CardContent>
