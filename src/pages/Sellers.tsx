@@ -368,9 +368,16 @@ export default function Sellers() {
                 })()}
                 <span>Plano</span>
               </div>
-              <Badge className={getSubscriptionStatus(seller).class}>
-                {getSubscriptionStatus(seller).label}
-              </Badge>
+              <div className="flex flex-col items-end gap-0.5">
+                <Badge className={getSubscriptionStatus(seller).class}>
+                  {getSubscriptionStatus(seller).label}
+                </Badge>
+                {!seller.is_permanent && seller.subscription_expires_at && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Expira: {format(new Date(seller.subscription_expires_at), 'dd/MM/yyyy')}
+                  </span>
+                )}
+              </div>
             </div>
           )}
           {seller.whatsapp && (
