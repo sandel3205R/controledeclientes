@@ -37,7 +37,7 @@ interface Client {
   password: string | null;
   expiration_date: string;
   plan_id: string | null;
-  plan: { name: string; price: number } | null;
+  plan: { name: string; price: number; duration_days: number } | null;
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
@@ -59,7 +59,7 @@ export default function Clients() {
 
     const { data, error } = await supabase
       .from('clients')
-      .select('*, plan:plans(name, price)')
+      .select('*, plan:plans(name, price, duration_days)')
       .eq('seller_id', user.id)
       .order('name');
 
@@ -136,6 +136,20 @@ export default function Clients() {
       fetchClients();
     }
     setDeleteId(null);
+  };
+
+  const handleRenew = async (clientId: string, newExpirationDate: string) => {
+    const { error } = await supabase
+      .from('clients')
+      .update({ expiration_date: newExpirationDate })
+      .eq('id', clientId);
+
+    if (error) {
+      toast.error('Erro ao renovar cliente');
+    } else {
+      toast.success('Cliente renovado com sucesso!');
+      fetchClients();
+    }
   };
 
   const exportToExcel = () => {
@@ -258,6 +272,7 @@ export default function Clients() {
                 client={client}
                 onEdit={() => handleEdit(client)}
                 onDelete={() => setDeleteId(client.id)}
+                onRenew={handleRenew}
               />
             ))}
           </div>
