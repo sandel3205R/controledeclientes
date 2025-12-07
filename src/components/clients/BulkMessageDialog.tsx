@@ -335,16 +335,20 @@ export default function BulkMessageDialog({
           </ScrollArea>
 
           {/* Preview */}
-          {selectedClients.size > 0 && (
+          {selectedClients.size > 0 && filteredClients.length > 0 && (
             <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <MessageCircle className="w-4 h-4 text-green-500" />
                 Prévia da mensagem
               </div>
               <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                {getMessageForClient(
-                  filteredClients.find((c) => selectedClients.has(c.id)) || filteredClients[0]
-                )}
+                {(() => {
+                  const selectedClient = filteredClients.find((c) => selectedClients.has(c.id));
+                  if (selectedClient) {
+                    return getMessageForClient(selectedClient);
+                  }
+                  return '';
+                })()}
               </p>
             </div>
           )}
