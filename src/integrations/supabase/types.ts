@@ -16,11 +16,13 @@ export type Database = {
     Tables: {
       clients: {
         Row: {
+          app_name: string | null
           created_at: string | null
           device: string | null
           expiration_date: string
           id: string
           login: string | null
+          mac_address: string | null
           name: string
           notes: string | null
           password: string | null
@@ -29,14 +31,17 @@ export type Database = {
           plan_name: string | null
           plan_price: number | null
           seller_id: string
+          server_name: string | null
           updated_at: string | null
         }
         Insert: {
+          app_name?: string | null
           created_at?: string | null
           device?: string | null
           expiration_date: string
           id?: string
           login?: string | null
+          mac_address?: string | null
           name: string
           notes?: string | null
           password?: string | null
@@ -45,14 +50,17 @@ export type Database = {
           plan_name?: string | null
           plan_price?: number | null
           seller_id: string
+          server_name?: string | null
           updated_at?: string | null
         }
         Update: {
+          app_name?: string | null
           created_at?: string | null
           device?: string | null
           expiration_date?: string
           id?: string
           login?: string | null
+          mac_address?: string | null
           name?: string
           notes?: string | null
           password?: string | null
@@ -61,6 +69,7 @@ export type Database = {
           plan_name?: string | null
           plan_price?: number | null
           seller_id?: string
+          server_name?: string | null
           updated_at?: string | null
         }
         Relationships: [

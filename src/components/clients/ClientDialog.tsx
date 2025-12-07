@@ -32,6 +32,9 @@ const clientSchema = z.object({
   expiration_date: z.string().min(1, 'Data de vencimento é obrigatória'),
   plan_name: z.string().optional(),
   plan_price: z.string().optional(),
+  app_name: z.string().optional(),
+  mac_address: z.string().optional(),
+  server_name: z.string().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
@@ -49,6 +52,9 @@ interface ClientDialogProps {
     expiration_date: string;
     plan_name: string | null;
     plan_price: number | null;
+    app_name: string | null;
+    mac_address: string | null;
+    server_name: string | null;
   } | null;
   onSuccess: () => void;
 }
@@ -104,6 +110,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         expiration_date: client.expiration_date,
         plan_name: client.plan_name || '',
         plan_price: client.plan_price?.toString() || '',
+        app_name: client.app_name || '',
+        mac_address: client.mac_address || '',
+        server_name: client.server_name || '',
       });
     } else {
       reset({
@@ -115,6 +124,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         expiration_date: '',
         plan_name: '',
         plan_price: '',
+        app_name: '',
+        mac_address: '',
+        server_name: '',
       });
     }
   }, [client, reset]);
@@ -134,6 +146,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         expiration_date: data.expiration_date,
         plan_name: data.plan_name || null,
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
+        app_name: data.app_name || null,
+        mac_address: data.mac_address || null,
+        server_name: data.server_name || null,
         seller_id: user.id,
       };
 
@@ -291,6 +306,22 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               <Label htmlFor="password">Senha</Label>
               <Input id="password" {...register('password')} placeholder="Senha de acesso" />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="app_name">Aplicativo</Label>
+              <Input id="app_name" {...register('app_name')} placeholder="Nome do app" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mac_address">MAC</Label>
+              <Input id="mac_address" {...register('mac_address')} placeholder="00:00:00:00:00:00" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="server_name">Servidor</Label>
+            <Input id="server_name" {...register('server_name')} placeholder="Nome do servidor (opcional)" />
           </div>
 
           <div className="flex gap-2 pt-4">
