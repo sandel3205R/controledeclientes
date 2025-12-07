@@ -239,6 +239,13 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       // Build device string from checkboxes and custom input
       const deviceString = getDeviceString();
 
+      // Use first selected server for server_id (must be valid UUID or null)
+      // Store all server names in server_name field
+      const primaryServerId = selectedServers.length > 0 ? selectedServers[0] : null;
+      
+      // Combine selected server names with any additional premium accounts
+      const allServerNames = [selectedServerNames, data.server_name].filter(Boolean).join(', ');
+
       const clientData = {
         name: data.name,
         phone: data.phone || null,
@@ -250,8 +257,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
         app_name: data.app_name || null,
         mac_address: data.mac_address || null,
-        server_name: selectedServerNames || data.server_name || null,
-        server_id: selectedServers.join(',') || null,
+        server_name: allServerNames || null,
+        server_id: primaryServerId,
         seller_id: user.id,
       };
 
