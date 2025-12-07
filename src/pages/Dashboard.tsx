@@ -8,27 +8,31 @@ import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp } from '
 import { differenceInDays, isPast } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-interface DashboardStats {
+interface SellerDashboardStats {
   totalClients: number;
   activeClients: number;
   expiringClients: number;
   expiredClients: number;
   totalRevenue: number;
-  totalSellers?: number;
+}
+
+interface AdminDashboardStats {
+  totalSellers: number;
 }
 
 export default function Dashboard() {
   const { role, user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
+  const [sellerStats, setSellerStats] = useState<SellerDashboardStats>({
     totalClients: 0,
     activeClients: 0,
     expiringClients: 0,
     expiredClients: 0,
     totalRevenue: 0,
+  });
+  const [adminStats, setAdminStats] = useState<AdminDashboardStats>({
     totalSellers: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [recentClients, setRecentClients] = useState<any[]>([]);
 
   const isAdmin = role === 'admin';
 
@@ -36,53 +40,48 @@ export default function Dashboard() {
     const fetchStats = async () => {
       if (!user) return;
 
-      let clientsQuery = supabase
-        .from('clients')
-        .select('*, plan:plans(price)');
-
-      if (!isAdmin) {
-        clientsQuery = clientsQuery.eq('seller_id', user.id);
-      }
-
-      const { data: clients } = await clientsQuery;
-
-      if (clients) {
-        const now = new Date();
-        let active = 0, expiring = 0, expired = 0, revenue = 0;
-
-        clients.forEach((client) => {
-          const expDate = new Date(client.expiration_date);
-          const daysUntil = differenceInDays(expDate, now);
-
-          if (isPast(expDate)) {
-            expired++;
-          } else if (daysUntil <= 7) {
-            expiring++;
-            revenue += client.plan?.price || 0;
-          } else {
-            active++;
-            revenue += client.plan?.price || 0;
-          }
-        });
-
-        setStats((prev) => ({
-          ...prev,
-          totalClients: clients.length,
-          activeClients: active,
-          expiringClients: expiring,
-          expiredClients: expired,
-          totalRevenue: revenue,
-        }));
-
-        setRecentClients(clients.slice(0, 5));
-      }
-
       if (isAdmin) {
+        // Admin only sees seller count
         const { count } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
         
-        setStats((prev) => ({ ...prev, totalSellers: (count || 1) - 1 }));
+        setAdminStats({ totalSellers: Math.max((count || 1) - 1, 0) });
+      } else {
+        // Seller sees their own client stats
+        const { data: clients } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('seller_id', user.id);
+
+        if (clients) {
+          const now = new Date();
+          let active = 0, expiring = 0, expired = 0, revenue = 0;
+
+          clients.forEach((client) => {
+            const expDate = new Date(client.expiration_date);
+            const daysUntil = differenceInDays(expDate, now);
+            const clientPrice = client.plan_price || 0;
+
+            if (isPast(expDate)) {
+              expired++;
+            } else if (daysUntil <= 7) {
+              expiring++;
+              revenue += clientPrice;
+            } else {
+              active++;
+              revenue += clientPrice;
+            }
+          });
+
+          setSellerStats({
+            totalClients: clients.length,
+            activeClients: active,
+            expiringClients: expiring,
+            expiredClients: expired,
+            totalRevenue: revenue,
+          });
+        }
       }
 
       setLoading(false);
@@ -92,15 +91,15 @@ export default function Dashboard() {
   }, [user, isAdmin]);
 
   const pieData = [
-    { name: 'Ativos', value: stats.activeClients, color: 'hsl(142, 76%, 45%)' },
-    { name: 'Vencendo', value: stats.expiringClients, color: 'hsl(38, 92%, 50%)' },
-    { name: 'Vencidos', value: stats.expiredClients, color: 'hsl(0, 84%, 60%)' },
+    { name: 'Ativos', value: sellerStats.activeClients, color: 'hsl(142, 76%, 45%)' },
+    { name: 'Vencendo', value: sellerStats.expiringClients, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Vencidos', value: sellerStats.expiredClients, color: 'hsl(0, 84%, 60%)' },
   ].filter((d) => d.value > 0);
 
   const barData = [
-    { name: 'Ativos', value: stats.activeClients },
-    { name: 'Vencendo', value: stats.expiringClients },
-    { name: 'Vencidos', value: stats.expiredClients },
+    { name: 'Ativos', value: sellerStats.activeClients },
+    { name: 'Vencendo', value: sellerStats.expiringClients },
+    { name: 'Vencidos', value: sellerStats.expiredClients },
   ];
 
   if (loading) {
@@ -113,61 +112,90 @@ export default function Dashboard() {
     );
   }
 
+  // Admin Dashboard - Only shows seller count
+  if (isAdmin) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold">Dashboard Admin</h1>
+            <p className="text-muted-foreground">Gestão de vendedores</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard
+              title="Vendedores Ativos"
+              value={adminStats.totalSellers}
+              icon={Users}
+              variant="primary"
+            />
+          </div>
+
+          <Card variant="glow">
+            <CardContent className="p-8 text-center">
+              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">Painel Administrativo</h3>
+              <p className="text-muted-foreground">
+                Acesse a página de Vendedores para gerenciar sua equipe de vendas.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Seller Dashboard - Shows their own stats and sales
   return (
     <AppLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            {isAdmin ? 'Visão geral do sistema' : 'Seus clientes e estatísticas'}
-          </p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
+          <p className="text-muted-foreground">Seus clientes e estatísticas de vendas</p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total de Clientes"
-            value={stats.totalClients}
+            value={sellerStats.totalClients}
             icon={Users}
             variant="primary"
           />
           <StatCard
             title="Clientes Ativos"
-            value={stats.activeClients}
+            value={sellerStats.activeClients}
             icon={UserCheck}
             variant="success"
           />
           <StatCard
             title="Vencendo"
-            value={stats.expiringClients}
+            value={sellerStats.expiringClients}
             icon={Clock}
             variant="warning"
           />
           <StatCard
             title="Vencidos"
-            value={stats.expiredClients}
+            value={sellerStats.expiredClients}
             icon={AlertTriangle}
             variant="default"
           />
         </div>
 
-        {/* Revenue & Sellers (Admin) */}
+        {/* Revenue Card */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <StatCard
-            title="Receita Total"
-            value={`R$ ${stats.totalRevenue.toFixed(2)}`}
+            title="Minhas Vendas (Receita Ativa)"
+            value={`R$ ${sellerStats.totalRevenue.toFixed(2)}`}
             icon={DollarSign}
             variant="secondary"
           />
-          {isAdmin && (
-            <StatCard
-              title="Vendedores Ativos"
-              value={stats.totalSellers || 0}
-              icon={TrendingUp}
-              variant="primary"
-            />
-          )}
+          <StatCard
+            title="Média por Cliente"
+            value={`R$ ${sellerStats.totalClients > 0 ? (sellerStats.totalRevenue / (sellerStats.activeClients + sellerStats.expiringClients || 1)).toFixed(2) : '0.00'}`}
+            icon={TrendingUp}
+            variant="primary"
+          />
         </div>
 
         {/* Charts */}
@@ -178,31 +206,37 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(222 47% 8%)',
-                        border: '1px solid hsl(222 30% 18%)',
-                        borderRadius: '8px',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(222 47% 8%)',
+                          border: '1px solid hsl(222 30% 18%)',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Nenhum cliente cadastrado
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
