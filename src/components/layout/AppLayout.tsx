@@ -41,6 +41,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const sellerMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Meus Clientes', path: '/clients' },
+    { icon: Tv, label: 'Servidores', path: '/servers' },
     { icon: MessageSquare, label: 'Templates', path: '/templates' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
