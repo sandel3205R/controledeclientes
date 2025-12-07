@@ -41,6 +41,27 @@ interface SellerWithStats extends SellerProfile {
   clientCount: number;
 }
 
+// Format phone number as +55 31 99851-8865
+const formatWhatsApp = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  
+  if (digits.length === 0) return '';
+  
+  let formatted = '+';
+  
+  if (digits.length <= 2) {
+    formatted += digits;
+  } else if (digits.length <= 4) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  } else if (digits.length <= 9) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4)}`;
+  } else {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+  }
+  
+  return formatted;
+};
+
 export default function Sellers() {
   const [sellers, setSellers] = useState<SellerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +76,15 @@ export default function Sellers() {
   const updateForm = useForm<UpdateForm>({
     resolver: zodResolver(updateSchema),
   });
+
+  const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>, formType: 'create' | 'update') => {
+    const formatted = formatWhatsApp(e.target.value);
+    if (formType === 'create') {
+      createForm.setValue('whatsapp', formatted);
+    } else {
+      updateForm.setValue('whatsapp', formatted);
+    }
+  };
 
   const fetchSellers = async () => {
     const { data: profiles, error } = await supabase
@@ -227,7 +257,13 @@ export default function Sellers() {
                 <Label htmlFor="whatsapp">WhatsApp</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="whatsapp" {...createForm.register('whatsapp')} placeholder="+55 31 99851-8865" className="pl-10" />
+                  <Input 
+                    id="whatsapp" 
+                    value={createForm.watch('whatsapp') || ''}
+                    onChange={(e) => handleWhatsAppChange(e, 'create')}
+                    placeholder="+55 31 99851-8865" 
+                    className="pl-10" 
+                  />
                 </div>
                 {createForm.formState.errors.whatsapp && (
                   <p className="text-xs text-destructive">{createForm.formState.errors.whatsapp.message}</p>
@@ -267,7 +303,13 @@ export default function Sellers() {
                 <Label htmlFor="edit_whatsapp">WhatsApp</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="edit_whatsapp" {...updateForm.register('whatsapp')} placeholder="+55 31 99851-8865" className="pl-10" />
+                  <Input 
+                    id="edit_whatsapp" 
+                    value={updateForm.watch('whatsapp') || ''}
+                    onChange={(e) => handleWhatsAppChange(e, 'update')}
+                    placeholder="+55 31 99851-8865" 
+                    className="pl-10" 
+                  />
                 </div>
               </div>
               <div className="flex gap-2 pt-4">
