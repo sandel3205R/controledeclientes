@@ -362,15 +362,15 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           <div className="space-y-2">
             <Label>Servidor</Label>
             <Select 
-              value={watch('server_id') || ''} 
-              onValueChange={(value) => setValue('server_id', value)}
+              value={watch('server_id') || 'none'} 
+              onValueChange={(value) => setValue('server_id', value === 'none' ? '' : value)}
             >
               <SelectTrigger>
                 <Server className="w-4 h-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Selecione um servidor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {servers.map((server) => (
                   <SelectItem key={server.id} value={server.id}>
                     {server.name}
