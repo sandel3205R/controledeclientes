@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell } from 'lucide-react';
+import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell, Crown } from 'lucide-react';
 import { differenceInDays, isPast } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -49,6 +49,12 @@ interface FinancialSummary {
   netProfit: number;
 }
 
+interface PremiumAccountStats {
+  name: string;
+  clientCount: number;
+  totalRevenue: number;
+}
+
 interface AdminDashboardStats {
   totalSellers: number;
 }
@@ -88,6 +94,7 @@ export default function Dashboard() {
   const [adminStats, setAdminStats] = useState<AdminDashboardStats>({
     totalSellers: 0,
   });
+  const [premiumAccounts, setPremiumAccounts] = useState<PremiumAccountStats[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = role === 'admin';
@@ -121,10 +128,14 @@ export default function Dashboard() {
           const now = new Date();
           let active = 0, expiring = 0, expired = 0, revenue = 0;
 
+          // Group clients by server_name (premium accounts)
+          const premiumAccountsMap = new Map<string, { count: number; revenue: number }>();
+
           clients.forEach((client) => {
             const expDate = new Date(client.expiration_date);
             const daysUntil = differenceInDays(expDate, now);
             const clientPrice = client.plan_price || 0;
+            const isActive = !isPast(expDate);
 
             if (isPast(expDate)) {
               expired++;
@@ -135,7 +146,29 @@ export default function Dashboard() {
               active++;
               revenue += clientPrice;
             }
+
+            // Track premium accounts (server_name field)
+            if (client.server_name && isActive) {
+              const existing = premiumAccountsMap.get(client.server_name);
+              if (existing) {
+                existing.count++;
+                existing.revenue += clientPrice;
+              } else {
+                premiumAccountsMap.set(client.server_name, { count: 1, revenue: clientPrice });
+              }
+            }
           });
+
+          // Convert premium accounts map to array
+          const premiumAccountsList: PremiumAccountStats[] = Array.from(premiumAccountsMap.entries())
+            .map(([name, stats]) => ({
+              name,
+              clientCount: stats.count,
+              totalRevenue: stats.revenue,
+            }))
+            .sort((a, b) => b.totalRevenue - a.totalRevenue);
+          
+          setPremiumAccounts(premiumAccountsList);
 
           setSellerStats({
             totalClients: clients.length,
@@ -475,6 +508,45 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Premium Accounts Section */}
+        {premiumAccounts.length > 0 && (
+          <Card variant="glow" className="border-amber-500/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500" />
+                Contas Premium - Lucros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {premiumAccounts.map((account, index) => (
+                    <div 
+                      key={index} 
+                      className="flex justify-between items-center p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-amber-500" />
+                        <div>
+                          <p className="font-medium">{account.name}</p>
+                          <p className="text-xs text-muted-foreground">{account.clientCount} cliente{account.clientCount > 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <span className="text-lg font-bold text-amber-500">R$ {account.totalRevenue.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between items-center pt-4 border-t border-border">
+                  <span className="font-medium">Total Contas Premium</span>
+                  <span className="text-xl font-bold text-amber-500">
+                    R$ {premiumAccounts.reduce((sum, a) => sum + a.totalRevenue, 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Financial Resume */}
         <Card className="bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border-primary/20">

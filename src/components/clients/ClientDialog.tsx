@@ -448,8 +448,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="server_name">Nome do Servidor (manual)</Label>
-            <Input id="server_name" {...register('server_name')} placeholder="Se não estiver na lista" />
+            <Label htmlFor="server_name">Contas Premium</Label>
+            <Input id="server_name" {...register('server_name')} placeholder="Ex: Conta Netflix, Spotify..." />
           </div>
 
           <div className="flex gap-2 pt-4">
