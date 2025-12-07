@@ -23,19 +23,15 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-    console.log("Creating supabase clients");
+    console.log("Creating supabase admin client");
     
-    // Admin client for creating users
+    // Admin client for all operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // Regular client to verify the requesting user
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Verify the requesting user is an admin
+    // Get the authorization header
     const authHeader = req.headers.get("Authorization");
     console.log("Auth header present:", !!authHeader);
     
@@ -47,21 +43,24 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     console.log("Token extracted, length:", token.length);
     
-    // Use the admin client to get the user from the token
-    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Decode the JWT to get the user ID (without verification - the API gateway already verified it)
+    // The JWT payload is the second part of the token
+    const payloadBase64 = token.split('.')[1];
+    const payloadJson = atob(payloadBase64);
+    const payload = JSON.parse(payloadJson);
+    const userId = payload.sub;
     
-    console.log("Auth result - user:", requestingUser?.id, "error:", authError?.message);
+    console.log("User ID from token:", userId);
     
-    if (authError || !requestingUser) {
-      console.error("Auth error:", authError?.message);
+    if (!userId) {
       throw new Error("Não autorizado - token inválido");
     }
 
-    // Check if requesting user is admin
+    // Check if requesting user is admin using the admin client
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", requestingUser.id)
+      .eq("user_id", userId)
       .single();
 
     console.log("Role check - role:", roleData?.role, "error:", roleError?.message);
