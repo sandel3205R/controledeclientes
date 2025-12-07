@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -45,13 +45,15 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     return phone.replace(/\D/g, '');
   };
 
-  const sendWhatsApp = (type: 'billing' | 'welcome') => {
+  const sendWhatsApp = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
     if (!client.phone) return;
     const phone = formatPhone(client.phone);
     
     const messages = {
       billing: `Olá ${client.name}! 👋\n\nSeu plano de streaming vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
       welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao nosso serviço de streaming!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Login: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
+      renewal: `Olá ${client.name}! ✅\n\nSeu aplicativo foi renovado com sucesso!\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!\n\nQualquer dúvida, estamos à disposição.`,
+      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nEvite a interrupção do serviço renovando antecipadamente!\n\nEntre em contato para renovar.`,
     };
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -152,7 +154,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
                   variant="whatsapp"
                   size="sm"
                   onClick={() => sendWhatsApp('billing')}
-                  className="flex-1 min-w-[100px]"
+                  className="flex-1 min-w-[80px]"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Cobrança</span>
@@ -160,8 +162,26 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
                 <Button
                   variant="whatsapp"
                   size="sm"
+                  onClick={() => sendWhatsApp('renewal')}
+                  className="flex-1 min-w-[80px]"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Renovado</span>
+                </Button>
+                <Button
+                  variant="whatsapp"
+                  size="sm"
+                  onClick={() => sendWhatsApp('reminder')}
+                  className="flex-1 min-w-[80px]"
+                >
+                  <Bell className="w-4 h-4" />
+                  <span className="hidden sm:inline">Lembrete</span>
+                </Button>
+                <Button
+                  variant="whatsapp"
+                  size="sm"
                   onClick={() => sendWhatsApp('welcome')}
-                  className="flex-1 min-w-[100px]"
+                  className="flex-1 min-w-[80px]"
                 >
                   <PartyPopper className="w-4 h-4" />
                   <span className="hidden sm:inline">Boas-vindas</span>
