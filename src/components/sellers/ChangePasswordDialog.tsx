@@ -6,9 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Key, Eye, EyeOff, Shield } from 'lucide-react';
+import { Key, Eye, EyeOff, Shield, MessageCircle } from 'lucide-react';
 
 const passwordSchema = z.object({
   newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
@@ -27,6 +28,7 @@ interface ChangePasswordDialogProps {
     id: string;
     full_name: string | null;
     email: string;
+    whatsapp?: string | null;
   } | null;
   onSuccess?: () => void;
 }
@@ -35,6 +37,7 @@ export function ChangePasswordDialog({ open, onOpenChange, seller, onSuccess }: 
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [notifyWhatsApp, setNotifyWhatsApp] = useState(true);
 
   const form = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
@@ -43,6 +46,27 @@ export function ChangePasswordDialog({ open, onOpenChange, seller, onSuccess }: 
       confirmPassword: '',
     },
   });
+
+  const sendWhatsAppNotification = (password: string) => {
+    if (!seller?.whatsapp) return;
+    
+    const phone = seller.whatsapp.replace(/\D/g, '');
+    const sellerName = seller.full_name || 'Vendedor';
+    
+    const message = `Olá ${sellerName}! 🔐
+
+Sua senha foi alterada com sucesso!
+
+📧 E-mail: ${seller.email}
+🔑 Nova senha: ${password}
+
+Por segurança, recomendamos que você altere essa senha após o primeiro acesso.
+
+Qualquer dúvida, estamos à disposição!
+SANDEL`;
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   const onSubmit = async (data: PasswordForm) => {
     if (!seller) return;
@@ -65,6 +89,12 @@ export function ChangePasswordDialog({ open, onOpenChange, seller, onSuccess }: 
       }
 
       toast.success('Senha alterada com sucesso!');
+      
+      // Send WhatsApp notification if enabled and seller has whatsapp
+      if (notifyWhatsApp && seller.whatsapp) {
+        sendWhatsAppNotification(data.newPassword);
+      }
+      
       form.reset();
       onOpenChange(false);
       onSuccess?.();
@@ -78,6 +108,7 @@ export function ChangePasswordDialog({ open, onOpenChange, seller, onSuccess }: 
 
   const handleClose = () => {
     form.reset();
+    setNotifyWhatsApp(true);
     onOpenChange(false);
   };
 
@@ -142,6 +173,27 @@ export function ChangePasswordDialog({ open, onOpenChange, seller, onSuccess }: 
               <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
             )}
           </div>
+
+          {/* WhatsApp Notification Option */}
+          {seller?.whatsapp && (
+            <div className="flex items-center space-x-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+              <Checkbox
+                id="notifyWhatsApp"
+                checked={notifyWhatsApp}
+                onCheckedChange={(checked) => setNotifyWhatsApp(checked === true)}
+              />
+              <Label htmlFor="notifyWhatsApp" className="flex items-center gap-2 cursor-pointer text-sm">
+                <MessageCircle className="w-4 h-4 text-green-500" />
+                Enviar nova senha por WhatsApp
+              </Label>
+            </div>
+          )}
+
+          {!seller?.whatsapp && (
+            <p className="text-xs text-muted-foreground text-center">
+              Vendedor sem WhatsApp cadastrado. A nova senha não será enviada automaticamente.
+            </p>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={handleClose}>
