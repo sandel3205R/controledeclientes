@@ -56,6 +56,7 @@ interface WhatsAppTemplate {
 export default function ClientCard({ client, onEdit, onDelete, onRenew }: ClientCardProps) {
   const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   
@@ -206,7 +207,15 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
             {client.phone && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="w-3.5 h-3.5 shrink-0 text-primary" />
-                <span className="truncate">{client.phone}</span>
+                <span className="truncate">
+                  {showPhone ? client.phone : client.phone.replace(/[\d]/g, '•')}
+                </span>
+                <button
+                  onClick={() => setShowPhone(!showPhone)}
+                  className="ml-1 hover:text-foreground transition-colors"
+                >
+                  {showPhone ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
               </div>
             )}
           </div>
