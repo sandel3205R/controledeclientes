@@ -48,12 +48,13 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
   const sendWhatsApp = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
     if (!client.phone) return;
     const phone = formatPhone(client.phone);
+    const planName = client.plan_name || 'seu plano';
     
     const messages = {
-      billing: `Olá ${client.name}! 👋\n\nSeu plano de streaming vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
-      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao nosso serviço de streaming!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Login: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
-      renewal: `Olá ${client.name}! ✅\n\nSeu aplicativo foi renovado com sucesso!\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!\n\nQualquer dúvida, estamos à disposição.`,
-      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nEvite a interrupção do serviço renovando antecipadamente!\n\nEntre em contato para renovar.`,
+      billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
+      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
+      renewal: `Olá ${client.name}! ✅\n\nSeu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!`,
+      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!`,
     };
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
