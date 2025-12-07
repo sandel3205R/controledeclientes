@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Filter, Send } from 'lucide-react';
+import { Plus, Search, Download, Filter, Send, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -42,6 +42,12 @@ interface Client {
   app_name: string | null;
   mac_address: string | null;
   server_name: string | null;
+  server_id: string | null;
+}
+
+interface ServerOption {
+  id: string;
+  name: string;
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
@@ -67,6 +73,8 @@ export default function Clients() {
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [servers, setServers] = useState<ServerOption[]>([]);
+  const [serverFilter, setServerFilter] = useState<string>('all');
 
   const fetchClients = async () => {
     if (!user) return;
@@ -95,9 +103,20 @@ export default function Clients() {
     if (data) setTemplates(data);
   };
 
+  const fetchServers = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('servers')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name');
+    if (data) setServers(data);
+  };
+
   useEffect(() => {
     fetchClients();
     fetchTemplates();
+    fetchServers();
   }, [user]);
 
   const getClientStatus = (expDate: string): StatusFilter => {
@@ -126,6 +145,15 @@ export default function Clients() {
       result = result.filter((c) => getClientStatus(c.expiration_date) === statusFilter);
     }
 
+    // Server filter
+    if (serverFilter !== 'all') {
+      if (serverFilter === 'none') {
+        result = result.filter((c) => !c.server_id);
+      } else {
+        result = result.filter((c) => c.server_id === serverFilter);
+      }
+    }
+
     // Sort
     result.sort((a, b) => {
       switch (sortBy) {
@@ -141,7 +169,7 @@ export default function Clients() {
     });
 
     return result;
-  }, [clients, search, statusFilter, sortBy]);
+  }, [clients, search, statusFilter, serverFilter, sortBy]);
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
@@ -277,6 +305,21 @@ export default function Clients() {
               <SelectItem value="name">Nome</SelectItem>
               <SelectItem value="expiration">Vencimento</SelectItem>
               <SelectItem value="price">Valor</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={serverFilter} onValueChange={setServerFilter}>
+            <SelectTrigger className="w-full sm:w-44">
+              <Server className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Servidor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Servidores</SelectItem>
+              <SelectItem value="none">Sem Servidor</SelectItem>
+              {servers.map((server) => (
+                <SelectItem key={server.id} value={server.id}>
+                  {server.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
