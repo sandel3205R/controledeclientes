@@ -33,7 +33,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Vendedores', path: '/sellers' },
     { icon: UserCircle, label: 'Clientes', path: '/all-clients' },
-    { icon: Package, label: 'Planos', path: '/plans' },
     { icon: BarChart3, label: 'Relatórios', path: '/reports' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
