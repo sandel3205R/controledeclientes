@@ -36,8 +36,8 @@ interface Client {
   login: string | null;
   password: string | null;
   expiration_date: string;
-  plan_id: string | null;
-  plan: { name: string; price: number; duration_days: number } | null;
+  plan_name: string | null;
+  plan_price: number | null;
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
@@ -59,7 +59,7 @@ export default function Clients() {
 
     const { data, error } = await supabase
       .from('clients')
-      .select('*, plan:plans(name, price, duration_days)')
+      .select('*')
       .eq('seller_id', user.id)
       .order('name');
 
@@ -110,7 +110,7 @@ export default function Clients() {
         case 'expiration':
           return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
         case 'price':
-          return (b.plan?.price || 0) - (a.plan?.price || 0);
+          return (b.plan_price || 0) - (a.plan_price || 0);
         default:
           return 0;
       }
@@ -156,8 +156,8 @@ export default function Clients() {
     const exportData = filteredClients.map((c) => ({
       Nome: c.name,
       Telefone: c.phone || '',
-      Plano: c.plan?.name || '',
-      Valor: c.plan?.price || 0,
+      Plano: c.plan_name || '',
+      Valor: c.plan_price || 0,
       Vencimento: c.expiration_date,
       Dispositivo: c.device || '',
       Login: c.login || '',

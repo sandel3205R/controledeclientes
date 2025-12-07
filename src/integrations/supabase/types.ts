@@ -26,6 +26,8 @@ export type Database = {
           password: string | null
           phone: string | null
           plan_id: string | null
+          plan_name: string | null
+          plan_price: number | null
           seller_id: string
           updated_at: string | null
         }
@@ -40,6 +42,8 @@ export type Database = {
           password?: string | null
           phone?: string | null
           plan_id?: string | null
+          plan_name?: string | null
+          plan_price?: number | null
           seller_id: string
           updated_at?: string | null
         }
@@ -54,6 +58,8 @@ export type Database = {
           password?: string | null
           phone?: string | null
           plan_id?: string | null
+          plan_name?: string | null
+          plan_price?: number | null
           seller_id?: string
           updated_at?: string | null
         }
