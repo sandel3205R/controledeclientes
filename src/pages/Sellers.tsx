@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,13 +21,14 @@ interface SellerProfile {
   full_name: string | null;
   whatsapp: string | null;
   created_at: string | null;
+  is_active: boolean | null;
 }
 
 const sellerSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
-  whatsapp: z.string().min(10, 'WhatsApp inválido').optional().or(z.literal('')),
+  whatsapp: z.string().optional().or(z.literal('')),
 });
 
 const updateSchema = z.object({
@@ -71,6 +73,12 @@ export default function Sellers() {
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      full_name: '',
+      whatsapp: '',
+    }
   });
 
   const updateForm = useForm<UpdateForm>({
@@ -105,12 +113,32 @@ export default function Sellers() {
           .select('*', { count: 'exact', head: true })
           .eq('seller_id', profile.id);
 
-        return { ...profile, clientCount: count || 0 };
+        return { 
+          ...profile, 
+          clientCount: count || 0,
+          is_active: profile.is_active ?? true 
+        };
       })
     );
 
     setSellers(sellersWithStats);
     setLoading(false);
+  };
+
+  const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: isActive })
+        .eq('id', sellerId);
+
+      if (error) throw error;
+
+      toast.success(isActive ? 'Vendedor ativado!' : 'Vendedor desativado!');
+      setSellers(prev => prev.map(s => s.id === sellerId ? { ...s, is_active: isActive } : s));
+    } catch (error: any) {
+      toast.error('Erro ao alterar status do vendedor');
+    }
   };
 
   const sendWhatsApp = (whatsapp: string, type: 'billing' | 'renewal' | 'reminder', sellerName: string) => {
@@ -138,6 +166,7 @@ export default function Sellers() {
 
   const onCreateSubmit = async (data: SellerForm) => {
     setSubmitting(true);
+    console.log('Submitting seller data:', data);
     try {
       const { data: result, error } = await supabase.functions.invoke('create-seller', {
         body: {
@@ -147,6 +176,8 @@ export default function Sellers() {
           whatsapp: data.whatsapp || null,
         },
       });
+
+      console.log('Edge function result:', result, 'error:', error);
 
       if (error) {
         throw new Error(error.message || 'Erro ao criar vendedor');
@@ -161,6 +192,7 @@ export default function Sellers() {
       setDialogOpen(false);
       fetchSellers();
     } catch (error: any) {
+      console.error('Error creating seller:', error);
       toast.error(error.message || 'Erro ao criar vendedor');
     } finally {
       setSubmitting(false);
@@ -209,7 +241,7 @@ export default function Sellers() {
             <h1 className="text-2xl lg:text-3xl font-bold">Vendedores</h1>
             <p className="text-muted-foreground">{sellers.length} vendedores cadastrados</p>
           </div>
-          <Button variant="gradient" onClick={() => setDialogOpen(true)}>
+          <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Vendedor
           </Button>
@@ -217,7 +249,7 @@ export default function Sellers() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sellers.map((seller) => (
-            <Card key={seller.id} variant="gradient" className="animate-scale-in">
+            <Card key={seller.id} variant="gradient" className={`animate-scale-in ${!seller.is_active ? 'opacity-60' : ''}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -226,14 +258,30 @@ export default function Sellers() {
                     </div>
                     <div>
                       <h3 className="font-semibold">{seller.full_name || 'Sem nome'}</h3>
-                      {seller.whatsapp && (
-                        <p className="text-sm text-muted-foreground">{seller.whatsapp}</p>
-                      )}
+                      <p className="text-xs text-muted-foreground">{seller.email}</p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={seller.is_active ?? true}
+                      onCheckedChange={(checked) => toggleSellerActive(seller.id, checked)}
+                    />
+                    <Badge variant={seller.is_active ? 'default' : 'secondary'}>
+                      {seller.is_active ? 'Ativo' : 'Inativo'}
+                    </Badge>
                   </div>
                 </div>
 
                 <div className="space-y-3">
+                  {seller.whatsapp && (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="w-4 h-4" />
+                        <span>WhatsApp</span>
+                      </div>
+                      <span className="text-xs">{seller.whatsapp}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Users className="w-4 h-4" />
@@ -307,6 +355,29 @@ export default function Sellers() {
                 )}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="email">E-mail *</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="email" 
+                    type="email"
+                    {...createForm.register('email')} 
+                    placeholder="email@exemplo.com" 
+                    className="pl-10" 
+                  />
+                </div>
+                {createForm.formState.errors.email && (
+                  <p className="text-xs text-destructive">{createForm.formState.errors.email.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha *</Label>
+                <Input id="password" type="password" {...createForm.register('password')} placeholder="Mínimo 6 caracteres" />
+                {createForm.formState.errors.password && (
+                  <p className="text-xs text-destructive">{createForm.formState.errors.password.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="whatsapp">WhatsApp</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -320,13 +391,6 @@ export default function Sellers() {
                 </div>
                 {createForm.formState.errors.whatsapp && (
                   <p className="text-xs text-destructive">{createForm.formState.errors.whatsapp.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha *</Label>
-                <Input id="password" type="password" {...createForm.register('password')} placeholder="Mínimo 6 caracteres" />
-                {createForm.formState.errors.password && (
-                  <p className="text-xs text-destructive">{createForm.formState.errors.password.message}</p>
                 )}
               </div>
               <div className="flex gap-2 pt-4">
