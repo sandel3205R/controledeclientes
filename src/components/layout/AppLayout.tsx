@@ -20,6 +20,7 @@ import {
   MessageSquare,
   AlertTriangle,
   MessageCircle,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
@@ -56,6 +57,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Vendedores', path: '/sellers' },
     { icon: BarChart3, label: 'Relatórios', path: '/reports' },
+    { icon: Database, label: 'Backup', path: '/backup' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
 
