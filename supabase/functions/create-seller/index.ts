@@ -14,11 +14,14 @@ interface CreateSellerRequest {
 }
 
 serve(async (req) => {
+  console.log("create-seller function called", req.method);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log("Creating supabase admin client");
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -27,6 +30,8 @@ serve(async (req) => {
 
     // Verify the requesting user is an admin
     const authHeader = req.headers.get("Authorization");
+    console.log("Auth header present:", !!authHeader);
+    
     if (!authHeader) {
       throw new Error("Não autorizado");
     }
