@@ -7,30 +7,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Edit, Users, Mail, Calendar } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import type { Database } from '@/integrations/supabase/types';
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+interface SellerProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  whatsapp: string | null;
+  created_at: string | null;
+}
 
 const sellerSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  whatsapp: z.string().min(10, 'WhatsApp inválido').optional().or(z.literal('')),
 });
 
 const updateSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  whatsapp: z.string().optional(),
 });
 
 type SellerForm = z.infer<typeof sellerSchema>;
 type UpdateForm = z.infer<typeof updateSchema>;
 
-interface SellerWithStats extends Profile {
+interface SellerWithStats extends SellerProfile {
   clientCount: number;
 }
 
@@ -80,7 +87,10 @@ export default function Sellers() {
 
   useEffect(() => {
     if (editingSeller) {
-      updateForm.reset({ full_name: editingSeller.full_name || '' });
+      updateForm.reset({ 
+        full_name: editingSeller.full_name || '',
+        whatsapp: editingSeller.whatsapp || ''
+      });
     }
   }, [editingSeller, updateForm]);
 
@@ -112,7 +122,10 @@ export default function Sellers() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: data.full_name })
+        .update({ 
+          full_name: data.full_name,
+          whatsapp: data.whatsapp || null
+        })
         .eq('id', editingSeller.id);
 
       if (error) throw error;
@@ -162,7 +175,9 @@ export default function Sellers() {
                     </div>
                     <div>
                       <h3 className="font-semibold">{seller.full_name || 'Sem nome'}</h3>
-                      <p className="text-sm text-muted-foreground truncate max-w-[150px]">{seller.email}</p>
+                      {seller.whatsapp && (
+                        <p className="text-sm text-muted-foreground">{seller.whatsapp}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -209,13 +224,13 @@ export default function Sellers() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail *</Label>
+                <Label htmlFor="whatsapp">WhatsApp</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="email" type="email" {...createForm.register('email')} placeholder="email@exemplo.com" className="pl-10" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="whatsapp" {...createForm.register('whatsapp')} placeholder="+55 31 99851-8865" className="pl-10" />
                 </div>
-                {createForm.formState.errors.email && (
-                  <p className="text-xs text-destructive">{createForm.formState.errors.email.message}</p>
+                {createForm.formState.errors.whatsapp && (
+                  <p className="text-xs text-destructive">{createForm.formState.errors.whatsapp.message}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -247,6 +262,13 @@ export default function Sellers() {
                 {updateForm.formState.errors.full_name && (
                   <p className="text-xs text-destructive">{updateForm.formState.errors.full_name.message}</p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_whatsapp">WhatsApp</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="edit_whatsapp" {...updateForm.register('whatsapp')} placeholder="+55 31 99851-8865" className="pl-10" />
+                </div>
               </div>
               <div className="flex gap-2 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingSeller(null)}>Cancelar</Button>

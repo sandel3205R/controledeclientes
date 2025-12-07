@@ -114,6 +114,7 @@ export type Database = {
           full_name: string | null
           id: string
           updated_at: string | null
+          whatsapp: string | null
         }
         Insert: {
           commission_percentage?: number | null
@@ -122,6 +123,7 @@ export type Database = {
           full_name?: string | null
           id: string
           updated_at?: string | null
+          whatsapp?: string | null
         }
         Update: {
           commission_percentage?: number | null
@@ -130,6 +132,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }
