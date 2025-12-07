@@ -11,13 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -28,17 +21,11 @@ const clientSchema = z.object({
   login: z.string().optional(),
   password: z.string().optional(),
   expiration_date: z.string().min(1, 'Data de vencimento é obrigatória'),
-  plan_id: z.string().optional(),
+  plan_name: z.string().optional(),
+  plan_price: z.string().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
-
-interface Plan {
-  id: string;
-  name: string;
-  price: number;
-  duration_days: number;
-}
 
 interface ClientDialogProps {
   open: boolean;
@@ -51,38 +38,23 @@ interface ClientDialogProps {
     login: string | null;
     password: string | null;
     expiration_date: string;
-    plan_id: string | null;
+    plan_name: string | null;
+    plan_price: number | null;
   } | null;
   onSuccess: () => void;
 }
 
 export default function ClientDialog({ open, onOpenChange, client, onSuccess }: ClientDialogProps) {
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<ClientForm>({
     resolver: zodResolver(clientSchema),
   });
-
-  const selectedPlanId = watch('plan_id');
-
-  useEffect(() => {
-    const fetchPlans = async () => {
-      const { data } = await supabase
-        .from('plans')
-        .select('id, name, price, duration_days')
-        .eq('is_active', true);
-      if (data) setPlans(data);
-    };
-    fetchPlans();
-  }, []);
 
   useEffect(() => {
     if (client) {
@@ -93,7 +65,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         login: client.login || '',
         password: client.password || '',
         expiration_date: client.expiration_date,
-        plan_id: client.plan_id || '',
+        plan_name: client.plan_name || '',
+        plan_price: client.plan_price?.toString() || '',
       });
     } else {
       reset({
@@ -103,20 +76,11 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         login: '',
         password: '',
         expiration_date: '',
-        plan_id: '',
+        plan_name: '',
+        plan_price: '',
       });
     }
   }, [client, reset]);
-
-  const handlePlanChange = (planId: string) => {
-    setValue('plan_id', planId);
-    const plan = plans.find(p => p.id === planId);
-    if (plan) {
-      const date = new Date();
-      date.setDate(date.getDate() + plan.duration_days);
-      setValue('expiration_date', date.toISOString().split('T')[0]);
-    }
-  };
 
   const onSubmit = async (data: ClientForm) => {
     setLoading(true);
@@ -131,7 +95,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         login: data.login || null,
         password: data.password || null,
         expiration_date: data.expiration_date,
-        plan_id: data.plan_id || null,
+        plan_name: data.plan_name || null,
+        plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
         seller_id: user.id,
       };
 
@@ -178,20 +143,21 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             <Input id="phone" {...register('phone')} placeholder="(00) 00000-0000" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="plan_id">Plano</Label>
-            <Select value={selectedPlanId} onValueChange={handlePlanChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um plano" />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((plan) => (
-                  <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name} - R$ {plan.price.toFixed(2)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="plan_name">Plano</Label>
+              <Input id="plan_name" {...register('plan_name')} placeholder="Nome do plano" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan_price">Valor (R$)</Label>
+              <Input 
+                id="plan_price" 
+                type="number" 
+                step="0.01" 
+                {...register('plan_price')} 
+                placeholder="0,00" 
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

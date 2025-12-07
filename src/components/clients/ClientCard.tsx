@@ -16,7 +16,8 @@ interface ClientCardProps {
     login: string | null;
     password: string | null;
     expiration_date: string;
-    plan?: { name: string; price: number; duration_days?: number } | null;
+    plan_name: string | null;
+    plan_price: number | null;
   };
   onEdit: () => void;
   onDelete: () => void;
@@ -57,12 +58,12 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
   };
 
   const handleRenew = async () => {
-    if (!onRenew || !client.plan?.duration_days) return;
+    if (!onRenew) return;
     
     setIsRenewing(true);
     try {
       const baseDate = isPast(expirationDate) ? new Date() : expirationDate;
-      const newExpiration = addDays(baseDate, client.plan.duration_days);
+      const newExpiration = addDays(baseDate, 30); // Default 30 days renewal
       await onRenew(client.id, format(newExpiration, 'yyyy-MM-dd'));
     } finally {
       setIsRenewing(false);
@@ -77,9 +78,10 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-base truncate">{client.name}</h3>
-              {client.plan && (
+              {(client.plan_name || client.plan_price) && (
                 <p className="text-sm text-muted-foreground">
-                  {client.plan.name} • R$ {client.plan.price.toFixed(2)}
+                  {client.plan_name}{client.plan_name && client.plan_price ? ' • ' : ''}
+                  {client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : ''}
                 </p>
               )}
             </div>
@@ -132,7 +134,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-            {onRenew && client.plan?.duration_days && (
+            {onRenew && (
               <Button
                 variant="default"
                 size="sm"
