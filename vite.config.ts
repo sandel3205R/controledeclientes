@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "StreamControl - Gestão de Clientes",
-        short_name: "StreamControl",
-        description: "Sistema de gerenciamento de clientes para revendedores de streaming",
+        name: "Clientes Control - Gestão de Clientes",
+        short_name: "Clientes Control",
+        description: "Sistema de gerenciamento de clientes para revendedores",
         theme_color: "#0a0d14",
         background_color: "#0a0d14",
         display: "standalone",
