@@ -1,9 +1,9 @@
-import { format, differenceInDays, isPast } from 'date-fns';
+import { format, differenceInDays, isPast, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -16,14 +16,16 @@ interface ClientCardProps {
     login: string | null;
     password: string | null;
     expiration_date: string;
-    plan?: { name: string; price: number } | null;
+    plan?: { name: string; price: number; duration_days?: number } | null;
   };
   onEdit: () => void;
   onDelete: () => void;
+  onRenew?: (clientId: string, newExpirationDate: string) => void;
 }
 
-export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps) {
+export default function ClientCard({ client, onEdit, onDelete, onRenew }: ClientCardProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [isRenewing, setIsRenewing] = useState(false);
   
   const expirationDate = new Date(client.expiration_date);
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
@@ -52,6 +54,19 @@ export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps
     };
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
+  };
+
+  const handleRenew = async () => {
+    if (!onRenew || !client.plan?.duration_days) return;
+    
+    setIsRenewing(true);
+    try {
+      const baseDate = isPast(expirationDate) ? new Date() : expirationDate;
+      const newExpiration = addDays(baseDate, client.plan.duration_days);
+      await onRenew(client.id, format(newExpiration, 'yyyy-MM-dd'));
+    } finally {
+      setIsRenewing(false);
+    }
   };
 
   return (
@@ -117,6 +132,18 @@ export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+            {onRenew && client.plan?.duration_days && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleRenew}
+                disabled={isRenewing}
+                className="flex-1 min-w-[100px]"
+              >
+                <RefreshCw className={cn("w-4 h-4", isRenewing && "animate-spin")} />
+                <span className="hidden sm:inline">Renovar</span>
+              </Button>
+            )}
             {client.phone && (
               <>
                 <Button
