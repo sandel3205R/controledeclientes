@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2 } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Key } from 'lucide-react';
+import { ChangePasswordDialog } from '@/components/sellers/ChangePasswordDialog';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -80,6 +81,7 @@ export default function Sellers() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<SellerWithStats | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<SellerWithStats | null>(null);
+  const [passwordSeller, setPasswordSeller] = useState<SellerWithStats | null>(null);
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -598,6 +600,9 @@ SANDEL`
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setPasswordSeller(seller)} title="Alterar Senha">
+                <Key className="w-4 h-4" />
+              </Button>
               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(seller)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -974,6 +979,14 @@ SANDEL`
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Change Password Dialog */}
+        <ChangePasswordDialog
+          open={!!passwordSeller}
+          onOpenChange={(open) => !open && setPasswordSeller(null)}
+          seller={passwordSeller}
+          onSuccess={fetchSellers}
+        />
       </div>
     </AppLayout>
   );
