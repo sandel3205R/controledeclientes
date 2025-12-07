@@ -106,6 +106,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [customDevice, setCustomDevice] = useState('');
+  const [selectedServers, setSelectedServers] = useState<string[]>([]);
 
   const {
     register,
@@ -154,6 +155,11 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setSelectedDevices(predefined);
       setCustomDevice(custom);
       
+      // Parse server_id to extract multiple server IDs
+      const serverIdString = client.server_id || '';
+      const serverIds = serverIdString.split(',').map(s => s.trim()).filter(Boolean);
+      setSelectedServers(serverIds);
+      
       reset({
         name: client.name,
         phone: client.phone || '',
@@ -171,6 +177,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     } else {
       setSelectedDevices([]);
       setCustomDevice('');
+      setSelectedServers([]);
       reset({
         name: '',
         phone: '',
@@ -204,14 +211,30 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     return devices.join(', ');
   };
 
+  const handleServerChange = (serverId: string, checked: boolean) => {
+    setSelectedServers(prev => {
+      if (checked) {
+        if (prev.length >= 3) {
+          toast.error('Máximo de 3 servidores permitidos');
+          return prev;
+        }
+        return [...prev, serverId];
+      }
+      return prev.filter(id => id !== serverId);
+    });
+  };
+
   const onSubmit = async (data: ClientForm) => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Find server name if server_id is provided
-      const selectedServer = servers.find(s => s.id === data.server_id);
+      // Get selected server names
+      const selectedServerNames = selectedServers
+        .map(id => servers.find(s => s.id === id)?.name)
+        .filter(Boolean)
+        .join(', ');
       
       // Build device string from checkboxes and custom input
       const deviceString = getDeviceString();
@@ -227,8 +250,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
         app_name: data.app_name || null,
         mac_address: data.mac_address || null,
-        server_name: selectedServer?.name || data.server_name || null,
-        server_id: data.server_id || null,
+        server_name: selectedServerNames || data.server_name || null,
+        server_id: selectedServers.join(',') || null,
         seller_id: user.id,
       };
 
@@ -426,25 +449,30 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Servidor</Label>
-            <Select 
-              value={watch('server_id') || 'none'} 
-              onValueChange={(value) => setValue('server_id', value === 'none' ? '' : value)}
-            >
-              <SelectTrigger>
-                <Server className="w-4 h-4 mr-2 text-muted-foreground" />
-                <SelectValue placeholder="Selecione um servidor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
-                {servers.map((server) => (
-                  <SelectItem key={server.id} value={server.id}>
-                    {server.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-3">
+            <Label>Servidores (máx. 3)</Label>
+            <div className="space-y-2 p-3 border rounded-md bg-muted/30">
+              {servers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum servidor cadastrado</p>
+              ) : (
+                servers.map((server) => (
+                  <div key={server.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`server-${server.id}`}
+                      checked={selectedServers.includes(server.id)}
+                      onCheckedChange={(checked) => handleServerChange(server.id, checked as boolean)}
+                    />
+                    <label
+                      htmlFor={`server-${server.id}`}
+                      className="flex items-center gap-1.5 text-sm font-medium leading-none cursor-pointer"
+                    >
+                      <Server className="h-4 w-4 text-muted-foreground" />
+                      {server.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
