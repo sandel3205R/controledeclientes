@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Server } from 'lucide-react';
+import { CalendarIcon, Server, Tv, Smartphone, Monitor } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,13 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
+
+const DEVICE_OPTIONS = [
+  { id: 'TV SMART', label: 'TV Smart', icon: Tv },
+  { id: 'CELULAR', label: 'Celular', icon: Smartphone },
+  { id: 'COMPUTADOR', label: 'Computador', icon: Monitor },
+] as const;
 const clientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   phone: z.string().optional(),
@@ -97,6 +104,8 @@ const formatWhatsApp = (value: string): string => {
 export default function ClientDialog({ open, onOpenChange, client, onSuccess }: ClientDialogProps) {
   const [loading, setLoading] = useState(false);
   const [servers, setServers] = useState<ServerOption[]>([]);
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [customDevice, setCustomDevice] = useState('');
 
   const {
     register,
@@ -135,6 +144,16 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
 
   useEffect(() => {
     if (client) {
+      // Parse device string to extract predefined devices and custom device
+      const deviceString = client.device || '';
+      const deviceList = deviceString.split(',').map(d => d.trim()).filter(Boolean);
+      const predefinedIds: string[] = DEVICE_OPTIONS.map(d => d.id);
+      const predefined = deviceList.filter(d => predefinedIds.includes(d));
+      const custom = deviceList.filter(d => !predefinedIds.includes(d)).join(', ');
+      
+      setSelectedDevices(predefined);
+      setCustomDevice(custom);
+      
       reset({
         name: client.name,
         phone: client.phone || '',
@@ -150,6 +169,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_id: client.server_id || '',
       });
     } else {
+      setSelectedDevices([]);
+      setCustomDevice('');
       reset({
         name: '',
         phone: '',
@@ -167,6 +188,22 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     }
   }, [client, reset]);
 
+  const handleDeviceChange = (deviceId: string, checked: boolean) => {
+    setSelectedDevices(prev => 
+      checked 
+        ? [...prev, deviceId]
+        : prev.filter(d => d !== deviceId)
+    );
+  };
+
+  const getDeviceString = () => {
+    const devices = [...selectedDevices];
+    if (customDevice.trim()) {
+      devices.push(customDevice.trim());
+    }
+    return devices.join(', ');
+  };
+
   const onSubmit = async (data: ClientForm) => {
     setLoading(true);
     try {
@@ -175,11 +212,14 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
 
       // Find server name if server_id is provided
       const selectedServer = servers.find(s => s.id === data.server_id);
+      
+      // Build device string from checkboxes and custom input
+      const deviceString = getDeviceString();
 
       const clientData = {
         name: data.name,
         phone: data.phone || null,
-        device: data.device || null,
+        device: deviceString || null,
         login: data.login || null,
         password: data.password || null,
         expiration_date: data.expiration_date,
@@ -257,11 +297,38 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="device">Dispositivo</Label>
-              <Input id="device" {...register('device')} placeholder="TV, Celular..." />
+          <div className="space-y-3">
+            <Label>Dispositivo</Label>
+            <div className="flex flex-wrap gap-4">
+              {DEVICE_OPTIONS.map((device) => {
+                const Icon = device.icon;
+                return (
+                  <div key={device.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={device.id}
+                      checked={selectedDevices.includes(device.id)}
+                      onCheckedChange={(checked) => handleDeviceChange(device.id, checked as boolean)}
+                    />
+                    <label
+                      htmlFor={device.id}
+                      className="flex items-center gap-1.5 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      {device.label}
+                    </label>
+                  </div>
+                );
+              })}
             </div>
+            <Input
+              value={customDevice}
+              onChange={(e) => setCustomDevice(e.target.value)}
+              placeholder="Outro dispositivo..."
+              className="mt-2"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Vencimento *</Label>
               <Popover>
