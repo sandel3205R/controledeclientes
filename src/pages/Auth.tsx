@@ -132,7 +132,7 @@ export default function Auth() {
                 : (
                   <span className="flex flex-col gap-1">
                     <span>Preencha os dados para criar sua conta</span>
-                    <span className="text-primary font-medium">🎁 Ganhe 3 dias de teste grátis!</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">🎁 Ganhe 3 dias de teste grátis!</span>
                   </span>
                 )}
             </CardDescription>
