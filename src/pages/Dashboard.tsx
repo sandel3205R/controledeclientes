@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp } from 'lucide-react';
+import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt } from 'lucide-react';
 import { differenceInDays, isPast } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -14,6 +14,16 @@ interface SellerDashboardStats {
   expiringClients: number;
   expiredClients: number;
   totalRevenue: number;
+}
+
+interface ServerStats {
+  totalServers: number;
+  totalMonthlyCost: number;
+  totalCreditCost: number;
+  totalUsedCredits: number;
+  reservePerClient: number;
+  totalReserve: number;
+  netProfit: number;
 }
 
 interface AdminDashboardStats {
@@ -28,6 +38,15 @@ export default function Dashboard() {
     expiringClients: 0,
     expiredClients: 0,
     totalRevenue: 0,
+  });
+  const [serverStats, setServerStats] = useState<ServerStats>({
+    totalServers: 0,
+    totalMonthlyCost: 0,
+    totalCreditCost: 0,
+    totalUsedCredits: 0,
+    reservePerClient: 0,
+    totalReserve: 0,
+    netProfit: 0,
   });
   const [adminStats, setAdminStats] = useState<AdminDashboardStats>({
     totalSellers: 0,
@@ -53,6 +72,13 @@ export default function Dashboard() {
           .from('clients')
           .select('*')
           .eq('seller_id', user.id);
+
+        // Fetch server stats
+        const { data: servers } = await supabase
+          .from('servers')
+          .select('*')
+          .eq('seller_id', user.id)
+          .eq('is_active', true);
 
         if (clients) {
           const now = new Date();
@@ -81,6 +107,32 @@ export default function Dashboard() {
             expiredClients: expired,
             totalRevenue: revenue,
           });
+
+          // Calculate server stats
+          if (servers && servers.length > 0) {
+            const totalMonthlyCost = servers.reduce((sum, s) => sum + (Number(s.monthly_cost) || 0), 0);
+            const totalCreditCost = servers.reduce((sum, s) => sum + (Number(s.credit_cost) || 0), 0);
+            const totalUsedCredits = servers.reduce((sum, s) => sum + (s.used_credits || 0), 0);
+            
+            // Calculate reserve per client (average credit cost across all servers)
+            const activeClientCount = active + expiring;
+            const reservePerClient = activeClientCount > 0 ? totalCreditCost / activeClientCount : 0;
+            const totalReserve = reservePerClient * activeClientCount;
+            
+            // Net profit = Revenue - Monthly Costs - Total Credit Costs (for used credits)
+            const totalCreditExpense = totalCreditCost * totalUsedCredits;
+            const netProfit = revenue - totalMonthlyCost - totalCreditExpense;
+
+            setServerStats({
+              totalServers: servers.length,
+              totalMonthlyCost,
+              totalCreditCost,
+              totalUsedCredits,
+              reservePerClient,
+              totalReserve,
+              netProfit,
+            });
+          }
         }
       }
 
@@ -182,21 +234,67 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Revenue Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Revenue Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Minhas Vendas (Receita Ativa)"
+            title="Minhas Vendas"
             value={`R$ ${sellerStats.totalRevenue.toFixed(2)}`}
             icon={DollarSign}
+            variant="success"
+          />
+          <StatCard
+            title="Gastos (Servidores)"
+            value={`R$ ${(serverStats.totalMonthlyCost + (serverStats.totalCreditCost * serverStats.totalUsedCredits)).toFixed(2)}`}
+            icon={Receipt}
+            variant="warning"
+          />
+          <StatCard
+            title="Reserva p/ Créditos"
+            value={`R$ ${serverStats.totalReserve.toFixed(2)}`}
+            icon={PiggyBank}
             variant="secondary"
           />
           <StatCard
-            title="Média por Cliente"
-            value={`R$ ${sellerStats.totalClients > 0 ? (sellerStats.totalRevenue / (sellerStats.activeClients + sellerStats.expiringClients || 1)).toFixed(2) : '0.00'}`}
-            icon={TrendingUp}
+            title="Lucro Líquido"
+            value={`R$ ${serverStats.netProfit.toFixed(2)}`}
+            icon={Wallet}
             variant="primary"
           />
         </div>
+
+        {/* Server Summary */}
+        {serverStats.totalServers > 0 && (
+          <Card variant="glow">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Server className="w-5 h-5" />
+                Resumo Financeiro
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Servidores Ativos</p>
+                  <p className="text-xl font-bold">{serverStats.totalServers}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Custo Mensal</p>
+                  <p className="text-xl font-bold text-warning">R$ {serverStats.totalMonthlyCost.toFixed(2)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Reserva/Cliente</p>
+                  <p className="text-xl font-bold text-secondary">R$ {serverStats.reservePerClient.toFixed(3)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Média/Cliente</p>
+                  <p className="text-xl font-bold text-primary">
+                    R$ {sellerStats.totalClients > 0 ? (sellerStats.totalRevenue / (sellerStats.activeClients + sellerStats.expiringClients || 1)).toFixed(2) : '0.00'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
