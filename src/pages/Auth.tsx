@@ -112,11 +112,11 @@ export default function Auth() {
       <div className="w-full max-w-md relative animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4 glow-effect">
-            <Tv className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white mb-4 overflow-hidden">
+            <img src="/logo.jpg" alt="Logo" className="w-12 h-12 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold gradient-text">StreamControl</h1>
-          <p className="text-muted-foreground mt-2">Gestão inteligente de clientes</p>
+          <h1 className="text-3xl font-bold gradient-text">Controle de Clientes</h1>
+          <p className="text-muted-foreground mt-2">Gestão inteligente de revendas</p>
         </div>
 
         <Card variant="gradient" className="animate-slide-up">
