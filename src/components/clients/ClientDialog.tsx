@@ -44,6 +44,27 @@ interface ClientDialogProps {
   onSuccess: () => void;
 }
 
+// Format phone number as +55 31 99851-8865
+const formatWhatsApp = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  
+  if (digits.length === 0) return '';
+  
+  let formatted = '+';
+  
+  if (digits.length <= 2) {
+    formatted += digits;
+  } else if (digits.length <= 4) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  } else if (digits.length <= 9) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4)}`;
+  } else {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+  }
+  
+  return formatted;
+};
+
 export default function ClientDialog({ open, onOpenChange, client, onSuccess }: ClientDialogProps) {
   const [loading, setLoading] = useState(false);
 
@@ -51,10 +72,17 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ClientForm>({
     resolver: zodResolver(clientSchema),
   });
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatWhatsApp(e.target.value);
+    setValue('phone', formatted);
+  };
 
   useEffect(() => {
     if (client) {
@@ -139,8 +167,13 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input id="phone" {...register('phone')} placeholder="(00) 00000-0000" />
+            <Label htmlFor="phone">WhatsApp</Label>
+            <Input 
+              id="phone" 
+              value={watch('phone') || ''}
+              onChange={handlePhoneChange}
+              placeholder="+55 31 99851-8865" 
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
