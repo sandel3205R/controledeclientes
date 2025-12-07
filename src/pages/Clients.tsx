@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Filter, Send, Server } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -221,12 +221,10 @@ export default function Clients() {
       Vencimento: c.expiration_date,
       Dispositivo: c.device || '',
       Login: c.login || '',
-      Status:
-        getClientStatus(c.expiration_date) === 'active'
-          ? 'Ativo'
-          : getClientStatus(c.expiration_date) === 'expiring'
-          ? 'Vencendo'
-          : 'Vencido',
+      Senha: c.password || '',
+      Aplicativo: c.app_name || '',
+      MAC: c.mac_address || '',
+      Servidor: c.server_name || '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -234,6 +232,112 @@ export default function Clients() {
     XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
     XLSX.writeFile(wb, 'clientes.xlsx');
     toast.success('Arquivo exportado com sucesso!');
+  };
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        toast.error('Planilha vazia ou formato inválido');
+        return;
+      }
+
+      let importedCount = 0;
+      let errorCount = 0;
+
+      for (const row of jsonData as Record<string, unknown>[]) {
+        const name = String(row['Nome'] || row['nome'] || '').trim();
+        const expirationDate = row['Vencimento'] || row['vencimento'] || row['Data Vencimento'];
+        
+        if (!name) {
+          errorCount++;
+          continue;
+        }
+
+        // Parse expiration date
+        let parsedDate: string;
+        if (typeof expirationDate === 'number') {
+          // Excel date serial number
+          const date = new Date((expirationDate - 25569) * 86400 * 1000);
+          parsedDate = date.toISOString().split('T')[0];
+        } else if (typeof expirationDate === 'string') {
+          // Try to parse string date
+          const parts = expirationDate.split(/[\/\-]/);
+          if (parts.length === 3) {
+            // Assume DD/MM/YYYY or DD-MM-YYYY format for Brazilian dates
+            if (parts[0].length <= 2) {
+              parsedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            } else {
+              parsedDate = expirationDate;
+            }
+          } else {
+            parsedDate = new Date().toISOString().split('T')[0];
+          }
+        } else {
+          // Default to today + 30 days
+          const date = new Date();
+          date.setDate(date.getDate() + 30);
+          parsedDate = date.toISOString().split('T')[0];
+        }
+
+        // Find server by name if provided
+        let serverId: string | null = null;
+        const serverName = String(row['Servidor'] || row['servidor'] || '').trim();
+        if (serverName) {
+          const matchedServer = servers.find(s => s.name.toLowerCase() === serverName.toLowerCase());
+          if (matchedServer) {
+            serverId = matchedServer.id;
+          }
+        }
+
+        const clientData = {
+          seller_id: user.id,
+          name,
+          phone: String(row['Telefone'] || row['telefone'] || '').trim() || null,
+          plan_name: String(row['Plano'] || row['plano'] || '').trim() || null,
+          plan_price: Number(row['Valor'] || row['valor'] || 0) || null,
+          expiration_date: parsedDate,
+          device: String(row['Dispositivo'] || row['dispositivo'] || '').trim() || null,
+          login: String(row['Login'] || row['login'] || '').trim() || null,
+          password: String(row['Senha'] || row['senha'] || '').trim() || null,
+          app_name: String(row['Aplicativo'] || row['aplicativo'] || row['App'] || '').trim() || null,
+          mac_address: String(row['MAC'] || row['mac'] || row['Mac Address'] || '').trim() || null,
+          server_id: serverId,
+          server_name: serverName || null,
+        };
+
+        const { error } = await supabase.from('clients').insert(clientData);
+        
+        if (error) {
+          console.error('Error importing client:', name, error);
+          errorCount++;
+        } else {
+          importedCount++;
+        }
+      }
+
+      if (importedCount > 0) {
+        toast.success(`${importedCount} cliente(s) importado(s) com sucesso!`);
+        fetchClients();
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} cliente(s) não puderam ser importados`);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Erro ao processar a planilha');
+    }
+
+    // Reset the input
+    event.target.value = '';
   };
 
   if (loading) {
@@ -269,6 +373,20 @@ export default function Clients() {
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Exportar</span>
             </Button>
+            <label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImportExcel}
+                className="hidden"
+              />
+              <Button variant="outline" asChild>
+                <span className="cursor-pointer">
+                  <Upload className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Importar</span>
+                </span>
+              </Button>
+            </label>
             <Button
               variant="gradient"
               onClick={() => {
