@@ -41,7 +41,7 @@ interface SellerWithStats extends SellerProfile {
   clientCount: number;
 }
 
-// Format phone number as +55 31 99851-8865
+// Format phone number as +55 31 95555-5555
 const formatWhatsApp = (value: string): string => {
   const digits = value.replace(/\D/g, '');
   
@@ -322,7 +322,7 @@ export default function Sellers() {
                     id="whatsapp" 
                     value={createForm.watch('whatsapp') || ''}
                     onChange={(e) => handleWhatsAppChange(e, 'create')}
-                    placeholder="+55 31 99851-8865" 
+                    placeholder="+55 31 95555-5555" 
                     className="pl-10" 
                   />
                 </div>
@@ -368,7 +368,7 @@ export default function Sellers() {
                     id="edit_whatsapp" 
                     value={updateForm.watch('whatsapp') || ''}
                     onChange={(e) => handleWhatsAppChange(e, 'update')}
-                    placeholder="+55 31 99851-8865" 
+                    placeholder="+55 31 95555-5555" 
                     className="pl-10" 
                   />
                 </div>

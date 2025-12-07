@@ -44,7 +44,7 @@ interface ClientDialogProps {
   onSuccess: () => void;
 }
 
-// Format phone number as +55 31 99851-8865
+// Format phone number as +55 31 95555-5555
 const formatWhatsApp = (value: string): string => {
   const digits = value.replace(/\D/g, '');
   
@@ -172,7 +172,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               id="phone" 
               value={watch('phone') || ''}
               onChange={handlePhoneChange}
-              placeholder="+55 31 99851-8865" 
+              placeholder="+55 31 95555-5555" 
             />
           </div>
 
