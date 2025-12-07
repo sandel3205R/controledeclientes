@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
+import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import {
   LayoutDashboard,
   Users,
@@ -169,6 +170,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <X className="w-5 h-5" />
         </button>
       )}
+
+      {/* Subscription Expired Dialog */}
+      <SubscriptionExpiredDialog />
     </div>
   );
 }

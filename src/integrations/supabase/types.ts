@@ -134,6 +134,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean | null
+          is_permanent: boolean | null
+          subscription_expires_at: string | null
           updated_at: string | null
           whatsapp: string | null
         }
@@ -145,6 +147,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_active?: boolean | null
+          is_permanent?: boolean | null
+          subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
@@ -156,6 +160,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean | null
+          is_permanent?: boolean | null
+          subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }

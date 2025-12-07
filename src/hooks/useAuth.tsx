@@ -5,14 +5,23 @@ import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
+interface SubscriptionInfo {
+  expiresAt: Date | null;
+  isPermanent: boolean;
+  isExpired: boolean;
+  daysRemaining: number | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
+  subscription: SubscriptionInfo | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, whatsapp?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
 
   const fetchUserRole = async (userId: string) => {
     const { data } = await supabase
@@ -35,8 +45,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchSubscription = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('subscription_expires_at, is_permanent')
+      .eq('id', userId)
+      .single();
+    
+    if (data) {
+      const expiresAt = data.subscription_expires_at ? new Date(data.subscription_expires_at) : null;
+      const isPermanent = data.is_permanent || false;
+      const now = new Date();
+      const isExpired = !isPermanent && expiresAt ? expiresAt < now : false;
+      const daysRemaining = expiresAt && !isPermanent 
+        ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      setSubscription({
+        expiresAt,
+        isPermanent,
+        isExpired,
+        daysRemaining
+      });
+    }
+  };
+
+  const refreshSubscription = async () => {
+    if (user) {
+      await fetchSubscription(user.id);
+    }
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
@@ -44,9 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => {
             fetchUserRole(session.user.id);
+            fetchSubscription(session.user.id);
           }, 0);
         } else {
           setRole(null);
+          setSubscription(null);
         }
         setLoading(false);
       }
@@ -57,11 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
+        fetchSubscription(session.user.id);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => authSubscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -102,10 +146,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRole(null);
+    setSubscription(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, subscription, signIn, signUp, signOut, refreshSubscription }}>
       {children}
     </AuthContext.Provider>
   );
