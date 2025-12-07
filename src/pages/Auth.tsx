@@ -13,7 +13,7 @@ const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').optional(),
-  whatsapp: z.string().optional(),
+  whatsapp: z.string().min(10, 'WhatsApp é obrigatório para renovação').optional(),
 });
 
 // Format phone number as +55 31 95555-5555
@@ -63,6 +63,13 @@ export default function Auth() {
         fullName: isLogin ? undefined : fullName,
         whatsapp: isLogin ? undefined : whatsapp,
       });
+
+      // Additional validation for signup
+      if (!isLogin && (!whatsapp || whatsapp.replace(/\D/g, '').length < 10)) {
+        toast.error('WhatsApp é obrigatório para renovação do plano');
+        setLoading(false);
+        return;
+      }
 
       if (!validation.success) {
         toast.error(validation.error.errors[0].message);
@@ -161,7 +168,8 @@ export default function Auth() {
 
                   <div className="space-y-2">
                     <Label htmlFor="whatsapp" className="text-sm font-medium">
-                      WhatsApp <span className="text-muted-foreground text-xs">(para lembretes)</span>
+                      WhatsApp <span className="text-destructive">*</span>
+                      <span className="text-muted-foreground text-xs ml-1">(obrigatório para renovação)</span>
                     </Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -172,6 +180,7 @@ export default function Auth() {
                         value={whatsapp}
                         onChange={handleWhatsAppChange}
                         className="pl-10"
+                        required
                       />
                     </div>
                   </div>
