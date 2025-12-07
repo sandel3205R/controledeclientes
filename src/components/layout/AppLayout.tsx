@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   LayoutDashboard,
   Users,
@@ -17,6 +18,8 @@ import {
   UserCircle,
   ChevronRight,
   MessageSquare,
+  AlertTriangle,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
@@ -25,13 +28,29 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
+const ADMIN_WHATSAPP = '+5531998518865';
+const ADMIN_NAME = 'SANDEL';
+
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, subscription } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isAdmin = role === 'admin';
+  
+  // Check if subscription is expiring soon (7 days or less)
+  const isExpiringSoon = !isAdmin && 
+    !subscription?.isPermanent && 
+    !subscription?.isExpired && 
+    subscription?.daysRemaining !== null && 
+    subscription?.daysRemaining <= 7;
+
+  const handleContactAdmin = () => {
+    const phone = ADMIN_WHATSAPP.replace(/\D/g, '');
+    const message = `Olá ${ADMIN_NAME}! 👋\n\nMeu plano vence em ${subscription?.daysRemaining} dias e gostaria de renovar.\n\nComo faço para continuar usando o painel?`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   const adminMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -153,6 +172,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <ThemeSwitcher />
             </div>
           </div>
+
+          {/* Subscription Expiring Warning Banner */}
+          {isExpiringSoon && (
+            <div className="px-3 lg:px-6 pt-3">
+              <Alert className="bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-500">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span>
+                    ⚠️ Seu plano vence em <strong>{subscription?.daysRemaining} {subscription?.daysRemaining === 1 ? 'dia' : 'dias'}</strong>. Entre em contato para renovar!
+                  </span>
+                  <Button 
+                    variant="whatsapp" 
+                    size="sm"
+                    onClick={handleContactAdmin}
+                    className="shrink-0"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-1" />
+                    Falar com {ADMIN_NAME}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
         </header>
 
         {/* Page content */}
