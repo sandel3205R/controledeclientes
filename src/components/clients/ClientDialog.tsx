@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,9 +14,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
 const clientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   phone: z.string().optional(),
@@ -199,8 +208,74 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               <Input id="device" {...register('device')} placeholder="TV, Celular..." />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiration_date">Vencimento *</Label>
-              <Input id="expiration_date" type="date" {...register('expiration_date')} />
+              <Label>Vencimento *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !watch('expiration_date') && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {watch('expiration_date') ? (
+                      format(new Date(watch('expiration_date') + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-2 border-b flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const oneMonthLater = addMonths(new Date(), 1);
+                        setValue('expiration_date', format(oneMonthLater, 'yyyy-MM-dd'));
+                      }}
+                    >
+                      +1 mês
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const twoMonthsLater = addMonths(new Date(), 2);
+                        setValue('expiration_date', format(twoMonthsLater, 'yyyy-MM-dd'));
+                      }}
+                    >
+                      +2 meses
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const threeMonthsLater = addMonths(new Date(), 3);
+                        setValue('expiration_date', format(threeMonthsLater, 'yyyy-MM-dd'));
+                      }}
+                    >
+                      +3 meses
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={watch('expiration_date') ? new Date(watch('expiration_date') + 'T12:00:00') : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        setValue('expiration_date', format(date, 'yyyy-MM-dd'));
+                      }
+                    }}
+                    locale={ptBR}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
               {errors.expiration_date && (
                 <p className="text-xs text-destructive">{errors.expiration_date.message}</p>
               )}
