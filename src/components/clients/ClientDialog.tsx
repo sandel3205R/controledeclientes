@@ -218,12 +218,12 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{client ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-2">
           <div className="space-y-2">
             <Label htmlFor="name">Nome *</Label>
             <Input id="name" {...register('name')} placeholder="Nome do cliente" />
