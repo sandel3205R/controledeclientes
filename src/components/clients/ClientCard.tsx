@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle } from 'lucide-react';
+import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, Server, Wifi } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +19,9 @@ interface ClientCardProps {
     expiration_date: string;
     plan_name: string | null;
     plan_price: number | null;
+    app_name: string | null;
+    mac_address: string | null;
+    server_name: string | null;
   };
   onEdit: () => void;
   onDelete: () => void;
@@ -160,6 +163,24 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <div className="flex items-center gap-2 text-muted-foreground">
                 <User className="w-4 h-4 shrink-0" />
                 <span className="truncate">{client.login}</span>
+              </div>
+            )}
+            {client.app_name && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Smartphone className="w-4 h-4 shrink-0" />
+                <span className="truncate">{client.app_name}</span>
+              </div>
+            )}
+            {client.mac_address && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Wifi className="w-4 h-4 shrink-0" />
+                <span className="truncate font-mono text-xs">{client.mac_address}</span>
+              </div>
+            )}
+            {client.server_name && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Server className="w-4 h-4 shrink-0" />
+                <span className="truncate">{client.server_name}</span>
               </div>
             )}
           </div>

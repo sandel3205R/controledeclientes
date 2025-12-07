@@ -38,6 +38,9 @@ interface Client {
   expiration_date: string;
   plan_name: string | null;
   plan_price: number | null;
+  app_name: string | null;
+  mac_address: string | null;
+  server_name: string | null;
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
