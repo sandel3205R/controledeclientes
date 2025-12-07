@@ -32,7 +32,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const adminMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Vendedores', path: '/sellers' },
-    { icon: UserCircle, label: 'Clientes', path: '/all-clients' },
     { icon: BarChart3, label: 'Relatórios', path: '/reports' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];

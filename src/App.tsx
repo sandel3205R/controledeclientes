@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Plans from "./pages/Plans";
 import Sellers from "./pages/Sellers";
-import AllClients from "./pages/AllClients";
+// AllClients removed - admin only manages sellers
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Install from "./pages/Install";
@@ -101,14 +101,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/all-clients"
-        element={
-          <ProtectedRoute adminOnly>
-            <AllClients />
-          </ProtectedRoute>
-        }
-      />
+      {/* AllClients route removed - admin only manages sellers */}
       <Route
         path="/reports"
         element={
