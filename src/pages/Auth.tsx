@@ -253,12 +253,12 @@ export default function Auth() {
                 {isLogin ? (
                   <>
                     Não tem conta?{' '}
-                    <span className="text-primary font-medium">Cadastre-se</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">Cadastre-se</span>
                   </>
                 ) : (
                   <>
                     Já tem conta?{' '}
-                    <span className="text-primary font-medium">Faça login</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">Faça login</span>
                   </>
                 )}
               </button>
