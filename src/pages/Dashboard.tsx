@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt } from 'lucide-react';
+import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell } from 'lucide-react';
 import { differenceInDays, isPast } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useNavigate } from 'react-router-dom';
 
 interface SellerDashboardStats {
   totalClients: number;
@@ -32,6 +34,13 @@ interface CreditServerStats {
   servers: Array<{ name: string; creditCost: number; usedCredits: number; totalCredits: number }>;
 }
 
+interface LowCreditAlert {
+  serverName: string;
+  remaining: number;
+  percentage: number;
+  isCritical: boolean;
+}
+
 interface FinancialSummary {
   totalRevenue: number;
   totalFixedCosts: number;
@@ -46,6 +55,7 @@ interface AdminDashboardStats {
 
 export default function Dashboard() {
   const { role, user } = useAuth();
+  const navigate = useNavigate();
   const [sellerStats, setSellerStats] = useState<SellerDashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -53,6 +63,7 @@ export default function Dashboard() {
     expiredClients: 0,
     totalRevenue: 0,
   });
+  const [lowCreditAlerts, setLowCreditAlerts] = useState<LowCreditAlert[]>([]);
   const [fixedServers, setFixedServers] = useState<FixedServerStats>({
     count: 0,
     totalMonthlyCost: 0,
@@ -173,6 +184,24 @@ export default function Dashboard() {
               })),
             });
 
+            // Check for low credit alerts
+            const alerts: LowCreditAlert[] = [];
+            servers.forEach(s => {
+              if (s.total_credits && s.total_credits > 0) {
+                const usagePercent = ((s.used_credits || 0) / s.total_credits) * 100;
+                const remaining = s.total_credits - (s.used_credits || 0);
+                if (usagePercent >= 80) {
+                  alerts.push({
+                    serverName: s.name,
+                    remaining,
+                    percentage: 100 - usagePercent,
+                    isCritical: usagePercent >= 95,
+                  });
+                }
+              }
+            });
+            setLowCreditAlerts(alerts);
+
             // Also include servers with both monthly and credit costs
             const hybridServers = servers.filter(s => Number(s.monthly_cost) > 0 && Number(s.credit_cost) > 0);
             const hybridMonthlyCost = hybridServers.reduce((sum, s) => sum + (Number(s.monthly_cost) || 0), 0);
@@ -269,6 +298,29 @@ export default function Dashboard() {
           <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
           <p className="text-muted-foreground">Seus clientes e estatísticas de vendas</p>
         </div>
+
+        {/* Low Credit Alerts */}
+        {lowCreditAlerts.length > 0 && (
+          <div className="space-y-2">
+            {lowCreditAlerts.map((alert, index) => (
+              <Alert 
+                key={index} 
+                variant={alert.isCritical ? "destructive" : "default"}
+                className={`cursor-pointer ${!alert.isCritical ? 'border-warning/50 bg-warning/10' : ''}`}
+                onClick={() => navigate('/servers')}
+              >
+                <Bell className="h-4 w-4" />
+                <AlertTitle className={!alert.isCritical ? 'text-warning' : ''}>
+                  {alert.isCritical ? '⚠️ Créditos Críticos!' : '⚡ Créditos Baixos'}
+                </AlertTitle>
+                <AlertDescription className={!alert.isCritical ? 'text-warning/80' : ''}>
+                  <strong>{alert.serverName}</strong> tem apenas {alert.remaining} créditos restantes ({alert.percentage.toFixed(0)}%). 
+                  Clique para gerenciar.
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -31,11 +31,13 @@ import {
   Users,
   TrendingUp,
   CreditCard,
-  Calculator
+  Calculator,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ServerData {
   id: string;
@@ -334,11 +336,17 @@ export default function Servers() {
               const creditUsage = server.total_credits > 0 
                 ? (server.used_credits / server.total_credits) * 100 
                 : 0;
+              const remainingCredits = server.total_credits - server.used_credits;
+              const isLowCredits = server.total_credits > 0 && creditUsage >= 80;
+              const isCriticalCredits = server.total_credits > 0 && creditUsage >= 95;
               const serverCost = (server.monthly_cost || 0) + ((server.credit_cost || 0) * server.used_credits);
               const serverProfit = (server.total_revenue || 0) - serverCost;
 
               return (
-                <Card key={server.id} className="card-gradient border-border/50 overflow-hidden">
+                <Card 
+                  key={server.id} 
+                  className={`card-gradient border-border/50 overflow-hidden ${isCriticalCredits ? 'border-destructive/50 ring-1 ring-destructive/30' : isLowCredits ? 'border-warning/50 ring-1 ring-warning/30' : ''}`}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -368,14 +376,39 @@ export default function Servers() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Low Credits Alert */}
+                    {isCriticalCredits && (
+                      <Alert variant="destructive" className="py-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle className="text-sm">Créditos Críticos!</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Restam apenas {remainingCredits} créditos ({(100 - creditUsage).toFixed(0)}%)
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {isLowCredits && !isCriticalCredits && (
+                      <Alert className="py-2 border-warning/50 bg-warning/10 text-warning">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle className="text-sm">Créditos Baixos</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Restam {remainingCredits} créditos ({(100 - creditUsage).toFixed(0)}%)
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     {/* Credits Progress */}
                     {server.total_credits > 0 && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Créditos</span>
-                          <span>{server.used_credits} / {server.total_credits}</span>
+                          <span className={isCriticalCredits ? 'text-destructive font-medium' : isLowCredits ? 'text-warning font-medium' : ''}>
+                            {server.used_credits} / {server.total_credits}
+                          </span>
                         </div>
-                        <Progress value={creditUsage} className="h-2" />
+                        <Progress 
+                          value={creditUsage} 
+                          className={`h-2 ${isCriticalCredits ? '[&>div]:bg-destructive' : isLowCredits ? '[&>div]:bg-warning' : ''}`}
+                        />
                       </div>
                     )}
 
