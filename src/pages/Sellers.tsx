@@ -10,12 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, addDays, isPast, differenceInDays } from 'date-fns';
 
 interface SellerProfile {
   id: string;
@@ -25,6 +25,8 @@ interface SellerProfile {
   created_at: string | null;
   is_active: boolean | null;
   deleted_at: string | null;
+  subscription_expires_at: string | null;
+  is_permanent: boolean | null;
 }
 
 const sellerSchema = z.object({
@@ -186,6 +188,59 @@ export default function Sellers() {
     }
   };
 
+  const activatePlan = async (sellerId: string, days: number = 30) => {
+    try {
+      const newExpiration = addDays(new Date(), days);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_expires_at: newExpiration.toISOString() })
+        .eq('id', sellerId);
+
+      if (error) throw error;
+
+      toast.success(`Plano de ${days} dias ativado com sucesso!`);
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao ativar plano');
+    }
+  };
+
+  const makePermanent = async (sellerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_permanent: true, subscription_expires_at: null })
+        .eq('id', sellerId);
+
+      if (error) throw error;
+
+      toast.success('Vendedor agora é permanente!');
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao tornar permanente');
+    }
+  };
+
+  const getSubscriptionStatus = (seller: SellerWithStats) => {
+    if (seller.is_permanent) {
+      return { label: 'Permanente', class: 'bg-primary/20 text-primary', icon: Crown };
+    }
+    if (!seller.subscription_expires_at) {
+      return { label: 'Sem plano', class: 'bg-destructive/20 text-destructive', icon: Clock };
+    }
+    const expiresAt = new Date(seller.subscription_expires_at);
+    const isExpired = isPast(expiresAt);
+    const daysRemaining = differenceInDays(expiresAt, new Date());
+    
+    if (isExpired) {
+      return { label: 'Expirado', class: 'bg-destructive/20 text-destructive', icon: Clock };
+    }
+    if (daysRemaining <= 3) {
+      return { label: `${daysRemaining}d restantes`, class: 'bg-yellow-500/20 text-yellow-600', icon: Clock };
+    }
+    return { label: `${daysRemaining}d restantes`, class: 'bg-green-500/20 text-green-600', icon: Clock };
+  };
+
   const sendWhatsApp = (whatsapp: string, type: 'billing' | 'renewal' | 'reminder', sellerName: string) => {
     const phone = whatsapp.replace(/\D/g, '');
     
@@ -298,6 +353,22 @@ export default function Sellers() {
         </div>
 
         <div className="space-y-3">
+          {/* Subscription Status */}
+          {!isTrash && (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                {(() => {
+                  const status = getSubscriptionStatus(seller);
+                  const StatusIcon = status.icon;
+                  return <StatusIcon className="w-4 h-4" />;
+                })()}
+                <span>Plano</span>
+              </div>
+              <Badge className={getSubscriptionStatus(seller).class}>
+                {getSubscriptionStatus(seller).label}
+              </Badge>
+            </div>
+          )}
           {seller.whatsapp && (
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -328,6 +399,29 @@ export default function Sellers() {
             </span>
           </div>
         </div>
+
+        {/* Admin Plan Actions */}
+        {!isTrash && !seller.is_permanent && (
+          <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+            <Button 
+              variant="gradient" 
+              size="sm" 
+              className="flex-1"
+              onClick={() => activatePlan(seller.id, 30)}
+            >
+              <RefreshCw className="w-4 h-4 mr-1" />
+              +30 dias
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => makePermanent(seller.id)}
+              title="Tornar permanente"
+            >
+              <Crown className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
 
         {!isTrash && seller.whatsapp && (
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
