@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
+import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Filter } from 'lucide-react';
+import { Plus, Search, Download, Filter, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -46,6 +47,14 @@ interface Client {
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 type SortOption = 'name' | 'expiration' | 'price';
 
+interface WhatsAppTemplate {
+  id: string;
+  type: string;
+  name: string;
+  message: string;
+  is_default: boolean;
+}
+
 export default function Clients() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -56,6 +65,8 @@ export default function Clients() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
 
   const fetchClients = async () => {
     if (!user) return;
@@ -75,8 +86,18 @@ export default function Clients() {
     setLoading(false);
   };
 
+  const fetchTemplates = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('whatsapp_templates')
+      .select('*')
+      .eq('seller_id', user.id);
+    if (data) setTemplates(data);
+  };
+
   useEffect(() => {
     fetchClients();
+    fetchTemplates();
   }, [user]);
 
   const getClientStatus = (expDate: string): StatusFilter => {
@@ -198,10 +219,19 @@ export default function Clients() {
             <h1 className="text-2xl lg:text-3xl font-bold">Meus Clientes</h1>
             <p className="text-muted-foreground">{filteredClients.length} clientes encontrados</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setBulkMessageOpen(true)}
+              className="bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Mensagem em Massa</span>
+              <span className="sm:hidden">Massa</span>
+            </Button>
             <Button variant="outline" onClick={exportToExcel}>
               <Download className="w-4 h-4 mr-2" />
-              Exportar
+              <span className="hidden sm:inline">Exportar</span>
             </Button>
             <Button
               variant="gradient"
@@ -306,6 +336,14 @@ export default function Clients() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Bulk Message Dialog */}
+        <BulkMessageDialog
+          open={bulkMessageOpen}
+          onOpenChange={setBulkMessageOpen}
+          clients={clients}
+          templates={templates}
+        />
       </div>
     </AppLayout>
   );
