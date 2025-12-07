@@ -15,7 +15,8 @@ interface ClientWithSeller {
   name: string;
   phone: string | null;
   expiration_date: string;
-  plan: { name: string; price: number } | null;
+  plan_name: string | null;
+  plan_price: number | null;
   seller_id: string;
   seller_name?: string;
 }
@@ -32,7 +33,7 @@ export default function AllClients() {
     const fetchClients = async () => {
       const { data: clientsData } = await supabase
         .from('clients')
-        .select('id, name, phone, expiration_date, seller_id, plan:plans(name, price)')
+        .select('id, name, phone, expiration_date, seller_id, plan_name, plan_price')
         .order('expiration_date');
 
       if (clientsData) {
@@ -86,9 +87,9 @@ export default function AllClients() {
         </div>
         <Card variant="glow" className="hidden md:block overflow-hidden">
           <Table><TableHeader><TableRow className="border-border"><TableHead>Cliente</TableHead><TableHead>Telefone</TableHead><TableHead>Plano</TableHead><TableHead>Vendedor</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-          <TableBody>{filteredClients.map(c => <TableRow key={c.id} className="border-border"><TableCell className="font-medium">{c.name}</TableCell><TableCell className="text-muted-foreground">{c.phone || '-'}</TableCell><TableCell>{c.plan ? `${c.plan.name} (R$ ${c.plan.price.toFixed(2)})` : '-'}</TableCell><TableCell>{c.seller_name}</TableCell><TableCell>{format(new Date(c.expiration_date), 'dd/MM/yyyy')}</TableCell><TableCell>{getStatusBadge(c.expiration_date)}</TableCell></TableRow>)}</TableBody></Table>
+          <TableBody>{filteredClients.map(c => <TableRow key={c.id} className="border-border"><TableCell className="font-medium">{c.name}</TableCell><TableCell className="text-muted-foreground">{c.phone || '-'}</TableCell><TableCell>{c.plan_name ? `${c.plan_name}${c.plan_price ? ` (R$ ${c.plan_price.toFixed(2)})` : ''}` : '-'}</TableCell><TableCell>{c.seller_name}</TableCell><TableCell>{format(new Date(c.expiration_date), 'dd/MM/yyyy')}</TableCell><TableCell>{getStatusBadge(c.expiration_date)}</TableCell></TableRow>)}</TableBody></Table>
         </Card>
-        <div className="md:hidden space-y-3">{filteredClients.map(c => <Card key={c.id} variant="gradient"><CardContent className="p-4 space-y-3"><div className="flex justify-between"><div><h3 className="font-semibold">{c.name}</h3><p className="text-sm text-muted-foreground">{c.plan?.name || 'Sem plano'}</p></div>{getStatusBadge(c.expiration_date)}</div><div className="grid grid-cols-2 gap-2 text-sm">{c.phone && <div className="flex items-center gap-2 text-muted-foreground"><Phone className="w-4 h-4" /><span>{c.phone}</span></div>}<div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{format(new Date(c.expiration_date), 'dd/MM/yyyy')}</span></div><div className="flex items-center gap-2 text-muted-foreground col-span-2"><User className="w-4 h-4" /><span className="truncate">{c.seller_name}</span></div></div></CardContent></Card>)}</div>
+        <div className="md:hidden space-y-3">{filteredClients.map(c => <Card key={c.id} variant="gradient"><CardContent className="p-4 space-y-3"><div className="flex justify-between"><div><h3 className="font-semibold">{c.name}</h3><p className="text-sm text-muted-foreground">{c.plan_name || 'Sem plano'}</p></div>{getStatusBadge(c.expiration_date)}</div><div className="grid grid-cols-2 gap-2 text-sm">{c.phone && <div className="flex items-center gap-2 text-muted-foreground"><Phone className="w-4 h-4" /><span>{c.phone}</span></div>}<div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><span>{format(new Date(c.expiration_date), 'dd/MM/yyyy')}</span></div><div className="flex items-center gap-2 text-muted-foreground col-span-2"><User className="w-4 h-4" /><span className="truncate">{c.seller_name}</span></div></div></CardContent></Card>)}</div>
         {filteredClients.length === 0 && <div className="text-center py-16"><p className="text-muted-foreground">Nenhum cliente encontrado</p></div>}
       </div>
     </AppLayout>
