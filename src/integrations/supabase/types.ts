@@ -32,6 +32,7 @@ export type Database = {
           plan_price: number | null
           seller_id: string
           server_id: string | null
+          server_ids: string[] | null
           server_name: string | null
           updated_at: string | null
         }
@@ -52,6 +53,7 @@ export type Database = {
           plan_price?: number | null
           seller_id: string
           server_id?: string | null
+          server_ids?: string[] | null
           server_name?: string | null
           updated_at?: string | null
         }
@@ -72,6 +74,7 @@ export type Database = {
           plan_price?: number | null
           seller_id?: string
           server_id?: string | null
+          server_ids?: string[] | null
           server_name?: string | null
           updated_at?: string | null
         }

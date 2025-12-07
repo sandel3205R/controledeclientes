@@ -155,10 +155,15 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setSelectedDevices(predefined);
       setCustomDevice(custom);
       
-      // Parse server_id to extract multiple server IDs
-      const serverIdString = client.server_id || '';
-      const serverIds = serverIdString.split(',').map(s => s.trim()).filter(Boolean);
-      setSelectedServers(serverIds);
+      // Parse server_ids array or fallback to server_id
+      const serverIds = (client as any).server_ids || [];
+      if (serverIds.length > 0) {
+        setSelectedServers(serverIds);
+      } else if (client.server_id) {
+        setSelectedServers([client.server_id]);
+      } else {
+        setSelectedServers([]);
+      }
       
       reset({
         name: client.name,
@@ -239,12 +244,11 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       // Build device string from checkboxes and custom input
       const deviceString = getDeviceString();
 
-      // Use first selected server for server_id (must be valid UUID or null)
-      // Store all server names in server_name field
-      const primaryServerId = selectedServers.length > 0 ? selectedServers[0] : null;
-      
       // Combine selected server names with any additional premium accounts
       const allServerNames = [selectedServerNames, data.server_name].filter(Boolean).join(', ');
+      
+      // Use first selected server for server_id (for backwards compatibility)
+      const primaryServerId = selectedServers.length > 0 ? selectedServers[0] : null;
 
       const clientData = {
         name: data.name,
@@ -259,6 +263,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         mac_address: data.mac_address || null,
         server_name: allServerNames || null,
         server_id: primaryServerId,
+        server_ids: selectedServers,
         seller_id: user.id,
       };
 
