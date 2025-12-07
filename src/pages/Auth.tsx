@@ -6,23 +6,51 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Tv, Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { Tv, Mail, Lock, User, ArrowRight, Sparkles, Phone } from 'lucide-react';
 import { z } from 'zod';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').optional(),
+  whatsapp: z.string().optional(),
 });
+
+// Format phone number as +55 31 95555-5555
+const formatWhatsApp = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  
+  if (digits.length === 0) return '';
+  
+  let formatted = '+';
+  
+  if (digits.length <= 2) {
+    formatted += digits;
+  } else if (digits.length <= 4) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  } else if (digits.length <= 9) {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4)}`;
+  } else {
+    formatted += `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+  }
+  
+  return formatted;
+};
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatWhatsApp(e.target.value);
+    setWhatsapp(formatted);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +61,7 @@ export default function Auth() {
         email,
         password,
         fullName: isLogin ? undefined : fullName,
+        whatsapp: isLogin ? undefined : whatsapp,
       });
 
       if (!validation.success) {
@@ -54,7 +83,7 @@ export default function Auth() {
           navigate('/dashboard');
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, whatsapp || undefined);
         if (error) {
           if (error.message.includes('User already registered')) {
             toast.error('Este e-mail já está cadastrado');
@@ -104,23 +133,42 @@ export default function Auth() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-medium">
-                    Nome completo
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="Seu nome"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="pl-10"
-                      required={!isLogin}
-                    />
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName" className="text-sm font-medium">
+                      Nome completo
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="Seu nome"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="pl-10"
+                        required={!isLogin}
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp" className="text-sm font-medium">
+                      WhatsApp <span className="text-muted-foreground text-xs">(para lembretes)</span>
+                    </Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="whatsapp"
+                        type="text"
+                        placeholder="+55 31 95555-5555"
+                        value={whatsapp}
+                        onChange={handleWhatsAppChange}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">
