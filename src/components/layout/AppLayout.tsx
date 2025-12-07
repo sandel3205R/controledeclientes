@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
 import {
   LayoutDashboard,
   Users,
@@ -64,25 +65,25 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-sidebar-border transition-transform duration-300 flex flex-col",
+          "fixed lg:static inset-y-0 left-0 z-50 w-64 lg:w-72 bg-sidebar border-r border-sidebar-border transition-transform duration-300 flex flex-col",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-sidebar-border">
+        <div className="p-4 lg:p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-effect">
               <Tv className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="font-bold text-lg gradient-text">StreamControl</h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-lg gradient-text truncate">StreamControl</h1>
               <p className="text-xs text-muted-foreground capitalize">{role || 'Usuário'}</p>
             </div>
           </div>
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -93,23 +94,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   setSidebarOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
+                  "w-full flex items-center gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent"
+                    ? "bg-primary/15 text-primary border border-primary/30 glow-effect"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-primary"
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="flex-1 text-left">{item.label}</span>
-                {isActive && <ChevronRight className="w-4 h-4" />}
+                <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
+                <span className="flex-1 text-left truncate">{item.label}</span>
+                {isActive && <ChevronRight className="w-4 h-4 text-primary" />}
               </button>
             );
           })}
         </nav>
 
         {/* User & Logout */}
-        <div className="p-4 border-t border-sidebar-border space-y-2">
-          <div className="px-4 py-3 rounded-lg bg-sidebar-accent/50">
+        <div className="p-3 lg:p-4 border-t border-sidebar-border space-y-2">
+          <div className="px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg bg-sidebar-accent/50 border border-sidebar-border">
             <p className="text-sm font-medium truncate">{user?.email}</p>
             <p className="text-xs text-muted-foreground capitalize">{role}</p>
           </div>
@@ -125,29 +126,34 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border p-4">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <Tv className="w-4 h-4 text-primary-foreground" />
+      <div className="flex-1 flex flex-col min-h-screen w-full">
+        {/* Header */}
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center justify-between p-3 lg:p-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden"
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-2 lg:hidden">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <Tv className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <span className="font-bold gradient-text">StreamControl</span>
               </div>
-              <span className="font-bold gradient-text">StreamControl</span>
             </div>
-            <div className="w-10" /> {/* Spacer */}
+            <div className="flex items-center gap-2">
+              <ThemeSwitcher />
+            </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">
+        <main className="flex-1 p-3 lg:p-6 xl:p-8 overflow-auto">
           {children}
         </main>
       </div>
@@ -155,7 +161,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Mobile close button */}
       {sidebarOpen && (
         <button
-          className="fixed top-4 right-4 z-50 lg:hidden p-2 rounded-lg bg-card border border-border"
+          className="fixed top-4 right-4 z-50 lg:hidden p-2 rounded-lg bg-card border border-border shadow-lg"
           onClick={() => setSidebarOpen(false)}
         >
           <X className="w-5 h-5" />

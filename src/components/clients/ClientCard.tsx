@@ -3,11 +3,29 @@ import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, Server, Wifi } from 'lucide-react';
+import { 
+  Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
+  User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
+  Server, Wifi, Copy, MoreHorizontal 
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
 interface ClientCardProps {
   client: {
     id: string;
@@ -60,15 +78,20 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
   }, [user]);
 
   const getStatus = () => {
-    if (isExpired) return { label: 'Vencido', class: 'status-expired' };
-    if (isExpiring) return { label: `Vence em ${daysUntilExpiration}d`, class: 'status-expiring' };
-    return { label: 'Ativo', class: 'status-active' };
+    if (isExpired) return { label: 'Vencido', class: 'status-expired', icon: '🔴' };
+    if (isExpiring) return { label: `${daysUntilExpiration}d`, class: 'status-expiring', icon: '🟡' };
+    return { label: 'Ativo', class: 'status-active', icon: '🟢' };
   };
 
   const status = getStatus();
 
   const formatPhone = (phone: string) => {
     return phone.replace(/\D/g, '');
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
   };
 
   const replaceVariables = (message: string) => {
@@ -87,7 +110,6 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     const phone = formatPhone(client.phone);
     const planName = client.plan_name || 'seu plano';
     
-    // Check if there's a custom default template for this type
     const customTemplate = templates.find(t => t.type === type && t.is_default);
     
     let message: string;
@@ -95,7 +117,6 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     if (customTemplate) {
       message = replaceVariables(customTemplate.message);
     } else {
-      // Default messages
       const defaultMessages = {
         billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
         welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
@@ -114,7 +135,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     setIsRenewing(true);
     try {
       const baseDate = isPast(expirationDate) ? new Date() : expirationDate;
-      const newExpiration = addDays(baseDate, 30); // Default 30 days renewal
+      const newExpiration = addDays(baseDate, 30);
       await onRenew(client.id, format(newExpiration, 'yyyy-MM-dd'));
     } finally {
       setIsRenewing(false);
@@ -122,147 +143,208 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
   };
 
   return (
-    <Card variant="gradient" className="animate-scale-in hover:scale-[1.01] transition-transform">
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-4">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-2">
+    <Card className="card-hover border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+      <CardContent className="p-0">
+        {/* Header with gradient accent */}
+        <div className="p-4 border-b border-border/30">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-base truncate">{client.name}</h3>
-              {(client.plan_name || client.plan_price) && (
-                <p className="text-sm text-muted-foreground">
-                  {client.plan_name}{client.plan_name && client.plan_price ? ' • ' : ''}
-                  {client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : ''}
-                </p>
-              )}
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-base truncate">{client.name}</h3>
+                <Badge className={cn("shrink-0 text-[10px] px-1.5 py-0", status.class)}>
+                  {status.label}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {client.plan_name && (
+                  <span className="text-sm text-primary font-medium">{client.plan_name}</span>
+                )}
+                {client.plan_price && (
+                  <span className="text-sm text-muted-foreground">
+                    R$ {client.plan_price.toFixed(2)}
+                  </span>
+                )}
+              </div>
             </div>
-            <Badge className={cn("shrink-0 border text-xs", status.class)}>
-              {status.label}
-            </Badge>
+            
+            {/* Actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                {onRenew && (
+                  <DropdownMenuItem onClick={handleRenew} disabled={isRenewing}>
+                    <RefreshCw className={cn("w-4 h-4 mr-2", isRenewing && "animate-spin")} />
+                    Renovar (+30 dias)
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+        </div>
 
-          {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
+        {/* Info section */}
+        <div className="p-4 space-y-3">
+          {/* Primary info row */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="w-4 h-4 shrink-0" />
+              <Calendar className="w-3.5 h-3.5 shrink-0 text-primary" />
               <span className="truncate">{format(expirationDate, 'dd/MM/yyyy')}</span>
             </div>
             {client.phone && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="w-4 h-4 shrink-0" />
+                <Phone className="w-3.5 h-3.5 shrink-0 text-primary" />
                 <span className="truncate">{client.phone}</span>
               </div>
             )}
+          </div>
+
+          {/* Secondary info */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
             {client.device && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Monitor className="w-4 h-4 shrink-0" />
+                <Monitor className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{client.device}</span>
-              </div>
-            )}
-            {client.login && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="w-4 h-4 shrink-0" />
-                <span className="truncate">{client.login}</span>
               </div>
             )}
             {client.app_name && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Smartphone className="w-4 h-4 shrink-0" />
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{client.app_name}</span>
-              </div>
-            )}
-            {client.mac_address && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Wifi className="w-4 h-4 shrink-0" />
-                <span className="truncate font-mono text-xs">{client.mac_address}</span>
               </div>
             )}
             {client.server_name && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Server className="w-4 h-4 shrink-0" />
+                <Server className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{client.server_name}</span>
+              </div>
+            )}
+            {client.mac_address && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Wifi className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate font-mono text-xs">{client.mac_address}</span>
               </div>
             )}
           </div>
 
-          {/* Password */}
-          {client.password && (
-            <div className="flex items-center gap-2 text-sm">
-              <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground truncate">
-                {showPassword ? client.password : '••••••••'}
-              </span>
-              <button
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+          {/* Credentials */}
+          {(client.login || client.password) && (
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border border-border/30">
+              {client.login && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => copyToClipboard(client.login!, 'Usuário')}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-[80px]">{client.login}</span>
+                      <Copy className="w-3 h-3 opacity-50" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copiar usuário</TooltipContent>
+                </Tooltip>
+              )}
+              {client.password && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => copyToClipboard(client.password!, 'Senha')}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-[60px]">
+                        {showPassword ? client.password : '••••••'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPassword(!showPassword);
+                        }}
+                        className="ml-1"
+                      >
+                        {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copiar senha</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-            {onRenew && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleRenew}
-                disabled={isRenewing}
-                className="flex-1 min-w-[100px]"
-              >
-                <RefreshCw className={cn("w-4 h-4", isRenewing && "animate-spin")} />
-                <span className="hidden sm:inline">Renovar</span>
-              </Button>
-            )}
-            {client.phone && (
-              <>
-                <Button
-                  variant="whatsapp"
-                  size="sm"
-                  onClick={() => sendWhatsApp('billing')}
-                  className="flex-1 min-w-[80px]"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cobrança</span>
-                </Button>
-                <Button
-                  variant="whatsapp"
-                  size="sm"
-                  onClick={() => sendWhatsApp('renewal')}
-                  className="flex-1 min-w-[80px]"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Renovado</span>
-                </Button>
-                <Button
-                  variant="whatsapp"
-                  size="sm"
-                  onClick={() => sendWhatsApp('reminder')}
-                  className="flex-1 min-w-[80px]"
-                >
-                  <Bell className="w-4 h-4" />
-                  <span className="hidden sm:inline">Lembrete</span>
-                </Button>
-                <Button
-                  variant="whatsapp"
-                  size="sm"
-                  onClick={() => sendWhatsApp('welcome')}
-                  className="flex-1 min-w-[80px]"
-                >
-                  <PartyPopper className="w-4 h-4" />
-                  <span className="hidden sm:inline">Boas-vindas</span>
-                </Button>
-              </>
-            )}
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button variant="destructive" size="sm" onClick={onDelete}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
+
+        {/* WhatsApp Actions */}
+        {client.phone && (
+          <div className="p-3 pt-0">
+            <div className="grid grid-cols-4 gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendWhatsApp('billing')}
+                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Cobrança</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendWhatsApp('renewal')}
+                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Renovado</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendWhatsApp('reminder')}
+                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Lembrete</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendWhatsApp('welcome')}
+                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                  >
+                    <PartyPopper className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Boas-vindas</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
