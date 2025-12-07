@@ -18,6 +18,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import logoImg from '@/assets/logo.jpg';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -73,8 +74,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Logo */}
         <div className="p-4 lg:p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-effect">
-              <Tv className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center">
+              <img src={logoImg} alt="Logo" className="w-8 h-8 object-contain" />
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="font-bold text-lg gradient-text truncate">Controle de Clientes</h1>
@@ -141,8 +142,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <Menu className="w-5 h-5" />
               </Button>
               <div className="flex items-center gap-2 lg:hidden">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                  <Tv className="w-4 h-4 text-primary-foreground" />
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                  <img src={logoImg} alt="Logo" className="w-6 h-6 object-contain" />
                 </div>
                 <span className="font-bold gradient-text">Controle de Clientes</span>
               </div>
