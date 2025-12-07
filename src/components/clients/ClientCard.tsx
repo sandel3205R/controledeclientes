@@ -298,59 +298,43 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
         {/* WhatsApp Actions */}
         {client.phone && (
           <div className="p-3 pt-0">
-            <div className="grid grid-cols-4 gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendWhatsApp('billing')}
-                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Cobrança</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendWhatsApp('renewal')}
-                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Renovado</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendWhatsApp('reminder')}
-                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
-                  >
-                    <Bell className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Lembrete</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendWhatsApp('welcome')}
-                    className="h-9 px-2 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400"
-                  >
-                    <PartyPopper className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Boas-vindas</TooltipContent>
-              </Tooltip>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendWhatsApp('billing')}
+                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Cobrar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendWhatsApp('renewal')}
+                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Renovar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendWhatsApp('reminder')}
+                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                Lembrar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendWhatsApp('welcome')}
+                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
+              >
+                <PartyPopper className="w-3.5 h-3.5" />
+                Boas-vindas
+              </Button>
             </div>
           </div>
         )}
