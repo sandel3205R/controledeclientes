@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
-
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 interface ClientCardProps {
   client: {
     id: string;
@@ -24,14 +25,36 @@ interface ClientCardProps {
   onRenew?: (clientId: string, newExpirationDate: string) => void;
 }
 
+interface WhatsAppTemplate {
+  id: string;
+  type: string;
+  message: string;
+  is_default: boolean;
+}
+
 export default function ClientCard({ client, onEdit, onDelete, onRenew }: ClientCardProps) {
+  const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   
   const expirationDate = new Date(client.expiration_date);
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
   const isExpired = isPast(expirationDate);
   const isExpiring = !isExpired && daysUntilExpiration <= 7;
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('whatsapp_templates')
+        .select('id, type, message, is_default')
+        .eq('seller_id', user.id)
+        .eq('is_default', true)
+        .then(({ data }) => {
+          if (data) setTemplates(data as WhatsAppTemplate[]);
+        });
+    }
+  }, [user]);
 
   const getStatus = () => {
     if (isExpired) return { label: 'Vencido', class: 'status-expired' };
@@ -45,19 +68,41 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     return phone.replace(/\D/g, '');
   };
 
+  const replaceVariables = (message: string) => {
+    return message
+      .replace(/{nome}/g, client.name)
+      .replace(/{plano}/g, client.plan_name || 'seu plano')
+      .replace(/{vencimento}/g, format(expirationDate, "dd 'de' MMMM", { locale: ptBR }))
+      .replace(/{dispositivo}/g, client.device || 'N/A')
+      .replace(/{usuario}/g, client.login || 'N/A')
+      .replace(/{senha}/g, client.password || 'N/A')
+      .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A');
+  };
+
   const sendWhatsApp = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
     if (!client.phone) return;
     const phone = formatPhone(client.phone);
     const planName = client.plan_name || 'seu plano';
     
-    const messages = {
-      billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
-      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
-      renewal: `Olá ${client.name}! ✅\n\nSeu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!`,
-      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!`,
-    };
+    // Check if there's a custom default template for this type
+    const customTemplate = templates.find(t => t.type === type && t.is_default);
+    
+    let message: string;
+    
+    if (customTemplate) {
+      message = replaceVariables(customTemplate.message);
+    } else {
+      // Default messages
+      const defaultMessages = {
+        billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
+        renewal: `Olá ${client.name}! ✅\n\nSeu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!`,
+        reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!`,
+      };
+      message = defaultMessages[type];
+    }
 
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleRenew = async () => {
