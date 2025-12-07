@@ -11,6 +11,7 @@ interface CreateSellerRequest {
   password: string;
   full_name: string;
   whatsapp?: string;
+  plan_type: 'trial' | 'active'; // trial = 3 days, active = 30 days
 }
 
 serve(async (req) => {
@@ -71,9 +72,14 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email, password, full_name, whatsapp }: CreateSellerRequest = body;
+    const { email, password, full_name, whatsapp, plan_type = 'trial' }: CreateSellerRequest = body;
     
-    console.log("Creating seller with email:", email, "name:", full_name);
+    console.log("Creating seller with email:", email, "name:", full_name, "plan:", plan_type);
+
+    // Calculate expiration based on plan type
+    const now = new Date();
+    const daysToAdd = plan_type === 'active' ? 30 : 3;
+    const expirationDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
 
     // Create user with admin API (doesn't affect current session)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -90,11 +96,16 @@ serve(async (req) => {
 
     console.log("User created:", newUser.user?.id);
 
-    // Update profile with whatsapp if provided
-    if (whatsapp && newUser.user) {
+    // Update profile with whatsapp and subscription expiration
+    if (newUser.user) {
       const { error: updateError } = await supabaseAdmin
         .from("profiles")
-        .update({ whatsapp, full_name })
+        .update({ 
+          whatsapp: whatsapp || null, 
+          full_name,
+          subscription_expires_at: expirationDate.toISOString(),
+          is_permanent: false
+        })
         .eq("id", newUser.user.id);
       
       if (updateError) {

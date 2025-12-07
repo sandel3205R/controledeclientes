@@ -10,7 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +35,7 @@ const sellerSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   whatsapp: z.string().optional().or(z.literal('')),
+  plan_type: z.enum(['trial', 'active']),
 });
 
 const updateSchema = z.object({
@@ -86,6 +88,7 @@ export default function Sellers() {
       password: '',
       full_name: '',
       whatsapp: '',
+      plan_type: 'trial',
     }
   });
 
@@ -274,6 +277,7 @@ export default function Sellers() {
           password: data.password,
           full_name: data.full_name,
           whatsapp: data.whatsapp || null,
+          plan_type: data.plan_type,
         },
       });
 
@@ -619,6 +623,40 @@ export default function Sellers() {
                   <p className="text-xs text-destructive">{createForm.formState.errors.whatsapp.message}</p>
                 )}
               </div>
+              
+              {/* Plan Type Selection */}
+              <div className="space-y-3">
+                <Label>Tipo de Plano *</Label>
+                <RadioGroup
+                  value={createForm.watch('plan_type')}
+                  onValueChange={(value: 'trial' | 'active') => createForm.setValue('plan_type', value)}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <div className="relative">
+                    <RadioGroupItem value="trial" id="trial" className="peer sr-only" />
+                    <label
+                      htmlFor="trial"
+                      className="flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-muted/50"
+                    >
+                      <Gift className="w-6 h-6 mb-2 text-yellow-500" />
+                      <span className="font-medium">Teste Grátis</span>
+                      <span className="text-xs text-muted-foreground">3 dias</span>
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <RadioGroupItem value="active" id="active" className="peer sr-only" />
+                    <label
+                      htmlFor="active"
+                      className="flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-muted/50"
+                    >
+                      <CreditCard className="w-6 h-6 mb-2 text-green-500" />
+                      <span className="font-medium">Plano Ativo</span>
+                      <span className="text-xs text-muted-foreground">30 dias</span>
+                    </label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                 <Button type="submit" variant="gradient" className="flex-1" disabled={submitting}>
