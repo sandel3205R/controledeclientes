@@ -15,8 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { differenceInDays, isPast } from 'date-fns';
 import * as XLSX from 'xlsx';
 import {
@@ -83,6 +85,9 @@ export default function Clients() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [serverFilter, setServerFilter] = useState<string>('all');
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const fetchClients = async () => {
     if (!user) return;
@@ -210,6 +215,48 @@ export default function Clients() {
       toast.success('Cliente renovado com sucesso!');
       fetchClients();
     }
+  };
+
+  const toggleClientSelection = (clientId: string) => {
+    const newSelected = new Set(selectedClients);
+    if (newSelected.has(clientId)) {
+      newSelected.delete(clientId);
+    } else {
+      newSelected.add(clientId);
+    }
+    setSelectedClients(newSelected);
+  };
+
+  const toggleAllClients = () => {
+    if (selectedClients.size === filteredClients.length) {
+      setSelectedClients(new Set());
+    } else {
+      setSelectedClients(new Set(filteredClients.map((c) => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const idsToDelete = Array.from(selectedClients);
+    
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .in('id', idsToDelete);
+
+    if (error) {
+      toast.error('Erro ao excluir clientes');
+    } else {
+      toast.success(`${idsToDelete.length} cliente(s) excluído(s) com sucesso`);
+      setSelectedClients(new Set());
+      setIsSelectionMode(false);
+      fetchClients();
+    }
+    setBulkDeleteOpen(false);
+  };
+
+  const cancelSelection = () => {
+    setSelectedClients(new Set());
+    setIsSelectionMode(false);
   };
 
   const exportToExcel = () => {
@@ -359,45 +406,86 @@ export default function Clients() {
             <h1 className="text-2xl lg:text-3xl font-bold">Meus Clientes</h1>
             <p className="text-muted-foreground">{filteredClients.length} clientes encontrados</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setBulkMessageOpen(true)}
-              className="bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Mensagem em Massa</span>
-              <span className="sm:hidden">Massa</span>
-            </Button>
-            <Button variant="outline" onClick={exportToExcel}>
-              <Download className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Exportar</span>
-            </Button>
-            <label>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleImportExcel}
-                className="hidden"
-              />
-              <Button variant="outline" asChild>
-                <span className="cursor-pointer">
-                  <Upload className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Importar</span>
-                </span>
+          
+          {isSelectionMode ? (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-muted-foreground">
+                {selectedClients.size} selecionado(s)
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAllClients}
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                {selectedClients.size === filteredClients.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
               </Button>
-            </label>
-            <Button
-              variant="gradient"
-              onClick={() => {
-                setEditingClient(null);
-                setDialogOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Cliente
-            </Button>
-          </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                disabled={selectedClients.size === 0}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir ({selectedClients.size})
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={cancelSelection}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsSelectionMode(true)}
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Selecionar</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setBulkMessageOpen(true)}
+                className="bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Mensagem em Massa</span>
+                <span className="sm:hidden">Massa</span>
+              </Button>
+              <Button variant="outline" onClick={exportToExcel}>
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Exportar</span>
+              </Button>
+              <label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleImportExcel}
+                  className="hidden"
+                />
+                <Button variant="outline" asChild>
+                  <span className="cursor-pointer">
+                    <Upload className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Importar</span>
+                  </span>
+                </Button>
+              </label>
+              <Button
+                variant="gradient"
+                onClick={() => {
+                  setEditingClient(null);
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Cliente
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -469,13 +557,37 @@ export default function Clients() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredClients.map((client) => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                onEdit={() => handleEdit(client)}
-                onDelete={() => setDeleteId(client.id)}
-                onRenew={handleRenew}
-              />
+              <div key={client.id} className="relative">
+                {isSelectionMode && (
+                  <div 
+                    className="absolute top-3 left-3 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleClientSelection(client.id);
+                    }}
+                  >
+                    <Checkbox
+                      checked={selectedClients.has(client.id)}
+                      onCheckedChange={() => toggleClientSelection(client.id)}
+                      className="h-5 w-5 bg-background border-2"
+                    />
+                  </div>
+                )}
+                <div 
+                  className={cn(
+                    isSelectionMode && "cursor-pointer",
+                    isSelectionMode && selectedClients.has(client.id) && "ring-2 ring-primary rounded-lg"
+                  )}
+                  onClick={() => isSelectionMode && toggleClientSelection(client.id)}
+                >
+                  <ClientCard
+                    client={client}
+                    onEdit={() => !isSelectionMode && handleEdit(client)}
+                    onDelete={() => !isSelectionMode && setDeleteId(client.id)}
+                    onRenew={handleRenew}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -513,6 +625,24 @@ export default function Clients() {
           clients={clients}
           templates={templates}
         />
+
+        {/* Bulk Delete Confirmation */}
+        <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir {selectedClients.size} cliente(s)?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Os clientes selecionados serão removidos permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground">
+                Excluir {selectedClients.size} cliente(s)
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
