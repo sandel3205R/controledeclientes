@@ -14,6 +14,7 @@ import {
   Tv,
   UserCircle,
   ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +40,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const sellerMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Meus Clientes', path: '/clients' },
+    { icon: MessageSquare, label: 'Templates', path: '/templates' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
 

@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Plans from "./pages/Plans";
 import Sellers from "./pages/Sellers";
-// AllClients removed - admin only manages sellers
+import Templates from "./pages/Templates";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Install from "./pages/Install";
@@ -107,6 +107,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates"
+        element={
+          <ProtectedRoute>
+            <Templates />
           </ProtectedRoute>
         }
       />
