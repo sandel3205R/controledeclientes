@@ -11,6 +11,7 @@ import Sellers from "./pages/Sellers";
 import AllClients from "./pages/AllClients";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/install" element={<Install />} />
       <Route
         path="/auth"
         element={
