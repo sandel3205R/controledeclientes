@@ -110,6 +110,7 @@ export type Database = {
         Row: {
           commission_percentage: number | null
           created_at: string | null
+          deleted_at: string | null
           email: string
           full_name: string | null
           id: string
@@ -120,6 +121,7 @@ export type Database = {
         Insert: {
           commission_percentage?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -130,6 +132,7 @@ export type Database = {
         Update: {
           commission_percentage?: number | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string
           full_name?: string | null
           id?: string
