@@ -130,6 +130,13 @@ export default function Clients() {
     fetchClients();
     fetchTemplates();
     fetchServers();
+
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchClients();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [user]);
 
   const getClientStatus = (expDate: string): StatusFilter => {
