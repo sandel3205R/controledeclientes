@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useExpirationAlerts } from '@/hooks/useExpirationAlerts';
@@ -351,15 +351,37 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchStats();
+    // Só executar quando user e role estiverem carregados
+    if (!user || role === null) {
+      return;
+    }
 
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(() => {
-      fetchStats();
-    }, 5000);
+    let isMounted = true;
+    let interval: NodeJS.Timeout | null = null;
 
-    return () => clearInterval(interval);
-  }, [user, isAdmin]);
+    const loadStats = async () => {
+      if (!isMounted) return;
+      
+      try {
+        await fetchStats();
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadStats();
+
+    // Auto-refresh a cada 30 segundos (não 5s para evitar sobrecarga)
+    interval = setInterval(loadStats, 30000);
+
+    return () => {
+      isMounted = false;
+      if (interval) clearInterval(interval);
+    };
+  }, [user?.id, role]);
 
   const pieData = [
     { name: 'Ativos', value: sellerStats.activeClients, color: 'hsl(142, 76%, 45%)' },
