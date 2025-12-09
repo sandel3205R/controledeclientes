@@ -234,8 +234,12 @@ export default function Sellers() {
       return { label: 'Sem plano', class: 'bg-destructive/20 text-destructive', icon: Clock };
     }
     const expiresAt = new Date(seller.subscription_expires_at);
-    const isExpired = isPast(expiresAt);
-    const daysRemaining = differenceInDays(expiresAt, new Date());
+    const now = new Date();
+    const isExpired = expiresAt < now;
+    
+    // Use Math.ceil to match the calculation in useAuth.tsx
+    const diffMs = expiresAt.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     
     if (isExpired) {
       return { label: 'Expirado', class: 'bg-destructive/20 text-destructive', icon: Clock };
