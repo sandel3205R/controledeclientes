@@ -88,16 +88,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    let mounted = true;
+
+    const initialize = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-            fetchSubscription(session.user.id);
-          }, 0);
+          // Fetch role and subscription in parallel
+          await Promise.all([
+            fetchUserRole(session.user.id),
+            fetchSubscription(session.user.id)
+          ]);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initialize();
+
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await Promise.all([
+            fetchUserRole(session.user.id),
+            fetchSubscription(session.user.id)
+          ]);
         } else {
           setRole(null);
           setSubscription(null);
@@ -106,17 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-        fetchSubscription(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => authSubscription.unsubscribe();
+    return () => {
+      mounted = false;
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
