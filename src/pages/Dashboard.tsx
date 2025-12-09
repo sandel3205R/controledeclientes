@@ -115,7 +115,7 @@ export default function Dashboard() {
   const [expiringSellers, setExpiringSellers] = useState<ExpiringSeller[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string; phone?: string | null; expiration_date: string }[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [refreshing, setRefreshing] = useState(false);
   const isAdmin = role === 'admin';
   
   // Use expiration alerts hook for seller dashboard
@@ -126,12 +126,15 @@ export default function Dashboard() {
     checkIntervalMinutes: 30,
   });
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async (isManualRefresh = false) => {
     if (!user) {
       setLoading(false);
       return;
     }
 
+    if (isManualRefresh) {
+      setRefreshing(true);
+    }
     if (isAdmin) {
         // Admin sees seller count and expiring sellers
         const { data: profiles } = await supabase
@@ -348,7 +351,8 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  };
+    setRefreshing(false);
+  }, [user, isAdmin]);
 
   useEffect(() => {
     // Só executar quando user e role estiverem carregados
@@ -441,9 +445,21 @@ ${ADMIN_NAME}`;
     return (
       <AppLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold">Dashboard Admin</h1>
-            <p className="text-muted-foreground">Gestão de vendedores</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold">Dashboard Admin</h1>
+              <p className="text-muted-foreground">Gestão de vendedores</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchStats(true)}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Atualizando...' : 'Atualizar'}
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -569,9 +585,21 @@ ${ADMIN_NAME}`;
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
-          <p className="text-muted-foreground">Seus clientes e estatísticas de vendas</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
+            <p className="text-muted-foreground">Seus clientes e estatísticas de vendas</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchStats(true)}
+            disabled={refreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Atualizando...' : 'Atualizar'}
+          </Button>
         </div>
 
         {/* Low Credit Alerts */}
