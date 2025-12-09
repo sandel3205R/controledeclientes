@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { OfflineSyncProvider } from "@/hooks/useOfflineSync";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { VersionNotification } from "@/components/VersionNotification";
+import { ForceUpdateButton } from "@/components/ForceUpdateButton";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -27,8 +28,10 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <ForceUpdateButton />
       </div>
     );
   }
@@ -49,8 +52,10 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <ForceUpdateButton />
       </div>
     );
   }

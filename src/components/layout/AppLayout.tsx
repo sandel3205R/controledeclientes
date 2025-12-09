@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
+import { ForceUpdateButton } from '@/components/ForceUpdateButton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   LayoutDashboard,
@@ -201,6 +202,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ForceUpdateButton variant="minimal" showLabel={false} />
               <ThemeSwitcher />
             </div>
           </div>
