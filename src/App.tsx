@@ -1,4 +1,3 @@
-import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,38 +7,30 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { OfflineSyncProvider } from "@/hooks/useOfflineSync";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { VersionNotification } from "@/components/VersionNotification";
-import { LoadingSkeleton, AuthLoadingSkeleton, MinimalSpinner } from "@/components/LoadingSkeleton";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Clients from "./pages/Clients";
+import Plans from "./pages/Plans";
+import Sellers from "./pages/Sellers";
+import Templates from "./pages/Templates";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
+import Install from "./pages/Install";
+import Servers from "./pages/Servers";
+import Backup from "./pages/Backup";
+import NotFound from "./pages/NotFound";
 
-// Lazy load all pages for faster initial load
-const Auth = lazy(() => import("./pages/Auth"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Clients = lazy(() => import("./pages/Clients"));
-const Plans = lazy(() => import("./pages/Plans"));
-const Sellers = lazy(() => import("./pages/Sellers"));
-const Templates = lazy(() => import("./pages/Templates"));
-const Reports = lazy(() => import("./pages/Reports"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Install = lazy(() => import("./pages/Install"));
-const Servers = lazy(() => import("./pages/Servers"));
-const Backup = lazy(() => import("./pages/Backup"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, role, loading } = useAuth();
 
   if (loading) {
-    return <MinimalSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (!user) {
@@ -57,7 +48,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <MinimalSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (user) {
@@ -71,21 +66,12 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route
-        path="/install"
-        element={
-          <Suspense fallback={<AuthLoadingSkeleton />}>
-            <Install />
-          </Suspense>
-        }
-      />
+      <Route path="/install" element={<Install />} />
       <Route
         path="/auth"
         element={
           <AuthRoute>
-            <Suspense fallback={<AuthLoadingSkeleton />}>
-              <Auth />
-            </Suspense>
+            <Auth />
           </AuthRoute>
         }
       />
@@ -93,9 +79,7 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Dashboard />
-            </Suspense>
+            <Dashboard />
           </ProtectedRoute>
         }
       />
@@ -103,9 +87,7 @@ function AppRoutes() {
         path="/clients"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Clients />
-            </Suspense>
+            <Clients />
           </ProtectedRoute>
         }
       />
@@ -113,9 +95,7 @@ function AppRoutes() {
         path="/plans"
         element={
           <ProtectedRoute adminOnly>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Plans />
-            </Suspense>
+            <Plans />
           </ProtectedRoute>
         }
       />
@@ -123,9 +103,7 @@ function AppRoutes() {
         path="/sellers"
         element={
           <ProtectedRoute adminOnly>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Sellers />
-            </Suspense>
+            <Sellers />
           </ProtectedRoute>
         }
       />
@@ -133,9 +111,7 @@ function AppRoutes() {
         path="/reports"
         element={
           <ProtectedRoute adminOnly>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Reports />
-            </Suspense>
+            <Reports />
           </ProtectedRoute>
         }
       />
@@ -143,9 +119,7 @@ function AppRoutes() {
         path="/templates"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Templates />
-            </Suspense>
+            <Templates />
           </ProtectedRoute>
         }
       />
@@ -153,9 +127,7 @@ function AppRoutes() {
         path="/servers"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Servers />
-            </Suspense>
+            <Servers />
           </ProtectedRoute>
         }
       />
@@ -163,9 +135,7 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Settings />
-            </Suspense>
+            <Settings />
           </ProtectedRoute>
         }
       />
@@ -173,20 +143,11 @@ function AppRoutes() {
         path="/backup"
         element={
           <ProtectedRoute adminOnly>
-            <Suspense fallback={<LoadingSkeleton />}>
-              <Backup />
-            </Suspense>
+            <Backup />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="*"
-        element={
-          <Suspense fallback={<MinimalSpinner />}>
-            <NotFound />
-          </Suspense>
-        }
-      />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
