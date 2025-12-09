@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -10,37 +10,60 @@ interface PendingAction {
   timestamp: number;
 }
 
-interface OfflineSyncOptions {
-  onSyncComplete?: () => void;
-  onSyncError?: (error: Error) => void;
+interface LocalData {
+  clients: Record<string, unknown>[];
+  servers: Record<string, unknown>[];
+  plans: Record<string, unknown>[];
+  templates: Record<string, unknown>[];
 }
 
 const PENDING_ACTIONS_KEY = 'offline_pending_actions';
-const OFFLINE_DATA_PREFIX = 'offline_data_';
+const LOCAL_DATA_KEY = 'offline_local_data';
+const LAST_SYNC_KEY = 'offline_last_sync';
+const SYNC_SCHEDULE_KEY = 'offline_sync_schedule';
 
-export function useOfflineSync(options: OfflineSyncOptions = {}) {
+// Default sync times: 8:00, 14:00, 20:00
+const DEFAULT_SYNC_HOURS = [8, 14, 20];
+
+export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [nextSync, setNextSync] = useState<Date | null>(null);
   const syncInProgress = useRef(false);
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load pending actions count
+  // Initialize
   useEffect(() => {
     const actions = getPendingActions();
     setPendingCount(actions.length);
+    
+    const storedLastSync = localStorage.getItem(LAST_SYNC_KEY);
+    if (storedLastSync) {
+      setLastSync(new Date(storedLastSync));
+    }
+    
+    calculateNextSync();
+    startSyncScheduler();
+
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
   }, []);
 
   // Online/Offline detection
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      toast.success('Conexão restaurada! Sincronizando dados...');
-      syncPendingActions();
+      toast.success('Conexão restaurada!');
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      toast.warning('Você está offline. As alterações serão salvas localmente.');
+      toast.info('Modo offline ativado. Seus dados estão salvos localmente.');
     };
 
     window.addEventListener('online', handleOnline);
@@ -50,6 +73,45 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, []);
+
+  // Calculate next sync time
+  const calculateNextSync = useCallback(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    let nextSyncHour = DEFAULT_SYNC_HOURS.find(h => h > currentHour);
+    let nextSyncDate = new Date(now);
+    
+    if (!nextSyncHour) {
+      // Next sync is tomorrow at first scheduled time
+      nextSyncHour = DEFAULT_SYNC_HOURS[0];
+      nextSyncDate.setDate(nextSyncDate.getDate() + 1);
+    }
+    
+    nextSyncDate.setHours(nextSyncHour, 0, 0, 0);
+    setNextSync(nextSyncDate);
+    return nextSyncDate;
+  }, []);
+
+  // Start sync scheduler
+  const startSyncScheduler = useCallback(() => {
+    // Check every minute if it's time to sync
+    syncIntervalRef.current = setInterval(() => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Sync at scheduled hours (at minute 0)
+      if (DEFAULT_SYNC_HOURS.includes(currentHour) && currentMinute === 0) {
+        if (navigator.onLine && !syncInProgress.current) {
+          syncPendingActions();
+        }
+      }
+      
+      // Update next sync time
+      calculateNextSync();
+    }, 60000); // Check every minute
   }, []);
 
   // Get pending actions from localStorage
@@ -68,13 +130,36 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
     setPendingCount(actions.length);
   }, []);
 
-  // Add a pending action
+  // Get local data
+  const getLocalData = useCallback((): LocalData => {
+    try {
+      const stored = localStorage.getItem(LOCAL_DATA_KEY);
+      return stored ? JSON.parse(stored) : { clients: [], servers: [], plans: [], templates: [] };
+    } catch {
+      return { clients: [], servers: [], plans: [], templates: [] };
+    }
+  }, []);
+
+  // Save local data
+  const saveLocalData = useCallback((data: Partial<LocalData>) => {
+    const current = getLocalData();
+    const updated = { ...current, ...data };
+    localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(updated));
+  }, [getLocalData]);
+
+  // Add a pending action (offline write)
   const addPendingAction = useCallback((
     table: string,
     action: 'insert' | 'update' | 'delete',
     data: Record<string, unknown>
   ) => {
     const actions = getPendingActions();
+    
+    // For updates/deletes, remove any existing pending actions for the same record
+    const filteredActions = actions.filter(a => 
+      !(a.table === table && a.data.id === data.id)
+    );
+    
     const newAction: PendingAction = {
       id: crypto.randomUUID(),
       table,
@@ -82,27 +167,65 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
       data,
       timestamp: Date.now(),
     };
-    actions.push(newAction);
-    savePendingActions(actions);
+    
+    filteredActions.push(newAction);
+    savePendingActions(filteredActions);
+    
+    // Also update local data cache
+    updateLocalDataCache(table, action, data);
+    
     return newAction.id;
   }, [getPendingActions, savePendingActions]);
 
-  // Remove a pending action
-  const removePendingAction = useCallback((id: string) => {
-    const actions = getPendingActions();
-    const filtered = actions.filter(a => a.id !== id);
-    savePendingActions(filtered);
-  }, [getPendingActions, savePendingActions]);
+  // Update local data cache when offline changes happen
+  const updateLocalDataCache = useCallback((
+    table: string,
+    action: 'insert' | 'update' | 'delete',
+    data: Record<string, unknown>
+  ) => {
+    const localData = getLocalData();
+    const tableKey = table as keyof LocalData;
+    
+    if (!localData[tableKey]) {
+      localData[tableKey] = [];
+    }
+    
+    switch (action) {
+      case 'insert':
+        localData[tableKey].push(data);
+        break;
+      case 'update':
+        const updateIndex = localData[tableKey].findIndex((item: Record<string, unknown>) => item.id === data.id);
+        if (updateIndex >= 0) {
+          localData[tableKey][updateIndex] = { ...localData[tableKey][updateIndex], ...data };
+        }
+        break;
+      case 'delete':
+        localData[tableKey] = localData[tableKey].filter((item: Record<string, unknown>) => item.id !== data.id);
+        break;
+    }
+    
+    saveLocalData(localData);
+  }, [getLocalData, saveLocalData]);
 
-  // Sync all pending actions
+  // Sync all pending actions to database
   const syncPendingActions = useCallback(async () => {
     if (syncInProgress.current || !navigator.onLine) return;
     
     const actions = getPendingActions();
-    if (actions.length === 0) return;
+    if (actions.length === 0) {
+      // Just update last sync time
+      const now = new Date();
+      localStorage.setItem(LAST_SYNC_KEY, now.toISOString());
+      setLastSync(now);
+      calculateNextSync();
+      return;
+    }
 
     syncInProgress.current = true;
     setIsSyncing(true);
+    
+    toast.info(`Sincronizando ${actions.length} alteração(ões)...`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -113,8 +236,6 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
     for (const action of sortedActions) {
       try {
         let result;
-        
-        // Use dynamic table access - type safety is handled at runtime
         const tableRef = supabase.from(action.table as 'clients');
         
         switch (action.action) {
@@ -143,7 +264,9 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
           console.error('Sync error:', result.error);
           errorCount++;
         } else {
-          removePendingAction(action.id);
+          // Remove synced action
+          const remaining = getPendingActions().filter(a => a.id !== action.id);
+          savePendingActions(remaining);
           successCount++;
         }
       } catch (error) {
@@ -152,83 +275,90 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
       }
     }
 
+    // Update last sync time
+    const now = new Date();
+    localStorage.setItem(LAST_SYNC_KEY, now.toISOString());
+    setLastSync(now);
+    calculateNextSync();
+
     setIsSyncing(false);
     syncInProgress.current = false;
 
     if (successCount > 0) {
-      toast.success(`${successCount} alteração(ões) sincronizada(s) com sucesso!`);
-      options.onSyncComplete?.();
+      toast.success(`${successCount} alteração(ões) sincronizada(s)!`);
     }
     
     if (errorCount > 0) {
-      toast.error(`${errorCount} alteração(ões) não puderam ser sincronizadas`);
-      options.onSyncError?.(new Error(`${errorCount} sync errors`));
+      toast.error(`${errorCount} alteração(ões) com erro. Tentará novamente na próxima sincronização.`);
     }
-  }, [getPendingActions, removePendingAction, options]);
+  }, [getPendingActions, savePendingActions, calculateNextSync]);
 
-  // Save data to offline cache
-  const saveOfflineData = useCallback((key: string, data: unknown) => {
-    try {
-      localStorage.setItem(`${OFFLINE_DATA_PREFIX}${key}`, JSON.stringify({
-        data,
-        timestamp: Date.now(),
-      }));
-    } catch (error) {
-      console.error('Error saving offline data:', error);
+  // Force manual sync
+  const forcSync = useCallback(async () => {
+    if (!navigator.onLine) {
+      toast.error('Sem conexão. Conecte-se à internet para sincronizar.');
+      return;
     }
-  }, []);
+    await syncPendingActions();
+  }, [syncPendingActions]);
 
-  // Get data from offline cache
-  const getOfflineData = useCallback(<T,>(key: string): T | null => {
-    try {
-      const stored = localStorage.getItem(`${OFFLINE_DATA_PREFIX}${key}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.data as T;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, []);
+  // Cache data locally (for reading offline)
+  const cacheData = useCallback((table: string, data: Record<string, unknown>[]) => {
+    const localData = getLocalData();
+    const tableKey = table as keyof LocalData;
+    localData[tableKey] = data;
+    saveLocalData(localData);
+  }, [getLocalData, saveLocalData]);
 
-  // Execute action with offline support
-  const executeWithOfflineSupport = useCallback(async <T,>(
+  // Get cached data
+  const getCachedData = useCallback((table: string): Record<string, unknown>[] => {
+    const localData = getLocalData();
+    const tableKey = table as keyof LocalData;
+    return localData[tableKey] || [];
+  }, [getLocalData]);
+
+  // Execute with offline-first approach
+  const executeOfflineFirst = useCallback(async <T,>(
     table: string,
     action: 'insert' | 'update' | 'delete',
-    data: Record<string, unknown>,
-    onlineAction: () => Promise<{ data: T | null; error: unknown }>
-  ): Promise<{ data: T | null; error: unknown; isOffline: boolean }> => {
-    if (navigator.onLine) {
-      const result = await onlineAction();
-      return { ...result, isOffline: false };
-    } else {
-      // Save to pending actions
-      addPendingAction(table, action, data);
-      return { data: data as T, error: null, isOffline: true };
-    }
+    data: Record<string, unknown>
+  ): Promise<{ success: boolean; isOffline: boolean }> => {
+    // Always save locally first
+    addPendingAction(table, action, data);
+    
+    return { success: true, isOffline: !navigator.onLine };
   }, [addPendingAction]);
 
   return {
     isOnline,
     isSyncing,
     pendingCount,
+    lastSync,
+    nextSync,
     addPendingAction,
     syncPendingActions,
-    saveOfflineData,
-    getOfflineData,
-    executeWithOfflineSupport,
+    forceSync: forcSync,
+    cacheData,
+    getCachedData,
+    executeOfflineFirst,
+    getLocalData,
+    saveLocalData,
   };
 }
 
 // Context for global offline sync state
-import { createContext, useContext, ReactNode } from 'react';
-
 interface OfflineSyncContextType {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
+  lastSync: Date | null;
+  nextSync: Date | null;
   syncPendingActions: () => Promise<void>;
+  forceSync: () => Promise<void>;
+  addPendingAction: (table: string, action: 'insert' | 'update' | 'delete', data: Record<string, unknown>) => string;
+  cacheData: (table: string, data: Record<string, unknown>[]) => void;
+  getCachedData: (table: string) => Record<string, unknown>[];
+  executeOfflineFirst: <T>(table: string, action: 'insert' | 'update' | 'delete', data: Record<string, unknown>) => Promise<{ success: boolean; isOffline: boolean }>;
 }
 
 const OfflineSyncContext = createContext<OfflineSyncContextType | null>(null);
@@ -241,7 +371,14 @@ export function OfflineSyncProvider({ children }: { children: ReactNode }) {
       isOnline: offlineSync.isOnline,
       isSyncing: offlineSync.isSyncing,
       pendingCount: offlineSync.pendingCount,
+      lastSync: offlineSync.lastSync,
+      nextSync: offlineSync.nextSync,
       syncPendingActions: offlineSync.syncPendingActions,
+      forceSync: offlineSync.forceSync,
+      addPendingAction: offlineSync.addPendingAction,
+      cacheData: offlineSync.cacheData,
+      getCachedData: offlineSync.getCachedData,
+      executeOfflineFirst: offlineSync.executeOfflineFirst,
     }}>
       {children}
     </OfflineSyncContext.Provider>
