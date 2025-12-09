@@ -134,22 +134,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialize();
 
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         
+        // Only synchronous state updates here
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Defer Supabase calls with setTimeout to prevent deadlock
         if (session?.user) {
-          await Promise.all([
-            fetchUserRole(session.user.id),
-            fetchSubscription(session.user.id)
-          ]);
+          setTimeout(() => {
+            if (mounted) {
+              Promise.all([
+                fetchUserRole(session.user.id),
+                fetchSubscription(session.user.id)
+              ]).finally(() => {
+                if (mounted) setLoading(false);
+              });
+            }
+          }, 0);
         } else {
           setRole(null);
           setSubscription(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
