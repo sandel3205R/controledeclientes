@@ -185,18 +185,21 @@ export default function Dashboard() {
           setExpiringSellers(expiring);
         }
       } else {
-        // Seller sees their own client stats
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('seller_id', user.id);
+        // Seller sees their own client stats - fetch in parallel
+        const [clientsResult, serversResult] = await Promise.all([
+          supabase
+            .from('clients')
+            .select('*')
+            .eq('seller_id', user.id),
+          supabase
+            .from('servers')
+            .select('*')
+            .eq('seller_id', user.id)
+            .eq('is_active', true)
+        ]);
 
-        // Fetch server stats
-        const { data: servers } = await supabase
-          .from('servers')
-          .select('*')
-          .eq('seller_id', user.id)
-          .eq('is_active', true);
+        const clients = clientsResult.data;
+        const servers = serversResult.data;
 
         if (clients) {
           const now = new Date();
