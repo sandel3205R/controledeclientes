@@ -92,26 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initialize = async () => {
       try {
-        // Try to get cached auth data first for instant load
-        const cachedSession = localStorage.getItem('sb-auth-session');
-        if (cachedSession) {
-          try {
-            const parsed = JSON.parse(cachedSession);
-            if (parsed?.user && mounted) {
-              setUser(parsed.user);
-              setSession(parsed);
-              // Load cached role/subscription immediately
-              const cachedRole = localStorage.getItem('user-role');
-              const cachedSub = localStorage.getItem('user-subscription');
-              if (cachedRole) setRole(JSON.parse(cachedRole));
-              if (cachedSub) setSubscription(JSON.parse(cachedSub));
-              setLoading(false);
-            }
-          } catch (e) {
-            // Invalid cache, continue with normal flow
-          }
-        }
-
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!mounted) return;
@@ -120,9 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Cache session for faster next load
-          localStorage.setItem('sb-auth-session', JSON.stringify(session));
-          
           // Fetch role and subscription in parallel
           const [roleData, subData] = await Promise.all([
             supabase.from('user_roles').select('role').eq('user_id', session.user.id).single(),
@@ -131,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (roleData.data && mounted) {
             setRole(roleData.data.role);
-            localStorage.setItem('user-role', JSON.stringify(roleData.data.role));
           }
           
           if (subData.data && mounted) {
@@ -152,21 +128,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               hoursRemaining = diffHours > 0 ? diffHours : 0;
             }
 
-            const subscriptionInfo = {
+            setSubscription({
               expiresAt,
               isPermanent,
               isExpired,
               daysRemaining,
               hoursRemaining
-            };
-            setSubscription(subscriptionInfo);
-            localStorage.setItem('user-subscription', JSON.stringify(subscriptionInfo));
+            });
           }
-        } else {
-          // Clear cache if no session
-          localStorage.removeItem('sb-auth-session');
-          localStorage.removeItem('user-role');
-          localStorage.removeItem('user-subscription');
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -239,11 +208,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Clear cache first
-    localStorage.removeItem('sb-auth-session');
-    localStorage.removeItem('user-role');
-    localStorage.removeItem('user-subscription');
-    
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
