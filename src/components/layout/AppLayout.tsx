@@ -6,18 +6,17 @@ import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
+import { PushNotificationToggle } from '@/components/PushNotificationToggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   LayoutDashboard,
   Users,
-  Package,
   BarChart3,
   Settings,
   LogOut,
   Menu,
   X,
   Tv,
-  UserCircle,
   ChevronRight,
   MessageSquare,
   AlertTriangle,
@@ -202,6 +201,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <PushNotificationToggle />
               <ForceUpdateButton variant="minimal" showLabel={false} />
               <ThemeSwitcher />
             </div>
