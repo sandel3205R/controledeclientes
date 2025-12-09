@@ -1,4 +1,4 @@
-import { useTheme, ThemeType } from '@/hooks/useTheme';
+import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
 import { Check, Palette } from 'lucide-react';
 import {
@@ -10,7 +10,12 @@ import {
 import { Button } from '@/components/ui/button';
 
 export default function ThemeSwitcher() {
-  const { theme, setTheme, themes } = useTheme();
+  const { theme, setTheme, themes, isAdmin } = useTheme();
+
+  // Only show for admins
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <DropdownMenu>
