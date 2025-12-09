@@ -19,6 +19,12 @@ interface Client {
   seller_id: string;
 }
 
+interface NotificationPreference {
+  user_id: string;
+  is_enabled: boolean;
+  days_before: number[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -32,39 +38,93 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get clients expiring in the next 3 days
-    const today = new Date();
-    const threeDaysFromNow = new Date(today);
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    // Get all notification preferences
+    const { data: allPreferences, error: prefsError } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('is_enabled', true);
 
-    const { data: expiringClients, error: clientsError } = await supabase
-      .from('clients')
-      .select('name, expiration_date, seller_id')
-      .gte('expiration_date', today.toISOString().split('T')[0])
-      .lte('expiration_date', threeDaysFromNow.toISOString().split('T')[0]);
-
-    if (clientsError) {
-      throw clientsError;
+    if (prefsError) {
+      console.error('Error fetching preferences:', prefsError);
     }
 
-    if (!expiringClients || expiringClients.length === 0) {
+    // Create a map of user preferences (default to [3] if no preference set)
+    const userPreferences = new Map<string, number[]>();
+    if (allPreferences) {
+      for (const pref of allPreferences as NotificationPreference[]) {
+        userPreferences.set(pref.user_id, pref.days_before || [3]);
+      }
+    }
+
+    // Get unique days to check from all preferences
+    const allDaysToCheck = new Set<number>([1, 3, 7]); // Default days
+    userPreferences.forEach(days => days.forEach(d => allDaysToCheck.add(d)));
+
+    // Get clients expiring on any of the configured days
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const clientsByDay: Record<number, Client[]> = {};
+    
+    for (const daysAhead of allDaysToCheck) {
+      const targetDate = new Date(today);
+      targetDate.setDate(targetDate.getDate() + daysAhead);
+      const targetDateStr = targetDate.toISOString().split('T')[0];
+
+      const { data: expiringClients, error: clientsError } = await supabase
+        .from('clients')
+        .select('name, expiration_date, seller_id')
+        .eq('expiration_date', targetDateStr);
+
+      if (clientsError) {
+        console.error(`Error fetching clients for day ${daysAhead}:`, clientsError);
+        continue;
+      }
+
+      if (expiringClients && expiringClients.length > 0) {
+        clientsByDay[daysAhead] = expiringClients;
+        console.log(`Found ${expiringClients.length} clients expiring in ${daysAhead} days`);
+      }
+    }
+
+    if (Object.keys(clientsByDay).length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No expiring clients found' }),
+        JSON.stringify({ message: 'No expiring clients found for any configured period' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Group clients by seller
-    const clientsBySeller = expiringClients.reduce((acc, client) => {
-      if (!acc[client.seller_id]) {
-        acc[client.seller_id] = [];
-      }
-      acc[client.seller_id].push(client);
-      return acc;
-    }, {} as Record<string, Client[]>);
+    // Group notifications by seller based on their preferences
+    const notificationsBySeller: Record<string, { clients: Client[], days: number[] }> = {};
 
-    // Get push subscriptions for sellers with expiring clients
-    const sellerIds = Object.keys(clientsBySeller);
+    for (const [daysStr, clients] of Object.entries(clientsByDay)) {
+      const days = parseInt(daysStr);
+      
+      for (const client of clients) {
+        const sellerPrefs = userPreferences.get(client.seller_id) || [3];
+        
+        // Only include if this seller wants notifications for this day
+        if (sellerPrefs.includes(days)) {
+          if (!notificationsBySeller[client.seller_id]) {
+            notificationsBySeller[client.seller_id] = { clients: [], days: [] };
+          }
+          notificationsBySeller[client.seller_id].clients.push(client);
+          if (!notificationsBySeller[client.seller_id].days.includes(days)) {
+            notificationsBySeller[client.seller_id].days.push(days);
+          }
+        }
+      }
+    }
+
+    // Get push subscriptions for sellers with notifications
+    const sellerIds = Object.keys(notificationsBySeller);
+    if (sellerIds.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No sellers match notification preferences' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: subscriptions, error: subsError } = await supabase
       .from('push_subscriptions')
       .select('*')
@@ -76,7 +136,7 @@ serve(async (req) => {
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No subscriptions found for sellers with expiring clients' }),
+        JSON.stringify({ message: 'No push subscriptions found for sellers' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -84,17 +144,21 @@ serve(async (req) => {
     // Send notifications
     const results = [];
     for (const subscription of subscriptions as PushSubscription[]) {
-      const sellerClients = clientsBySeller[subscription.user_id];
-      if (!sellerClients) continue;
+      const sellerData = notificationsBySeller[subscription.user_id];
+      if (!sellerData) continue;
 
-      const clientCount = sellerClients.length;
+      const clientCount = sellerData.clients.length;
+      const daysText = sellerData.days.length === 1 
+        ? `em ${sellerData.days[0]} ${sellerData.days[0] === 1 ? 'dia' : 'dias'}`
+        : 'nos próximos dias';
+      
       const payload = JSON.stringify({
         title: `${clientCount} cliente${clientCount > 1 ? 's' : ''} vencendo`,
         body: clientCount === 1 
-          ? `${sellerClients[0].name} vence em breve!`
-          : `Você tem ${clientCount} clientes com assinatura expirando nos próximos 3 dias.`,
+          ? `${sellerData.clients[0].name} vence ${daysText}!`
+          : `Você tem ${clientCount} clientes com assinatura expirando ${daysText}.`,
         icon: '/pwa-192x192.png',
-        url: '/clientes'
+        url: '/clients'
       });
 
       try {
