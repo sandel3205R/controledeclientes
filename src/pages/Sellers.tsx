@@ -83,6 +83,8 @@ export default function Sellers() {
   const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState<SellerWithStats | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<SellerWithStats | null>(null);
   const [passwordSeller, setPasswordSeller] = useState<SellerWithStats | null>(null);
+  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
+  const [emptyingTrash, setEmptyingTrash] = useState(false);
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -242,6 +244,32 @@ export default function Sellers() {
     } catch (error: any) {
       console.error('Error permanently deleting seller:', error);
       toast.error('Erro ao excluir vendedor permanentemente');
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    setEmptyingTrash(true);
+    try {
+      let deletedCount = 0;
+      for (const seller of trashedSellers) {
+        // Delete all associated data
+        await supabase.from('clients').delete().eq('seller_id', seller.id);
+        await supabase.from('servers').delete().eq('seller_id', seller.id);
+        await supabase.from('whatsapp_templates').delete().eq('seller_id', seller.id);
+        await supabase.from('user_roles').delete().eq('user_id', seller.id);
+        
+        const { error } = await supabase.from('profiles').delete().eq('id', seller.id);
+        if (!error) deletedCount++;
+      }
+
+      toast.success(`${deletedCount} vendedores excluídos permanentemente!`);
+      setEmptyTrashConfirm(false);
+      fetchSellers();
+    } catch (error: any) {
+      console.error('Error emptying trash:', error);
+      toast.error('Erro ao esvaziar lixeira');
+    } finally {
+      setEmptyingTrash(false);
     }
   };
 
@@ -776,10 +804,21 @@ SANDEL`
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {trashedSellers.map((seller) => (
-                  <SellerCard key={seller.id} seller={seller} isTrash />
-                ))}
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setEmptyTrashConfirm(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Esvaziar Lixeira ({trashedSellers.length})
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {trashedSellers.map((seller) => (
+                    <SellerCard key={seller.id} seller={seller} isTrash />
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>
@@ -1087,6 +1126,49 @@ SANDEL`
           seller={passwordSeller}
           onSuccess={fetchSellers}
         />
+
+        {/* Empty Trash Confirmation */}
+        <AlertDialog open={emptyTrashConfirm} onOpenChange={setEmptyTrashConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Esvaziar Lixeira</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>
+                  Você está prestes a excluir permanentemente <strong>{trashedSellers.length} vendedores</strong> da lixeira.
+                </p>
+                <p className="text-destructive font-medium">
+                  Esta ação é irreversível e todos os dados associados serão perdidos:
+                </p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                  <li>Todos os clientes dos vendedores</li>
+                  <li>Todos os servidores</li>
+                  <li>Todos os templates de WhatsApp</li>
+                  <li>Perfis e permissões</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={emptyingTrash}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleEmptyTrash} 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={emptyingTrash}
+              >
+                {emptyingTrash ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                    Excluindo...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Esvaziar Lixeira
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
