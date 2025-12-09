@@ -127,7 +127,10 @@ export default function Dashboard() {
   });
 
   const fetchStats = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     if (isAdmin) {
         // Admin sees seller count and expiring sellers
