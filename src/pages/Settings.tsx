@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { User, Lock, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { NotificationSettings as NotificationSettingsComponent } from '@/components/notifications/NotificationSettings';
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -84,8 +85,11 @@ export default function Settings() {
         {/* Header */}
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Configurações</h1>
-          <p className="text-muted-foreground">Gerencie sua conta</p>
+          <p className="text-muted-foreground">Gerencie sua conta e preferências</p>
         </div>
+
+        {/* Notification Settings */}
+        <NotificationSettingsComponent />
 
         {/* Profile Settings */}
         <Card variant="glow">
