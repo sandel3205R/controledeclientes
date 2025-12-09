@@ -134,7 +134,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </nav>
 
         {/* Subscription Counter for Sellers */}
-        {!isAdmin && !subscription?.isPermanent && subscription?.daysRemaining !== null && (
+        {!isAdmin && subscription && !subscription.isPermanent && subscription.daysRemaining !== null && (
           <div className="px-3 lg:px-4 py-2">
             <div className={cn(
               "px-3 py-2 rounded-lg border flex items-center gap-2",
