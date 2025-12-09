@@ -2,3 +2,6 @@ project_id = "ahrzjgkjlhixqubmpoya"
 
 [functions.create-seller]
 verify_jwt = true
+
+[functions.cleanup-trash]
+verify_jwt = false
