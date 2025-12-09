@@ -92,9 +92,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initialize = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
+        
+        // Handle invalid session errors
+        if (error) {
+          console.error('Session error:', error);
+          setSession(null);
+          setUser(null);
+          setRole(null);
+          setSubscription(null);
+          setLoading(false);
+          return;
+        }
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -108,6 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        // Clear state on error to prevent infinite loading
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setSubscription(null);
       } finally {
         if (mounted) {
           setLoading(false);
