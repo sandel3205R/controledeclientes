@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -134,15 +135,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </nav>
 
         {/* Subscription Counter for Sellers */}
-        {!isAdmin && subscription && !subscription.isPermanent && subscription.daysRemaining !== null && (
+        {!isAdmin && subscription && !subscription.isPermanent && subscription.expiresAt && (
           <div className="px-3 lg:px-4 py-2">
             <div className={cn(
               "px-3 py-2 rounded-lg border flex items-center gap-2",
               subscription.isExpired 
                 ? "bg-destructive/10 border-destructive/30 text-destructive"
-                : subscription.daysRemaining <= 1
+                : subscription.daysRemaining !== null && subscription.daysRemaining <= 1
                   ? "bg-red-500/10 border-red-500/30 text-red-500"
-                  : subscription.daysRemaining <= 3
+                  : subscription.daysRemaining !== null && subscription.daysRemaining <= 3
                     ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-500"
                     : "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-500"
             )}>
@@ -150,15 +151,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <div className="flex-1 min-w-0">
                 {subscription.isExpired ? (
                   <p className="text-xs font-medium">Plano expirado</p>
-                ) : subscription.daysRemaining <= 1 && subscription.hoursRemaining ? (
-                  <>
-                    <p className="text-xs font-medium">Tempo restante</p>
-                    <p className="text-sm font-bold">{subscription.hoursRemaining}h</p>
-                  </>
                 ) : (
                   <>
-                    <p className="text-xs font-medium">Dias restantes</p>
-                    <p className="text-sm font-bold">{subscription.daysRemaining} {subscription.daysRemaining === 1 ? 'dia' : 'dias'}</p>
+                    <p className="text-xs font-medium">Vencimento</p>
+                    <p className="text-sm font-bold">{format(new Date(subscription.expiresAt), 'dd/MM/yyyy')}</p>
                   </>
                 )}
               </div>
