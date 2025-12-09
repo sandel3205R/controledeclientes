@@ -12,7 +12,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Info, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Info, CheckCircle2, RefreshCw, Download } from 'lucide-react';
+import { usePWAUpdate } from '@/hooks/usePWAUpdate';
 
 const VERSION_KEY = 'app_last_version';
 const VERSION_SEEN_KEY = 'app_version_seen';
@@ -20,10 +21,48 @@ const VERSION_SEEN_KEY = 'app_version_seen';
 export function VersionNotification() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [isNewVersion, setIsNewVersion] = useState(false);
+  const { needRefresh, offlineReady, update, close } = usePWAUpdate();
+
+  // Show toast when new PWA version is available
+  useEffect(() => {
+    if (needRefresh) {
+      toast.info(
+        <div className="flex flex-col gap-2">
+          <span className="font-semibold flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Nova versão disponível!
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Clique no botão de versão para atualizar
+          </span>
+        </div>,
+        {
+          duration: 10000,
+        }
+      );
+    }
+  }, [needRefresh]);
+
+  // Show toast when offline ready
+  useEffect(() => {
+    if (offlineReady) {
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">App pronto para uso offline!</span>
+          <span className="text-xs text-muted-foreground">
+            Você pode usar o app mesmo sem internet
+          </span>
+        </div>,
+        {
+          duration: 5000,
+        }
+      );
+      close();
+    }
+  }, [offlineReady, close]);
 
   useEffect(() => {
     const lastVersion = localStorage.getItem(VERSION_KEY);
-    const versionSeen = localStorage.getItem(VERSION_SEEN_KEY);
 
     if (lastVersion && lastVersion !== APP_VERSION) {
       // App was updated
@@ -61,23 +100,35 @@ export function VersionNotification() {
 
   return (
     <Dialog open={showChangelog} onOpenChange={setShowChangelog}>
-      <DialogTrigger asChild>
+      {needRefresh ? (
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
-          className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 text-xs bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-background"
-          onClick={() => {
-            setShowChangelog(true);
-            markAsSeen();
-          }}
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 text-xs animate-pulse"
+          onClick={() => update()}
         >
-          {isNewVersion && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full animate-pulse" />
-          )}
-          <Info className="w-3.5 h-3.5" />
-          v{APP_VERSION}
+          <RefreshCw className="w-3.5 h-3.5" />
+          Atualizar App
         </Button>
-      </DialogTrigger>
+      ) : (
+        <DialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 text-xs bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-background"
+            onClick={() => {
+              setShowChangelog(true);
+              markAsSeen();
+            }}
+          >
+            {isNewVersion && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full animate-pulse" />
+            )}
+            <Info className="w-3.5 h-3.5" />
+            v{APP_VERSION}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
