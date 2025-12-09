@@ -107,6 +107,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* AllClients route removed - admin only manages sellers */}
       <Route
         path="/reports"
         element={
@@ -160,7 +161,7 @@ const App = () => (
           <Toaster position="top-right" richColors />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+            <AppRoutes />
               <OfflineIndicator />
               <VersionNotification />
             </AuthProvider>

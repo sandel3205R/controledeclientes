@@ -28,7 +28,7 @@ export function OfflineIndicator() {
           size="sm"
           variant="outline"
           onClick={() => syncPendingActions()}
-          className="flex items-center gap-1.5 bg-yellow-500/10 border-yellow-500/30 text-yellow-600 hover:bg-yellow-500/20"
+          className="flex items-center gap-1.5 bg-yellow-500/10 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/20"
         >
           <Cloud className="w-3.5 h-3.5" />
           {pendingCount} pendente(s)
@@ -42,6 +42,20 @@ export function OfflineIndicator() {
         >
           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
           Sincronizando...
+        </Badge>
+      )}
+
+      {isOnline && pendingCount === 0 && !isSyncing && (
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-xs",
+            "bg-green-500/10 border-green-500/30 text-green-500",
+            "animate-fade-in"
+          )}
+        >
+          <Wifi className="w-3.5 h-3.5" />
+          Online
         </Badge>
       )}
     </div>

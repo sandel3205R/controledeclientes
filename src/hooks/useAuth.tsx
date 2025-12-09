@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Fetch role and subscription in parallel
           await Promise.all([
             fetchUserRole(session.user.id),
             fetchSubscription(session.user.id)
@@ -164,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
+    // Update profile with whatsapp after signup
     if (!error && data.user && whatsapp) {
       await supabase
         .from('profiles')
