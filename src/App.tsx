@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { OfflineSyncProvider } from "@/hooks/useOfflineSync";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { VersionNotification } from "@/components/VersionNotification";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -160,8 +161,9 @@ const App = () => (
           <Toaster position="top-right" richColors />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+            <AppRoutes />
               <OfflineIndicator />
+              <VersionNotification />
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
