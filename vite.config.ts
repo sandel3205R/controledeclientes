@@ -14,7 +14,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
+      selfDestroying: false,
+      injectRegister: null,
       includeAssets: ["favicon.ico", "robots.txt", "logo.jpg"],
       manifest: {
         name: "Clientes Control - Gestão de Clientes",
