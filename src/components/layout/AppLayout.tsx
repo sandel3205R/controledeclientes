@@ -206,13 +206,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           {/* Subscription Expiring Warning Banner */}
-          {isExpiringSoon && (
+          {isExpiringSoon && subscription?.expiresAt && (
             <div className="px-3 lg:px-6 pt-3">
               <Alert className="bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-500">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <span>
-                    ⚠️ Seu plano vence em <strong>{subscription?.daysRemaining} {subscription?.daysRemaining === 1 ? 'dia' : 'dias'}</strong>. Entre em contato para renovar!
+                    ⚠️ Seu plano vence em <strong>{format(subscription.expiresAt, 'dd/MM/yyyy')}</strong>. Entre em contato para renovar!
                   </span>
                   <Button 
                     variant="whatsapp" 
