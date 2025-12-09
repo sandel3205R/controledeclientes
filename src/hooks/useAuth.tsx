@@ -10,6 +10,7 @@ interface SubscriptionInfo {
   isPermanent: boolean;
   isExpired: boolean;
   daysRemaining: number | null;
+  hoursRemaining: number | null;
 }
 
 interface AuthContextType {
@@ -57,15 +58,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isPermanent = data.is_permanent || false;
       const now = new Date();
       const isExpired = !isPermanent && expiresAt ? expiresAt < now : false;
-      const daysRemaining = expiresAt && !isPermanent 
-        ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        : null;
+      
+      let daysRemaining: number | null = null;
+      let hoursRemaining: number | null = null;
+      
+      if (expiresAt && !isPermanent) {
+        const diffMs = expiresAt.getTime() - now.getTime();
+        const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        
+        daysRemaining = diffDays > 0 ? diffDays : 0;
+        hoursRemaining = diffHours > 0 ? diffHours : 0;
+      }
 
       setSubscription({
         expiresAt,
         isPermanent,
         isExpired,
-        daysRemaining
+        daysRemaining,
+        hoursRemaining
       });
     }
   };
