@@ -79,9 +79,10 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
   }, [user]);
 
   const getStatus = () => {
-    if (isExpired) return { label: 'Vencido', class: 'status-expired', icon: '🔴' };
-    if (isExpiring) return { label: `${daysUntilExpiration}d`, class: 'status-expiring', icon: '🟡' };
-    return { label: 'Ativo', class: 'status-active', icon: '🟢' };
+    const formattedDate = format(expirationDate, 'dd/MM/yyyy');
+    if (isExpired) return { label: formattedDate, class: 'status-expired', icon: '🔴' };
+    if (isExpiring) return { label: formattedDate, class: 'status-expiring', icon: '🟡' };
+    return { label: formattedDate, class: 'status-active', icon: '🟢' };
   };
 
   const status = getStatus();
