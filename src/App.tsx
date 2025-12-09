@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { OfflineSyncProvider } from "@/hooks/useOfflineSync";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -153,14 +155,17 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <TooltipProvider>
-        <Toaster position="top-right" richColors />
-        <BrowserRouter>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+      <OfflineSyncProvider>
+        <TooltipProvider>
+          <Toaster position="top-right" richColors />
+          <BrowserRouter>
+            <AuthProvider>
+              <AppRoutes />
+              <OfflineIndicator />
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </OfflineSyncProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
