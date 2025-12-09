@@ -85,6 +85,7 @@ export default function Sellers() {
   const [passwordSeller, setPasswordSeller] = useState<SellerWithStats | null>(null);
   const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(30);
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -111,6 +112,17 @@ export default function Sellers() {
   };
 
   const fetchSellers = async () => {
+    // Fetch retention days setting
+    const { data: settingsData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'trash_retention_days')
+      .maybeSingle();
+    
+    if (settingsData) {
+      setRetentionDays(parseInt(settingsData.value) || 30);
+    }
+
     const { data: profiles, error } = await supabase
       .from('profiles')
       .select('*')
@@ -562,8 +574,35 @@ SANDEL`
               </Badge>
             </div>
           )}
-          {isTrash && (
-            <Badge variant="destructive">Na Lixeira</Badge>
+          {isTrash && seller.deleted_at && (
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="destructive">Na Lixeira</Badge>
+              {(() => {
+                const deletedDate = new Date(seller.deleted_at);
+                const expirationDate = addDays(deletedDate, retentionDays);
+                const daysRemaining = differenceInDays(expirationDate, new Date());
+                
+                if (daysRemaining <= 0) {
+                  return (
+                    <span className="text-[10px] text-destructive font-medium animate-pulse">
+                      Será excluído em breve
+                    </span>
+                  );
+                }
+                
+                const urgencyClass = daysRemaining <= 7 
+                  ? 'text-destructive' 
+                  : daysRemaining <= 14 
+                    ? 'text-yellow-600' 
+                    : 'text-muted-foreground';
+                
+                return (
+                  <span className={`text-[10px] ${urgencyClass} font-medium`}>
+                    {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'} para exclusão
+                  </span>
+                );
+              })()}
+            </div>
           )}
         </div>
 
