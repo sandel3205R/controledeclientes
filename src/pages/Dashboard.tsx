@@ -126,11 +126,10 @@ export default function Dashboard() {
     checkIntervalMinutes: 30,
   });
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
+  const fetchStats = async () => {
+    if (!user) return;
 
-      if (isAdmin) {
+    if (isAdmin) {
         // Admin sees seller count and expiring sellers
         const { data: profiles } = await supabase
           .from('profiles')
@@ -340,12 +339,20 @@ export default function Dashboard() {
             });
           }
         }
-      }
+    }
 
-      setLoading(false);
-    };
+    setLoading(false);
+  };
 
+  useEffect(() => {
     fetchStats();
+
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [user, isAdmin]);
 
   const pieData = [
