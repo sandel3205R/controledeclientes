@@ -100,42 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch role and subscription in parallel
-          const [roleData, subData] = await Promise.all([
-            supabase.from('user_roles').select('role').eq('user_id', session.user.id).single(),
-            supabase.from('profiles').select('subscription_expires_at, is_permanent').eq('id', session.user.id).single()
+          await Promise.all([
+            fetchUserRole(session.user.id),
+            fetchSubscription(session.user.id)
           ]);
-          
-          if (roleData.data && mounted) {
-            setRole(roleData.data.role);
-          }
-          
-          if (subData.data && mounted) {
-            const expiresAt = subData.data.subscription_expires_at ? new Date(subData.data.subscription_expires_at) : null;
-            const isPermanent = subData.data.is_permanent || false;
-            const now = new Date();
-            const isExpired = !isPermanent && expiresAt ? expiresAt < now : false;
-            
-            let daysRemaining: number | null = null;
-            let hoursRemaining: number | null = null;
-            
-            if (expiresAt && !isPermanent) {
-              const diffMs = expiresAt.getTime() - now.getTime();
-              const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-              const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-              
-              daysRemaining = diffDays > 0 ? diffDays : 0;
-              hoursRemaining = diffHours > 0 ? diffHours : 0;
-            }
-
-            setSubscription({
-              expiresAt,
-              isPermanent,
-              isExpired,
-              daysRemaining,
-              hoursRemaining
-            });
-          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -196,7 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    // Update profile with whatsapp after signup
     if (!error && data.user && whatsapp) {
       await supabase
         .from('profiles')
