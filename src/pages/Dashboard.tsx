@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useExpirationAlerts } from '@/hooks/useExpirationAlerts';
 import AppLayout from '@/components/layout/AppLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell, Crown } from 'lucide-react';
-import { differenceInDays, isPast } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell, Crown, MessageCircle, RefreshCw } from 'lucide-react';
+import { differenceInDays, isPast, format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
@@ -59,6 +62,20 @@ interface AdminDashboardStats {
   totalSellers: number;
 }
 
+interface ExpiringSeller {
+  id: string;
+  full_name: string | null;
+  email: string;
+  whatsapp: string | null;
+  subscription_expires_at: string | null;
+  is_permanent: boolean | null;
+  daysRemaining: number;
+  isExpired: boolean;
+}
+
+const ADMIN_WHATSAPP = '+5531998518865';
+const ADMIN_NAME = 'SANDEL';
+
 export default function Dashboard() {
   const { role, user } = useAuth();
   const navigate = useNavigate();
@@ -95,21 +112,74 @@ export default function Dashboard() {
     totalSellers: 0,
   });
   const [premiumAccounts, setPremiumAccounts] = useState<PremiumAccountStats[]>([]);
+  const [expiringSellers, setExpiringSellers] = useState<ExpiringSeller[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string; phone?: string | null; expiration_date: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = role === 'admin';
+  
+  // Use expiration alerts hook for seller dashboard
+  useExpirationAlerts({
+    clients,
+    enabled: !isAdmin && clients.length > 0,
+    soundEnabled: true,
+    checkIntervalMinutes: 30,
+  });
 
   useEffect(() => {
     const fetchStats = async () => {
       if (!user) return;
 
       if (isAdmin) {
-        // Admin only sees seller count
-        const { count } = await supabase
+        // Admin sees seller count and expiring sellers
+        const { data: profiles } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true });
-        
-        setAdminStats({ totalSellers: Math.max((count || 1) - 1, 0) });
+          .select('*')
+          .is('deleted_at', null);
+
+        if (profiles) {
+          // Filter out the admin (first user)
+          const sellers = profiles.filter((_, index) => index > 0 || profiles.length === 1);
+          setAdminStats({ totalSellers: sellers.length });
+
+          // Find sellers with expiring or expired subscriptions
+          const now = new Date();
+          const expiring: ExpiringSeller[] = [];
+
+          sellers.forEach((seller) => {
+            if (seller.is_permanent) return;
+            if (!seller.subscription_expires_at) {
+              expiring.push({
+                ...seller,
+                daysRemaining: 0,
+                isExpired: true,
+              });
+              return;
+            }
+
+            const expiresAt = new Date(seller.subscription_expires_at);
+            const daysRemaining = differenceInDays(expiresAt, now);
+            const isExpired = isPast(expiresAt);
+
+            // Show sellers expiring in 7 days or already expired
+            if (isExpired || daysRemaining <= 7) {
+              expiring.push({
+                ...seller,
+                daysRemaining: Math.max(0, daysRemaining),
+                isExpired,
+              });
+            }
+          });
+
+          // Sort: expired first, then by days remaining
+          expiring.sort((a, b) => {
+            if (a.isExpired && !b.isExpired) return -1;
+            if (!a.isExpired && b.isExpired) return 1;
+            return a.daysRemaining - b.daysRemaining;
+          });
+
+          setExpiringSellers(expiring);
+        }
       } else {
         // Seller sees their own client stats
         const { data: clients } = await supabase
@@ -169,6 +239,14 @@ export default function Dashboard() {
             .sort((a, b) => b.totalRevenue - a.totalRevenue);
           
           setPremiumAccounts(premiumAccountsList);
+
+          // Store clients for expiration alerts
+          setClients(clients.map(c => ({
+            id: c.id,
+            name: c.name,
+            phone: c.phone,
+            expiration_date: c.expiration_date,
+          })));
 
           setSellerStats({
             totalClients: clients.length,
@@ -290,7 +368,38 @@ export default function Dashboard() {
     );
   }
 
-  // Admin Dashboard - Only shows seller count
+  // Helper to send WhatsApp message
+  const sendWhatsAppToSeller = (seller: ExpiringSeller, type: 'reminder' | 'expired') => {
+    if (!seller.whatsapp) return;
+    
+    const phone = seller.whatsapp.replace(/\D/g, '');
+    const name = seller.full_name || 'Vendedor';
+    
+    let message = '';
+    if (type === 'expired') {
+      message = `Olá ${name}! 👋
+
+⚠️ Seu período de teste/plano expirou.
+
+Para continuar usando o painel e não perder seus dados, entre em contato para ativar seu plano.
+
+Estamos à disposição!
+${ADMIN_NAME}`;
+    } else {
+      message = `Olá ${name}! 👋
+
+⏰ Seu plano vence em ${seller.daysRemaining} ${seller.daysRemaining === 1 ? 'dia' : 'dias'}.
+
+Não deixe de renovar para continuar usando o painel sem interrupções!
+
+Qualquer dúvida, estamos à disposição.
+${ADMIN_NAME}`;
+    }
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // Admin Dashboard - Shows seller count and expiring sellers
   if (isAdmin) {
     return (
       <AppLayout>
@@ -300,24 +409,120 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Gestão de vendedores</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Vendedores Ativos"
               value={adminStats.totalSellers}
               icon={Users}
               variant="primary"
             />
+            <StatCard
+              title="Planos Vencendo"
+              value={expiringSellers.filter(s => !s.isExpired).length}
+              icon={Clock}
+              variant="warning"
+            />
+            <StatCard
+              title="Planos Expirados"
+              value={expiringSellers.filter(s => s.isExpired).length}
+              icon={AlertTriangle}
+              variant="default"
+            />
           </div>
 
-          <Card variant="glow">
-            <CardContent className="p-8 text-center">
-              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Painel Administrativo</h3>
-              <p className="text-muted-foreground">
-                Acesse a página de Vendedores para gerenciar sua equipe de vendas.
-              </p>
-            </CardContent>
-          </Card>
+          {/* Expiring/Expired Sellers Section */}
+          {expiringSellers.length > 0 && (
+            <Card variant="glow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-warning" />
+                  Vendedores com Planos Vencendo/Vencidos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {expiringSellers.map((seller) => (
+                    <div
+                      key={seller.id}
+                      className={`p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        seller.isExpired 
+                          ? 'bg-destructive/10 border-destructive/30' 
+                          : seller.daysRemaining <= 1
+                            ? 'bg-red-500/10 border-red-500/30'
+                            : 'bg-yellow-500/10 border-yellow-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                          seller.isExpired 
+                            ? 'bg-destructive/20 text-destructive' 
+                            : 'bg-yellow-500/20 text-yellow-600'
+                        }`}>
+                          {seller.full_name?.charAt(0)?.toUpperCase() || seller.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium">{seller.full_name || seller.email}</p>
+                          <p className="text-xs text-muted-foreground">{seller.email}</p>
+                          {seller.subscription_expires_at && (
+                            <p className="text-xs text-muted-foreground">
+                              Vence: {format(new Date(seller.subscription_expires_at), 'dd/MM/yyyy HH:mm')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Badge className={
+                          seller.isExpired 
+                            ? 'bg-destructive/20 text-destructive' 
+                            : seller.daysRemaining <= 1
+                              ? 'bg-red-500/20 text-red-600'
+                              : 'bg-yellow-500/20 text-yellow-600'
+                        }>
+                          {seller.isExpired 
+                            ? 'Expirado' 
+                            : `${seller.daysRemaining}d restantes`
+                          }
+                        </Badge>
+                        
+                        {seller.whatsapp && (
+                          <Button
+                            size="sm"
+                            variant="whatsapp"
+                            onClick={() => sendWhatsAppToSeller(seller, seller.isExpired ? 'expired' : 'reminder')}
+                          >
+                            <MessageCircle className="w-4 h-4 mr-1" />
+                            {seller.isExpired ? 'Cobrar' : 'Lembrar'}
+                          </Button>
+                        )}
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate('/sellers')}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Renovar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {expiringSellers.length === 0 && (
+            <Card variant="glow">
+              <CardContent className="p-8 text-center">
+                <Crown className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <h3 className="text-lg font-semibold mb-2">Tudo em ordem!</h3>
+                <p className="text-muted-foreground">
+                  Nenhum vendedor com plano vencendo nos próximos 7 dias.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </AppLayout>
     );
