@@ -158,7 +158,9 @@ export default function Dashboard() {
             }
 
             const expiresAt = new Date(seller.subscription_expires_at);
-            const daysRemaining = differenceInDays(expiresAt, now);
+            // Use Math.ceil to match the calculation in useAuth.tsx
+            const diffMs = expiresAt.getTime() - now.getTime();
+            const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
             const isExpired = isPast(expiresAt);
 
             // Show sellers expiring in 7 days or already expired
