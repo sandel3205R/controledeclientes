@@ -80,6 +80,7 @@ export default function Sellers() {
   const [editingSeller, setEditingSeller] = useState<SellerWithStats | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<SellerWithStats | null>(null);
+  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState<SellerWithStats | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<SellerWithStats | null>(null);
   const [passwordSeller, setPasswordSeller] = useState<SellerWithStats | null>(null);
 
@@ -190,6 +191,57 @@ export default function Sellers() {
       fetchSellers();
     } catch (error: any) {
       toast.error('Erro ao restaurar vendedor');
+    }
+  };
+
+  const handlePermanentDelete = async (seller: SellerWithStats) => {
+    try {
+      // First delete all clients of this seller
+      const { error: clientsError } = await supabase
+        .from('clients')
+        .delete()
+        .eq('seller_id', seller.id);
+
+      if (clientsError) throw clientsError;
+
+      // Delete servers of this seller
+      const { error: serversError } = await supabase
+        .from('servers')
+        .delete()
+        .eq('seller_id', seller.id);
+
+      if (serversError) throw serversError;
+
+      // Delete whatsapp templates of this seller
+      const { error: templatesError } = await supabase
+        .from('whatsapp_templates')
+        .delete()
+        .eq('seller_id', seller.id);
+
+      if (templatesError) throw templatesError;
+
+      // Delete user role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', seller.id);
+
+      if (roleError) throw roleError;
+
+      // Finally delete the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', seller.id);
+
+      if (profileError) throw profileError;
+
+      toast.success('Vendedor excluído permanentemente!');
+      setPermanentDeleteConfirm(null);
+      fetchSellers();
+    } catch (error: any) {
+      console.error('Error permanently deleting seller:', error);
+      toast.error('Erro ao excluir vendedor permanentemente');
     }
   };
 
@@ -626,15 +678,22 @@ SANDEL`
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Restaurar
               </Button>
-              <Button variant="whatsapp" size="sm" className="flex-1" onClick={() => {
+              <Button variant="whatsapp" size="sm" onClick={() => {
                 if (seller.whatsapp) {
                   const phone = seller.whatsapp.replace(/\D/g, '');
                   const message = `Olá ${seller.full_name || 'Vendedor'}! 👋\n\nSentimos sua falta! Gostaríamos de conversar sobre sua volta para a equipe.\n\nPodemos conversar?`;
                   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
                 }
               }} disabled={!seller.whatsapp}>
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Chamar
+                <MessageCircle className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => setPermanentDeleteConfirm(seller)}
+                title="Excluir Permanentemente"
+              >
+                <Trash2 className="w-4 h-4" />
               </Button>
             </>
           )}
@@ -900,6 +959,34 @@ SANDEL`
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={() => restoreConfirm && handleRestore(restoreConfirm)}>
                 Restaurar Vendedor
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Permanent Delete Confirmation */}
+        <AlertDialog open={!!permanentDeleteConfirm} onOpenChange={() => setPermanentDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-destructive">⚠️ Excluir Permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>Esta ação <strong>não pode ser desfeita</strong>.</p>
+                <p>O vendedor <strong>{permanentDeleteConfirm?.full_name || permanentDeleteConfirm?.email}</strong> e todos os seus dados serão excluídos permanentemente:</p>
+                <ul className="list-disc list-inside text-sm mt-2 space-y-1">
+                  <li>Todos os clientes ({permanentDeleteConfirm?.clientCount || 0})</li>
+                  <li>Todos os servidores</li>
+                  <li>Todos os templates de WhatsApp</li>
+                  <li>Perfil e configurações</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => permanentDeleteConfirm && handlePermanentDelete(permanentDeleteConfirm)}
+              >
+                Excluir Permanentemente
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
