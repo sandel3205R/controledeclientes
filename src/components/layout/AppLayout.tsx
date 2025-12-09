@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   MessageCircle,
   Database,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
@@ -131,6 +132,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
             );
           })}
         </nav>
+
+        {/* Subscription Counter for Sellers */}
+        {!isAdmin && !subscription?.isPermanent && subscription?.daysRemaining !== null && (
+          <div className="px-3 lg:px-4 py-2">
+            <div className={cn(
+              "px-3 py-2 rounded-lg border flex items-center gap-2",
+              subscription.isExpired 
+                ? "bg-destructive/10 border-destructive/30 text-destructive"
+                : subscription.daysRemaining <= 1
+                  ? "bg-red-500/10 border-red-500/30 text-red-500"
+                  : subscription.daysRemaining <= 3
+                    ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-500"
+                    : "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-500"
+            )}>
+              <Clock className="w-4 h-4 shrink-0" />
+              <div className="flex-1 min-w-0">
+                {subscription.isExpired ? (
+                  <p className="text-xs font-medium">Plano expirado</p>
+                ) : subscription.daysRemaining <= 1 && subscription.hoursRemaining ? (
+                  <>
+                    <p className="text-xs font-medium">Tempo restante</p>
+                    <p className="text-sm font-bold">{subscription.hoursRemaining}h</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium">Dias restantes</p>
+                    <p className="text-sm font-bold">{subscription.daysRemaining} {subscription.daysRemaining === 1 ? 'dia' : 'dias'}</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* User & Logout */}
         <div className="p-3 lg:p-4 border-t border-sidebar-border space-y-2">
