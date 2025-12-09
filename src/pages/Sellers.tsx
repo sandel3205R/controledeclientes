@@ -542,12 +542,21 @@ SANDEL`
         {!isTrash && !seller.is_permanent && (
           <div className="flex gap-2 mt-4 pt-4 border-t border-border">
             <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1"
+              onClick={() => activatePlan(seller.id, 3)}
+            >
+              <Gift className="w-4 h-4 mr-1" />
+              +3 dias
+            </Button>
+            <Button 
               variant="gradient" 
               size="sm" 
               className="flex-1"
               onClick={() => activatePlan(seller.id, 30)}
             >
-              <RefreshCw className="w-4 h-4 mr-1" />
+              <CreditCard className="w-4 h-4 mr-1" />
               +30 dias
             </Button>
             <Button 
