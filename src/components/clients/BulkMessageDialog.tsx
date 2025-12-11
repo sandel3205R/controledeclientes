@@ -109,10 +109,14 @@ export default function BulkMessageDialog({
 
   const replaceVariables = (message: string, client: Client) => {
     const expirationDate = new Date(client.expiration_date);
+    const formattedDate = format(expirationDate, 'dd/MM/yyyy');
+    const formattedDateFull = format(expirationDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     return message
       .replace(/{nome}/g, client.name)
       .replace(/{plano}/g, client.plan_name || 'seu plano')
       .replace(/{vencimento}/g, format(expirationDate, "dd 'de' MMMM", { locale: ptBR }))
+      .replace(/{data_vencimento}/g, formattedDate)
+      .replace(/{data_vencimento_completa}/g, formattedDateFull)
       .replace(/{dispositivo}/g, client.device || 'N/A')
       .replace(/{usuario}/g, client.login || 'N/A')
       .replace(/{senha}/g, client.password || 'N/A')
@@ -122,12 +126,13 @@ export default function BulkMessageDialog({
   const getDefaultMessage = (type: MessageType, client: Client) => {
     const expirationDate = new Date(client.expiration_date);
     const planName = client.plan_name || 'seu plano';
+    const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
 
     const messages = {
-      billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nDeseja renovar? Entre em contato para mais informações.`,
-      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
-      renewal: `Olá ${client.name}! ✅\n\nSeu plano *${planName}* foi renovado com sucesso!\n\nNova data de vencimento: ${format(addDays(new Date(), 30), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.\n\nAgradecemos pela confiança!`,
-      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano *${planName}* vence em ${format(expirationDate, "dd 'de' MMMM", { locale: ptBR })}.\n\nEvite a interrupção do serviço renovando antecipadamente!`,
+      billing: `Olá ${client.name}! 👋\n\nSeu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.`,
+      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo ao *${planName}*!\n\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`,
+      renewal: `Olá ${client.name}! ✅\n\nSeu plano *${planName}* foi renovado com sucesso!\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!`,
+      reminder: `Olá ${client.name}! ⏰\n\nEste é um lembrete que seu plano *${planName}* vence em *${formattedExpDate}*.\n\nEvite a interrupção do serviço renovando antecipadamente!`,
     };
     return messages[type];
   };
