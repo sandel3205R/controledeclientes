@@ -19,7 +19,7 @@ import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckS
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { differenceInDays, isPast } from 'date-fns';
+import { differenceInDays, isPast, differenceInMinutes } from 'date-fns';
 import * as XLSX from 'xlsx';
 import {
   AlertDialog,
@@ -46,6 +46,7 @@ interface Client {
   mac_address: string | null;
   server_name: string | null;
   server_id: string | null;
+  created_at: string | null;
 }
 
 interface ServerOption {
@@ -174,8 +175,29 @@ export default function Clients() {
       }
     }
 
-    // Sort
+    // Check if client was created recently (within last 5 minutes)
+    const isRecentlyCreated = (client: Client): boolean => {
+      if (!client.created_at) return false;
+      const createdAt = new Date(client.created_at);
+      const now = new Date();
+      return differenceInMinutes(now, createdAt) <= 5;
+    };
+
+    // Sort - recently created clients always at the top
     result.sort((a, b) => {
+      const aRecent = isRecentlyCreated(a);
+      const bRecent = isRecentlyCreated(b);
+      
+      // If one is recent and the other isn't, recent one goes first
+      if (aRecent && !bRecent) return -1;
+      if (!aRecent && bRecent) return 1;
+      
+      // If both are recent, sort by created_at (newest first)
+      if (aRecent && bRecent) {
+        return new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime();
+      }
+      
+      // Normal sorting for non-recent clients
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
