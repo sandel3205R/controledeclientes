@@ -107,6 +107,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [customDevice, setCustomDevice] = useState('');
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
   const {
     register,
@@ -392,6 +393,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       onClick={() => {
                         const oneMonthLater = addMonths(new Date(), 1);
                         setValue('expiration_date', format(oneMonthLater, 'yyyy-MM-dd'));
+                        setCalendarMonth(oneMonthLater);
                       }}
                     >
                       +1 mês
@@ -403,6 +405,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       onClick={() => {
                         const twoMonthsLater = addMonths(new Date(), 2);
                         setValue('expiration_date', format(twoMonthsLater, 'yyyy-MM-dd'));
+                        setCalendarMonth(twoMonthsLater);
                       }}
                     >
                       +2 meses
@@ -414,6 +417,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       onClick={() => {
                         const threeMonthsLater = addMonths(new Date(), 3);
                         setValue('expiration_date', format(threeMonthsLater, 'yyyy-MM-dd'));
+                        setCalendarMonth(threeMonthsLater);
                       }}
                     >
                       +3 meses
@@ -425,6 +429,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       onClick={() => {
                         const sixMonthsLater = addMonths(new Date(), 6);
                         setValue('expiration_date', format(sixMonthsLater, 'yyyy-MM-dd'));
+                        setCalendarMonth(sixMonthsLater);
                       }}
                     >
                       +6 meses
@@ -436,6 +441,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       onClick={() => {
                         const oneYearLater = addMonths(new Date(), 12);
                         setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
+                        setCalendarMonth(oneYearLater);
                       }}
                     >
                       +1 ano
@@ -447,8 +453,11 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                     onSelect={(date) => {
                       if (date) {
                         setValue('expiration_date', format(date, 'yyyy-MM-dd'));
+                        setCalendarMonth(date);
                       }
                     }}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
                     locale={ptBR}
                     initialFocus
                     className="pointer-events-auto"
