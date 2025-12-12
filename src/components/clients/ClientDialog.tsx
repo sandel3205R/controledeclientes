@@ -384,7 +384,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-2 border-b flex gap-2">
+                  <div className="p-2 border-b flex flex-wrap gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -417,6 +417,28 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                       }}
                     >
                       +3 meses
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const sixMonthsLater = addMonths(new Date(), 6);
+                        setValue('expiration_date', format(sixMonthsLater, 'yyyy-MM-dd'));
+                      }}
+                    >
+                      +6 meses
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const oneYearLater = addMonths(new Date(), 12);
+                        setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
+                      }}
+                    >
+                      +1 ano
                     </Button>
                   </div>
                   <Calendar
