@@ -186,9 +186,11 @@ export type Database = {
           deleted_at: string | null
           email: string
           full_name: string | null
+          has_pro_export: boolean | null
           id: string
           is_active: boolean | null
           is_permanent: boolean | null
+          pro_export_expires_at: string | null
           subscription_expires_at: string | null
           updated_at: string | null
           whatsapp: string | null
@@ -199,9 +201,11 @@ export type Database = {
           deleted_at?: string | null
           email: string
           full_name?: string | null
+          has_pro_export?: boolean | null
           id: string
           is_active?: boolean | null
           is_permanent?: boolean | null
+          pro_export_expires_at?: string | null
           subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
@@ -212,9 +216,11 @@ export type Database = {
           deleted_at?: string | null
           email?: string
           full_name?: string | null
+          has_pro_export?: boolean | null
           id?: string
           is_active?: boolean | null
           is_permanent?: boolean | null
+          pro_export_expires_at?: string | null
           subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
