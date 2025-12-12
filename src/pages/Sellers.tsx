@@ -517,7 +517,10 @@ SANDEL`
       toast.success('Vendedor criado com sucesso!');
       createForm.reset();
       setDialogOpen(false);
-      fetchSellers();
+      
+      // Wait a bit for the database to propagate the new user before fetching
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchSellers();
     } catch (error: any) {
       console.error('Error creating seller:', error);
       toast.error(error.message || 'Erro ao criar vendedor');
