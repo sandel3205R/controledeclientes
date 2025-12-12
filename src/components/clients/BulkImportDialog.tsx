@@ -229,11 +229,7 @@ export default function BulkImportDialog({
               </Button>
             </div>
             <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-background/50 p-2 rounded">
-{`Nome: [nome do cliente]
-Servidor: [nome do servidor/app]
-Usuário: [login]
-Vencimento: DD/MM/AAAA
-WhatsApp: +55 XX XXXXX-XXXX`}
+{EXAMPLE_FORMAT}
             </pre>
           </div>
 
