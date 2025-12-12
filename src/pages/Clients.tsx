@@ -511,8 +511,8 @@ export default function Clients() {
                 className="bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Importar Texto</span>
-                <span className="sm:hidden">Texto</span>
+                <span className="hidden sm:inline">Importar em Massa</span>
+                <span className="sm:hidden">Em Massa</span>
               </Button>
               <Button
                 variant="gradient"
