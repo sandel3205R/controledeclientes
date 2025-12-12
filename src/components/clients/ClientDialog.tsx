@@ -366,7 +366,17 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
 
           <div className="space-y-2">
             <Label>Vencimento *</Label>
-            <Popover>
+            <Popover onOpenChange={(open) => {
+              if (open) {
+                // When opening, set calendar to show the selected date's month or current month
+                const currentValue = watch('expiration_date');
+                if (currentValue) {
+                  setCalendarMonth(new Date(currentValue + 'T12:00:00'));
+                } else {
+                  setCalendarMonth(new Date());
+                }
+              }
+            }}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -383,72 +393,77 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 max-w-[calc(100vw-2rem)]" align="center" side="bottom">
-                <div className="p-2 border-b grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+              <PopoverContent 
+                className="w-auto p-0" 
+                align="center" 
+                side="bottom"
+                sideOffset={4}
+              >
+                <div className="p-1.5 border-b grid grid-cols-5 gap-1">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs px-2"
+                    className="text-[10px] px-1 h-7"
                     onClick={() => {
                       const oneMonthLater = addMonths(new Date(), 1);
                       setValue('expiration_date', format(oneMonthLater, 'yyyy-MM-dd'));
                       setCalendarMonth(oneMonthLater);
                     }}
                   >
-                    +1 mês
+                    +1m
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs px-2"
+                    className="text-[10px] px-1 h-7"
                     onClick={() => {
                       const twoMonthsLater = addMonths(new Date(), 2);
                       setValue('expiration_date', format(twoMonthsLater, 'yyyy-MM-dd'));
                       setCalendarMonth(twoMonthsLater);
                     }}
                   >
-                    +2 meses
+                    +2m
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs px-2"
+                    className="text-[10px] px-1 h-7"
                     onClick={() => {
                       const threeMonthsLater = addMonths(new Date(), 3);
                       setValue('expiration_date', format(threeMonthsLater, 'yyyy-MM-dd'));
                       setCalendarMonth(threeMonthsLater);
                     }}
                   >
-                    +3 meses
+                    +3m
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs px-2"
+                    className="text-[10px] px-1 h-7"
                     onClick={() => {
                       const sixMonthsLater = addMonths(new Date(), 6);
                       setValue('expiration_date', format(sixMonthsLater, 'yyyy-MM-dd'));
                       setCalendarMonth(sixMonthsLater);
                     }}
                   >
-                    +6 meses
+                    +6m
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs px-2"
+                    className="text-[10px] px-1 h-7"
                     onClick={() => {
                       const oneYearLater = addMonths(new Date(), 12);
                       setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
                       setCalendarMonth(oneYearLater);
                     }}
                   >
-                    +1 ano
+                    +1a
                   </Button>
                 </div>
                 <Calendar
@@ -464,11 +479,27 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                   onMonthChange={setCalendarMonth}
                   locale={ptBR}
                   initialFocus
-                  className="pointer-events-auto p-2 sm:p-3"
+                  className="pointer-events-auto p-2"
                   classNames={{
-                    head_cell: "text-muted-foreground rounded-md w-8 sm:w-9 font-normal text-[0.7rem] sm:text-[0.8rem]",
-                    cell: "h-8 w-8 sm:h-9 sm:w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                    day: "h-8 w-8 sm:h-9 sm:w-9 p-0 font-normal aria-selected:opacity-100",
+                    months: "flex flex-col",
+                    month: "space-y-2",
+                    caption: "flex justify-center pt-1 relative items-center",
+                    caption_label: "text-xs font-medium",
+                    nav: "space-x-1 flex items-center",
+                    nav_button: "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input",
+                    nav_button_previous: "absolute left-1",
+                    nav_button_next: "absolute right-1",
+                    table: "w-full border-collapse",
+                    head_row: "flex",
+                    head_cell: "text-muted-foreground rounded-md w-7 font-normal text-[10px]",
+                    row: "flex w-full mt-1",
+                    cell: "h-7 w-7 text-center text-xs p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                    day: "h-7 w-7 p-0 font-normal text-xs aria-selected:opacity-100 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground",
+                    day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                    day_today: "bg-accent text-accent-foreground",
+                    day_outside: "text-muted-foreground opacity-50",
+                    day_disabled: "text-muted-foreground opacity-50",
+                    day_hidden: "invisible",
                   }}
                 />
               </PopoverContent>
