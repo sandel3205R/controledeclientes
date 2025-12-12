@@ -28,17 +28,17 @@ interface ParsedClient {
   phone: string | null;
 }
 
-const EXAMPLE_FORMAT = `Nome: Eliane
-Servidor: NETPLAY AZIONIX
-Usuário: 345217252
-Vencimento: 17/12/2025
-WhatsApp: +55 31 97542-7871
+const EXAMPLE_FORMAT = `Nome: Maria Santos
+Servidor: ULTRA TV PLUS
+Usuário: 123456789
+Vencimento: 20/01/2026
+WhatsApp: +55 11 91234-5678
 
-Nome: João Silva
-Servidor: MEGA TV
-Usuário: 789456123
-Vencimento: 25/01/2026
-WhatsApp: +55 11 98765-4321`;
+Nome: Carlos Oliveira
+Servidor: MEGA PLAY HD
+Usuário: 987654321
+Vencimento: 15/02/2026
+WhatsApp: +55 21 98765-4321`;
 
 export default function BulkImportDialog({ 
   open, 
