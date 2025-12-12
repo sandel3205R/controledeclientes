@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Copy, FileText, Loader2 } from 'lucide-react';
+import { Copy, FileText, Loader2, AlertTriangle } from 'lucide-react';
 
 interface BulkImportDialogProps {
   open: boolean;
@@ -26,6 +26,8 @@ interface ParsedClient {
   login: string | null;
   expiration_date: string;
   phone: string | null;
+  isDuplicate?: boolean;
+  duplicateReason?: string;
 }
 
 const EXAMPLE_FORMAT = `Nome: Maria Santos
@@ -116,23 +118,69 @@ export default function BulkImportDialog({
     return clients;
   };
 
-  const handlePreview = () => {
-    const parsed = parseClients(text);
-    setPreview(parsed);
-    if (parsed.length === 0) {
-      toast.error('Nenhum cliente encontrado. Verifique o formato.');
-    } else {
-      toast.success(`${parsed.length} cliente(s) detectado(s)`);
+  const checkDuplicates = async (clients: ParsedClient[]): Promise<ParsedClient[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return clients;
+
+    const { data: existingClients } = await supabase
+      .from('clients')
+      .select('name, phone, login')
+      .eq('seller_id', user.id);
+
+    if (!existingClients) return clients;
+
+    return clients.map(client => {
+      const duplicates: string[] = [];
+      
+      if (client.name && existingClients.some(e => e.name?.toLowerCase() === client.name.toLowerCase())) {
+        duplicates.push('nome');
+      }
+      if (client.phone && existingClients.some(e => e.phone === client.phone)) {
+        duplicates.push('telefone');
+      }
+      if (client.login && existingClients.some(e => e.login === client.login)) {
+        duplicates.push('usuário');
+      }
+
+      return {
+        ...client,
+        isDuplicate: duplicates.length > 0,
+        duplicateReason: duplicates.length > 0 ? `Duplicado: ${duplicates.join(', ')}` : undefined
+      };
+    });
+  };
+
+  const handlePreview = async () => {
+    setLoading(true);
+    try {
+      const parsed = parseClients(text);
+      const withDuplicates = await checkDuplicates(parsed);
+      setPreview(withDuplicates);
+      
+      const duplicateCount = withDuplicates.filter(c => c.isDuplicate).length;
+      if (parsed.length === 0) {
+        toast.error('Nenhum cliente encontrado. Verifique o formato.');
+      } else if (duplicateCount > 0) {
+        toast.warning(`${parsed.length} cliente(s) detectado(s), ${duplicateCount} duplicado(s)`);
+      } else {
+        toast.success(`${parsed.length} cliente(s) detectado(s)`);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleImport = async () => {
-    const clients = parseClients(text);
+    const parsed = parseClients(text);
+    const clientsWithDuplicates = await checkDuplicates(parsed);
+    const clients = clientsWithDuplicates.filter(c => !c.isDuplicate);
     
     if (clients.length === 0) {
-      toast.error('Nenhum cliente para importar');
+      toast.error('Nenhum cliente válido para importar (todos são duplicados)');
       return;
     }
+
+    const skippedCount = clientsWithDuplicates.length - clients.length;
 
     setLoading(true);
     try {
@@ -178,7 +226,8 @@ export default function BulkImportDialog({
       }
 
       if (successCount > 0) {
-        toast.success(`${successCount} cliente(s) importado(s) com sucesso!`);
+        const skipMsg = skippedCount > 0 ? ` (${skippedCount} duplicado(s) ignorado(s))` : '';
+        toast.success(`${successCount} cliente(s) importado(s)${skipMsg}`);
         onSuccess();
         onOpenChange(false);
         setText('');
@@ -251,17 +300,35 @@ export default function BulkImportDialog({
           {/* Preview */}
           {preview.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Preview ({preview.length} clientes):</Label>
+              <Label className="text-sm font-medium">
+                Preview ({preview.length} clientes
+                {preview.filter(c => c.isDuplicate).length > 0 && (
+                  <span className="text-destructive"> - {preview.filter(c => c.isDuplicate).length} duplicado(s)</span>
+                )}):
+              </Label>
               <div className="max-h-[150px] overflow-y-auto rounded-lg border bg-muted/30 p-2 space-y-2">
                 {preview.map((client, index) => (
-                  <div key={index} className="text-xs p-2 rounded bg-background border">
-                    <div className="font-medium">{client.name}</div>
+                  <div 
+                    key={index} 
+                    className={`text-xs p-2 rounded border ${
+                      client.isDuplicate 
+                        ? 'bg-destructive/10 border-destructive/30' 
+                        : 'bg-background'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 font-medium">
+                      {client.isDuplicate && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                      {client.name}
+                    </div>
                     <div className="text-muted-foreground">
                       {client.app_name && <span>{client.app_name} • </span>}
                       {client.login && <span>User: {client.login} • </span>}
                       <span>Venc: {new Date(client.expiration_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                       {client.phone && <span> • {client.phone}</span>}
                     </div>
+                    {client.isDuplicate && (
+                      <div className="text-destructive text-[10px] mt-1">{client.duplicateReason}</div>
+                    )}
                   </div>
                 ))}
               </div>
