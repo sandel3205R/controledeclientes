@@ -364,110 +364,118 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Vencimento *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
+          <div className="space-y-2">
+            <Label>Vencimento *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !watch('expiration_date') && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {watch('expiration_date') ? (
+                    format(new Date(watch('expiration_date') + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })
+                  ) : (
+                    <span>Selecione a data</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 max-w-[calc(100vw-2rem)]" align="center" side="bottom">
+                <div className="p-2 border-b grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                   <Button
+                    type="button"
                     variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !watch('expiration_date') && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {watch('expiration_date') ? (
-                      format(new Date(watch('expiration_date') + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })
-                    ) : (
-                      <span>Selecione a data</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-2 border-b flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const oneMonthLater = addMonths(new Date(), 1);
-                        setValue('expiration_date', format(oneMonthLater, 'yyyy-MM-dd'));
-                        setCalendarMonth(oneMonthLater);
-                      }}
-                    >
-                      +1 mês
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const twoMonthsLater = addMonths(new Date(), 2);
-                        setValue('expiration_date', format(twoMonthsLater, 'yyyy-MM-dd'));
-                        setCalendarMonth(twoMonthsLater);
-                      }}
-                    >
-                      +2 meses
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const threeMonthsLater = addMonths(new Date(), 3);
-                        setValue('expiration_date', format(threeMonthsLater, 'yyyy-MM-dd'));
-                        setCalendarMonth(threeMonthsLater);
-                      }}
-                    >
-                      +3 meses
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const sixMonthsLater = addMonths(new Date(), 6);
-                        setValue('expiration_date', format(sixMonthsLater, 'yyyy-MM-dd'));
-                        setCalendarMonth(sixMonthsLater);
-                      }}
-                    >
-                      +6 meses
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const oneYearLater = addMonths(new Date(), 12);
-                        setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
-                        setCalendarMonth(oneYearLater);
-                      }}
-                    >
-                      +1 ano
-                    </Button>
-                  </div>
-                  <Calendar
-                    mode="single"
-                    selected={watch('expiration_date') ? new Date(watch('expiration_date') + 'T12:00:00') : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setValue('expiration_date', format(date, 'yyyy-MM-dd'));
-                        setCalendarMonth(date);
-                      }
+                    size="sm"
+                    className="text-xs px-2"
+                    onClick={() => {
+                      const oneMonthLater = addMonths(new Date(), 1);
+                      setValue('expiration_date', format(oneMonthLater, 'yyyy-MM-dd'));
+                      setCalendarMonth(oneMonthLater);
                     }}
-                    month={calendarMonth}
-                    onMonthChange={setCalendarMonth}
-                    locale={ptBR}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              {errors.expiration_date && (
-                <p className="text-xs text-destructive">{errors.expiration_date.message}</p>
-              )}
-            </div>
+                  >
+                    +1 mês
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2"
+                    onClick={() => {
+                      const twoMonthsLater = addMonths(new Date(), 2);
+                      setValue('expiration_date', format(twoMonthsLater, 'yyyy-MM-dd'));
+                      setCalendarMonth(twoMonthsLater);
+                    }}
+                  >
+                    +2 meses
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2"
+                    onClick={() => {
+                      const threeMonthsLater = addMonths(new Date(), 3);
+                      setValue('expiration_date', format(threeMonthsLater, 'yyyy-MM-dd'));
+                      setCalendarMonth(threeMonthsLater);
+                    }}
+                  >
+                    +3 meses
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2"
+                    onClick={() => {
+                      const sixMonthsLater = addMonths(new Date(), 6);
+                      setValue('expiration_date', format(sixMonthsLater, 'yyyy-MM-dd'));
+                      setCalendarMonth(sixMonthsLater);
+                    }}
+                  >
+                    +6 meses
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2"
+                    onClick={() => {
+                      const oneYearLater = addMonths(new Date(), 12);
+                      setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
+                      setCalendarMonth(oneYearLater);
+                    }}
+                  >
+                    +1 ano
+                  </Button>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={watch('expiration_date') ? new Date(watch('expiration_date') + 'T12:00:00') : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      setValue('expiration_date', format(date, 'yyyy-MM-dd'));
+                      setCalendarMonth(date);
+                    }
+                  }}
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  locale={ptBR}
+                  initialFocus
+                  className="pointer-events-auto p-2 sm:p-3"
+                  classNames={{
+                    head_cell: "text-muted-foreground rounded-md w-8 sm:w-9 font-normal text-[0.7rem] sm:text-[0.8rem]",
+                    cell: "h-8 w-8 sm:h-9 sm:w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                    day: "h-8 w-8 sm:h-9 sm:w-9 p-0 font-normal aria-selected:opacity-100",
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+            {errors.expiration_date && (
+              <p className="text-xs text-destructive">{errors.expiration_date.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
