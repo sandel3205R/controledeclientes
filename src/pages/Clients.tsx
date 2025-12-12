@@ -6,6 +6,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
+import BulkImportDialog from '@/components/clients/BulkImportDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -89,6 +90,7 @@ export default function Clients() {
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const fetchClients = async () => {
     if (!user) return;
@@ -499,10 +501,19 @@ export default function Clients() {
                 <Button variant="outline" asChild>
                   <span className="cursor-pointer">
                     <Upload className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Importar</span>
+                    <span className="hidden sm:inline">Excel</span>
                   </span>
                 </Button>
               </label>
+              <Button 
+                variant="outline" 
+                onClick={() => setBulkImportOpen(true)}
+                className="bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Importar Texto</span>
+                <span className="sm:hidden">Texto</span>
+              </Button>
               <Button
                 variant="gradient"
                 onClick={() => {
@@ -653,6 +664,14 @@ export default function Clients() {
           onOpenChange={setBulkMessageOpen}
           clients={clients}
           templates={templates}
+        />
+
+        {/* Bulk Import Dialog */}
+        <BulkImportDialog
+          open={bulkImportOpen}
+          onOpenChange={setBulkImportOpen}
+          onSuccess={fetchClients}
+          servers={servers}
         />
 
         {/* Bulk Delete Confirmation */}
