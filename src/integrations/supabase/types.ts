@@ -48,12 +48,16 @@ export type Database = {
           login: string | null
           login2: string | null
           login3: string | null
+          login4: string | null
+          login5: string | null
           mac_address: string | null
           name: string
           notes: string | null
           password: string | null
           password2: string | null
           password3: string | null
+          password4: string | null
+          password5: string | null
           phone: string | null
           plan_id: string | null
           plan_name: string | null
@@ -73,12 +77,16 @@ export type Database = {
           login?: string | null
           login2?: string | null
           login3?: string | null
+          login4?: string | null
+          login5?: string | null
           mac_address?: string | null
           name: string
           notes?: string | null
           password?: string | null
           password2?: string | null
           password3?: string | null
+          password4?: string | null
+          password5?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
@@ -98,12 +106,16 @@ export type Database = {
           login?: string | null
           login2?: string | null
           login3?: string | null
+          login4?: string | null
+          login5?: string | null
           mac_address?: string | null
           name?: string
           notes?: string | null
           password?: string | null
           password2?: string | null
           password3?: string | null
+          password4?: string | null
+          password5?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null

@@ -47,6 +47,10 @@ const clientSchema = z.object({
   password2: z.string().optional(),
   login3: z.string().optional(),
   password3: z.string().optional(),
+  login4: z.string().optional(),
+  password4: z.string().optional(),
+  login5: z.string().optional(),
+  password5: z.string().optional(),
   expiration_date: z.string().min(1, 'Data de vencimento é obrigatória'),
   plan_name: z.string().optional(),
   plan_price: z.string().optional(),
@@ -77,6 +81,10 @@ interface ClientDialogProps {
     password2?: string | null;
     login3?: string | null;
     password3?: string | null;
+    login4?: string | null;
+    password4?: string | null;
+    login5?: string | null;
+    password5?: string | null;
     expiration_date: string;
     plan_name: string | null;
     plan_price: number | null;
@@ -116,7 +124,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [customDevice, setCustomDevice] = useState('');
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
-  const [showExtraCredentials, setShowExtraCredentials] = useState(false);
 
   const {
     register,
@@ -175,13 +182,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         setSelectedServers([]);
       }
 
-      // Show extra credentials if they exist
-      if (client.login2 || client.password2 || client.login3 || client.password3) {
-        setShowExtraCredentials(true);
-      } else {
-        setShowExtraCredentials(false);
-      }
-      
       reset({
         name: client.name,
         phone: client.phone || '',
@@ -192,6 +192,10 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         password2: client.password2 || '',
         login3: client.login3 || '',
         password3: client.password3 || '',
+        login4: (client as any).login4 || '',
+        password4: (client as any).password4 || '',
+        login5: (client as any).login5 || '',
+        password5: (client as any).password5 || '',
         expiration_date: client.expiration_date,
         plan_name: client.plan_name || '',
         plan_price: client.plan_price?.toString() || '',
@@ -204,7 +208,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setSelectedDevices([]);
       setCustomDevice('');
       setSelectedServers([]);
-      setShowExtraCredentials(false);
       reset({
         name: '',
         phone: '',
@@ -215,6 +218,10 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         password2: '',
         login3: '',
         password3: '',
+        login4: '',
+        password4: '',
+        login5: '',
+        password5: '',
         expiration_date: '',
         plan_name: '',
         plan_price: '',
@@ -245,14 +252,19 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const handleServerChange = (serverId: string, checked: boolean) => {
     setSelectedServers(prev => {
       if (checked) {
-        if (prev.length >= 3) {
-          toast.error('Máximo de 3 servidores permitidos');
+        if (prev.length >= 5) {
+          toast.error('Máximo de 5 servidores permitidos');
           return prev;
         }
         return [...prev, serverId];
       }
       return prev.filter(id => id !== serverId);
     });
+  };
+
+  // Get server name by id
+  const getServerName = (serverId: string) => {
+    return servers.find(s => s.id === serverId)?.name || '';
   };
 
   const onSubmit = async (data: ClientForm) => {
@@ -286,6 +298,10 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         password2: data.password2 || null,
         login3: data.login3 || null,
         password3: data.password3 || null,
+        login4: data.login4 || null,
+        password4: data.password4 || null,
+        login5: data.login5 || null,
+        password5: data.password5 || null,
         expiration_date: data.expiration_date,
         plan_name: data.plan_name || null,
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,
@@ -539,64 +555,49 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           </div>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="login">Login</Label>
-                <Input id="login" {...register('login')} placeholder="Login de acesso" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input id="password" {...register('password')} placeholder="Senha de acesso" />
-              </div>
+            <Label>Servidores (máx. 5)</Label>
+            <div className="space-y-2 p-3 border rounded-md bg-muted/30">
+              {servers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum servidor cadastrado</p>
+              ) : (
+                servers.map((server) => {
+                  const serverIndex = selectedServers.indexOf(server.id);
+                  const isSelected = serverIndex !== -1;
+                  return (
+                    <div key={server.id} className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`server-${server.id}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleServerChange(server.id, checked as boolean)}
+                        />
+                        <label
+                          htmlFor={`server-${server.id}`}
+                          className="flex items-center gap-1.5 text-sm font-medium leading-none cursor-pointer"
+                        >
+                          <Server className="h-4 w-4 text-muted-foreground" />
+                          {server.name}
+                        </label>
+                      </div>
+                      {isSelected && (
+                        <div className="ml-6 grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder={`Login - ${server.name}`}
+                            className="h-8 text-xs"
+                            {...register(serverIndex === 0 ? 'login' : serverIndex === 1 ? 'login2' : serverIndex === 2 ? 'login3' : serverIndex === 3 ? 'login4' : 'login5')}
+                          />
+                          <Input
+                            placeholder={`Senha - ${server.name}`}
+                            className="h-8 text-xs"
+                            {...register(serverIndex === 0 ? 'password' : serverIndex === 1 ? 'password2' : serverIndex === 2 ? 'password3' : serverIndex === 3 ? 'password4' : 'password5')}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
-            
-            {!showExtraCredentials && (
-              <button
-                type="button"
-                onClick={() => setShowExtraCredentials(true)}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
-                + Adicionar login/senha 2 e 3
-              </button>
-            )}
-            
-            {showExtraCredentials && (
-              <div className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login2" className="text-xs text-muted-foreground">Login 2</Label>
-                    <Input id="login2" {...register('login2')} placeholder="Login 2" className="h-9" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password2" className="text-xs text-muted-foreground">Senha 2</Label>
-                    <Input id="password2" {...register('password2')} placeholder="Senha 2" className="h-9" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login3" className="text-xs text-muted-foreground">Login 3</Label>
-                    <Input id="login3" {...register('login3')} placeholder="Login 3" className="h-9" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password3" className="text-xs text-muted-foreground">Senha 3</Label>
-                    <Input id="password3" {...register('password3')} placeholder="Senha 3" className="h-9" />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExtraCredentials(false);
-                    setValue('login2', '');
-                    setValue('password2', '');
-                    setValue('login3', '');
-                    setValue('password3', '');
-                  }}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  − Remover credenciais extras
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -607,32 +608,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             <div className="space-y-2">
               <Label htmlFor="mac_address">MAC</Label>
               <Input id="mac_address" {...register('mac_address')} placeholder="00:00:00:00:00:00" />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Label>Servidores (máx. 3)</Label>
-            <div className="space-y-2 p-3 border rounded-md bg-muted/30">
-              {servers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum servidor cadastrado</p>
-              ) : (
-                servers.map((server) => (
-                  <div key={server.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`server-${server.id}`}
-                      checked={selectedServers.includes(server.id)}
-                      onCheckedChange={(checked) => handleServerChange(server.id, checked as boolean)}
-                    />
-                    <label
-                      htmlFor={`server-${server.id}`}
-                      className="flex items-center gap-1.5 text-sm font-medium leading-none cursor-pointer"
-                    >
-                      <Server className="h-4 w-4 text-muted-foreground" />
-                      {server.name}
-                    </label>
-                  </div>
-                ))
-              )}
             </div>
           </div>
 
