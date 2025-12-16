@@ -42,6 +42,14 @@ interface Client {
   device: string | null;
   login: string | null;
   password: string | null;
+  login2: string | null;
+  password2: string | null;
+  login3: string | null;
+  password3: string | null;
+  login4: string | null;
+  password4: string | null;
+  login5: string | null;
+  password5: string | null;
   expiration_date: string;
   plan_name: string | null;
   plan_price: number | null;
@@ -49,6 +57,7 @@ interface Client {
   mac_address: string | null;
   server_name: string | null;
   server_id: string | null;
+  server_ids: string[] | null;
   created_at: string | null;
 }
 
@@ -673,6 +682,7 @@ export default function Clients() {
                 >
                   <ClientCard
                     client={client}
+                    servers={servers}
                     onEdit={() => !isSelectionMode && handleEdit(client)}
                     onDelete={() => !isSelectionMode && setDeleteId(client.id)}
                     onRenew={handleRenew}

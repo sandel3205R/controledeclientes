@@ -9,7 +9,7 @@ import {
   Server, Wifi, Copy, MoreHorizontal 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import WhatsAppCredentialSelector from './WhatsAppCredentialSelector';
 
 interface ClientCardProps {
   client: {
@@ -34,13 +35,23 @@ interface ClientCardProps {
     device: string | null;
     login: string | null;
     password: string | null;
+    login2: string | null;
+    password2: string | null;
+    login3: string | null;
+    password3: string | null;
+    login4: string | null;
+    password4: string | null;
+    login5: string | null;
+    password5: string | null;
     expiration_date: string;
     plan_name: string | null;
     plan_price: number | null;
     app_name: string | null;
     mac_address: string | null;
     server_name: string | null;
+    server_ids: string[] | null;
   };
+  servers?: { id: string; name: string }[];
   onEdit: () => void;
   onDelete: () => void;
   onRenew?: (clientId: string, newExpirationDate: string) => void;
@@ -53,17 +64,59 @@ interface WhatsAppTemplate {
   is_default: boolean;
 }
 
-export default function ClientCard({ client, onEdit, onDelete, onRenew }: ClientCardProps) {
+interface Credential {
+  index: number;
+  serverName: string | null;
+  login: string | null;
+  password: string | null;
+}
+
+export default function ClientCard({ client, servers = [], onEdit, onDelete, onRenew }: ClientCardProps) {
   const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [credentialSelectorOpen, setCredentialSelectorOpen] = useState(false);
+  const [pendingMessageType, setPendingMessageType] = useState<'billing' | 'welcome' | 'renewal' | 'reminder'>('billing');
   
   const expirationDate = new Date(client.expiration_date);
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
   const isExpired = isPast(expirationDate);
   const isExpiring = !isExpired && daysUntilExpiration <= 7;
+
+  // Build credentials array based on server_ids
+  const credentials = useMemo(() => {
+    const creds: Credential[] = [];
+    const serverIds = client.server_ids || [];
+    const loginFields = [client.login, client.login2, client.login3, client.login4, client.login5];
+    const passwordFields = [client.password, client.password2, client.password3, client.password4, client.password5];
+    
+    for (let i = 0; i < serverIds.length; i++) {
+      const serverId = serverIds[i];
+      const server = servers.find(s => s.id === serverId);
+      creds.push({
+        index: i,
+        serverName: server?.name || null,
+        login: loginFields[i] || null,
+        password: passwordFields[i] || null,
+      });
+    }
+    
+    // If no server_ids but has login/password, add default credential
+    if (creds.length === 0 && (client.login || client.password)) {
+      creds.push({
+        index: 0,
+        serverName: client.server_name,
+        login: client.login,
+        password: client.password,
+      });
+    }
+    
+    return creds;
+  }, [client, servers]);
+
+  const hasMultipleCredentials = credentials.length > 1;
 
   useEffect(() => {
     if (user) {
@@ -117,7 +170,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     toast.success(`${label} copiado!`);
   };
 
-  const replaceVariables = (message: string) => {
+  const replaceVariablesWithCredential = (message: string, login: string | null, password: string | null) => {
     const formattedDate = format(expirationDate, "dd/MM/yyyy");
     const formattedDateFull = format(expirationDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     return message
@@ -127,12 +180,12 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
       .replace(/{data_vencimento}/g, formattedDate)
       .replace(/{data_vencimento_completa}/g, formattedDateFull)
       .replace(/{dispositivo}/g, client.device || 'N/A')
-      .replace(/{usuario}/g, client.login || 'N/A')
-      .replace(/{senha}/g, client.password || 'N/A')
+      .replace(/{usuario}/g, login || 'N/A')
+      .replace(/{senha}/g, password || 'N/A')
       .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A');
   };
 
-  const sendWhatsApp = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+  const sendWhatsAppWithCredential = (type: 'billing' | 'welcome' | 'renewal' | 'reminder', login: string | null, password: string | null) => {
     if (!client.phone) return;
     const phone = formatPhone(client.phone);
     const planName = client.plan_name || 'seu plano';
@@ -142,19 +195,37 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
     let message: string;
     
     if (customTemplate) {
-      message = replaceVariables(customTemplate.message);
+      message = replaceVariablesWithCredential(customTemplate.message, login, password);
     } else {
       const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
       const defaultMessages = {
         billing: `Olá ${client.name}! 👋\n\n*SanPlay* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *SanPlay*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        renewal: `Olá ${client.name}! ✅\n\n*SanPlay* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        reminder: `Olá ${client.name}! ⏰\n\n*SanPlay* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *SanPlay*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
+        renewal: `Olá ${client.name}! ✅\n\n*SanPlay* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
+        reminder: `Olá ${client.name}! ⏰\n\n*SanPlay* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
       };
       message = defaultMessages[type];
     }
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleWhatsAppClick = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+    if (!client.phone) return;
+    
+    // If has multiple credentials, show selector
+    if (hasMultipleCredentials) {
+      setPendingMessageType(type);
+      setCredentialSelectorOpen(true);
+    } else {
+      // Use first credential (or default)
+      const cred = credentials[0];
+      sendWhatsAppWithCredential(type, cred?.login || client.login, cred?.password || client.password);
+    }
+  };
+
+  const handleCredentialSelect = (credential: Credential) => {
+    sendWhatsAppWithCredential(pendingMessageType, credential.login, credential.password);
   };
 
   const handleRenew = async () => {
@@ -337,7 +408,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendWhatsApp('billing')}
+                onClick={() => handleWhatsAppClick('billing')}
                 className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
@@ -346,7 +417,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendWhatsApp('renewal')}
+                onClick={() => handleWhatsAppClick('renewal')}
                 className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
@@ -355,7 +426,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendWhatsApp('reminder')}
+                onClick={() => handleWhatsAppClick('reminder')}
                 className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
               >
                 <Bell className="w-3.5 h-3.5" />
@@ -364,7 +435,7 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendWhatsApp('welcome')}
+                onClick={() => handleWhatsAppClick('welcome')}
                 className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
               >
                 <PartyPopper className="w-3.5 h-3.5" />
@@ -373,6 +444,15 @@ export default function ClientCard({ client, onEdit, onDelete, onRenew }: Client
             </div>
           </div>
         )}
+
+        {/* Credential Selector Dialog */}
+        <WhatsAppCredentialSelector
+          open={credentialSelectorOpen}
+          onOpenChange={setCredentialSelectorOpen}
+          credentials={credentials}
+          messageType={pendingMessageType}
+          onSelect={handleCredentialSelect}
+        />
       </CardContent>
     </Card>
   );
