@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type ThemeType = 'netflix' | 'neon-blue' | 'emerald';
+export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury';
 
 interface ThemeContextType {
   theme: ThemeType;
@@ -28,6 +28,31 @@ const themes = [
     id: 'emerald' as ThemeType, 
     name: 'Esmeralda', 
     colors: ['#10B981', '#059669', '#0F1419'] 
+  },
+  { 
+    id: 'purple-galaxy' as ThemeType, 
+    name: 'Galáxia Roxa', 
+    colors: ['#A855F7', '#6366F1', '#1E1033'] 
+  },
+  { 
+    id: 'sunset-orange' as ThemeType, 
+    name: 'Pôr do Sol', 
+    colors: ['#F97316', '#EAB308', '#1A1207'] 
+  },
+  { 
+    id: 'cyberpunk' as ThemeType, 
+    name: 'Cyberpunk', 
+    colors: ['#EC4899', '#06B6D4', '#0D0D12'] 
+  },
+  { 
+    id: 'ocean-deep' as ThemeType, 
+    name: 'Oceano Profundo', 
+    colors: ['#0EA5E9', '#2DD4BF', '#0A1628'] 
+  },
+  { 
+    id: 'gold-luxury' as ThemeType, 
+    name: 'Ouro Luxuoso', 
+    colors: ['#FBBF24', '#D97706', '#141008'] 
   },
 ];
 
