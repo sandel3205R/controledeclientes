@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury';
+export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury' | 'aurora-violet' | 'citrus-light';
 
 interface ThemeContextType {
   theme: ThemeType;
@@ -53,6 +53,16 @@ const themes = [
     id: 'gold-luxury' as ThemeType, 
     name: 'Ouro Luxuoso', 
     colors: ['#FBBF24', '#D97706', '#141008'] 
+  },
+  { 
+    id: 'aurora-violet' as ThemeType, 
+    name: 'Aurora Violeta', 
+    colors: ['#FFFFFF', '#E879F9', '#581C87'] 
+  },
+  { 
+    id: 'citrus-light' as ThemeType, 
+    name: 'Citrus Claro', 
+    colors: ['#F97316', '#FBBF24', '#FFFBEB'] 
   },
 ];
 
