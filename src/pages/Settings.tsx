@@ -124,35 +124,32 @@ export default function Settings() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 {themes.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => handleThemeChange(t.id)}
                     disabled={savingTheme}
                     className={cn(
-                      "relative flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 hover:scale-[1.02]",
+                      "relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 hover:scale-[1.03] group",
                       theme === t.id
-                        ? "border-primary bg-primary/10 shadow-lg shadow-primary/20"
-                        : "border-border hover:border-primary/50 bg-card"
+                        ? "border-primary bg-primary/10 shadow-lg shadow-primary/30"
+                        : "border-border hover:border-primary/50 bg-card hover:bg-card/80"
                     )}
                   >
                     {theme === t.id && (
-                      <div className="absolute top-2 right-2 p-1 rounded-full bg-primary">
+                      <div className="absolute top-2 right-2 p-1 rounded-full bg-primary animate-pulse">
                         <Check className="w-3 h-3 text-primary-foreground" />
                       </div>
                     )}
-                    <div className="flex gap-1.5">
-                      {t.colors.map((color, i) => (
-                        <div
-                          key={i}
-                          className="w-8 h-8 rounded-lg shadow-md"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
+                    <div 
+                      className="w-full h-12 rounded-lg shadow-lg transition-transform group-hover:scale-105"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]}, ${t.colors[2]})` 
+                      }}
+                    />
                     <span className={cn(
-                      "font-medium text-sm",
+                      "font-medium text-xs text-center",
                       theme === t.id ? "text-primary" : "text-foreground"
                     )}>
                       {t.name}
@@ -161,7 +158,7 @@ export default function Settings() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                A mudança de tema é aplicada em tempo real para todos os vendedores
+                Escolha um dos 8 temas disponíveis - aplicado em tempo real para todos
               </p>
             </CardContent>
           </Card>
