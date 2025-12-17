@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -46,9 +47,11 @@ import {
   Calendar,
   Users,
   Search,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import CouponUsageReport from './CouponUsageReport';
 
 interface Coupon {
   id: string;
@@ -318,6 +321,20 @@ export default function CouponsManager() {
         </Button>
       </div>
 
+      <Tabs defaultValue="coupons" className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="coupons" className="flex items-center gap-2">
+            <Ticket className="w-4 h-4" />
+            Cupons
+          </TabsTrigger>
+          <TabsTrigger value="report" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Relatório de Uso
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="coupons" className="space-y-6">
+
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card variant="gradient">
@@ -542,6 +559,12 @@ export default function CouponsManager() {
           })}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="report">
+          <CouponUsageReport />
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
