@@ -24,6 +24,7 @@ import {
   Database,
   Clock,
   Ticket,
+  Gift,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
@@ -69,6 +70,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: Users, label: 'Meus Clientes', path: '/clients' },
     { icon: Tv, label: 'Servidores', path: '/servers' },
     { icon: Ticket, label: 'Cupons', path: '/coupons' },
+    { icon: Gift, label: 'Indicações', path: '/referrals' },
     { icon: MessageSquare, label: 'Templates', path: '/templates' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];

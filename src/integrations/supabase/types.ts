@@ -64,6 +64,8 @@ export type Database = {
           plan_id: string | null
           plan_name: string | null
           plan_price: number | null
+          referral_code: string | null
+          referred_by: string | null
           seller_id: string
           server_id: string | null
           server_ids: string[] | null
@@ -95,6 +97,8 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           seller_id: string
           server_id?: string | null
           server_ids?: string[] | null
@@ -126,6 +130,8 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           seller_id?: string
           server_id?: string | null
           server_ids?: string[] | null
@@ -138,6 +144,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -382,6 +395,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      referrals: {
+        Row: {
+          completed_at: string | null
+          coupon_id: string | null
+          created_at: string
+          discount_percentage: number
+          id: string
+          referred_client_id: string
+          referrer_client_id: string
+          seller_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          coupon_id?: string | null
+          created_at?: string
+          discount_percentage?: number
+          id?: string
+          referred_client_id: string
+          referrer_client_id: string
+          seller_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          coupon_id?: string | null
+          created_at?: string
+          discount_percentage?: number
+          id?: string
+          referred_client_id?: string
+          referrer_client_id?: string
+          seller_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_client_id_fkey"
+            columns: ["referred_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_client_id_fkey"
+            columns: ["referrer_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       servers: {
         Row: {
