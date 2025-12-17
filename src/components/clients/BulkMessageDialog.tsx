@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MessageCircle, Send, Users, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { MessageCircle, Send, Users, Clock, AlertTriangle, CheckCircle, DollarSign, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -33,6 +33,7 @@ interface Client {
   expiration_date: string;
   plan_name: string | null;
   plan_price: number | null;
+  is_paid?: boolean | null;
 }
 
 interface WhatsAppTemplate {
@@ -50,7 +51,7 @@ interface BulkMessageDialogProps {
   templates: WhatsAppTemplate[];
 }
 
-type MessageType = 'billing' | 'reminder' | 'renewal' | 'welcome';
+type MessageType = 'billing' | 'reminder' | 'renewal' | 'welcome' | 'unpaid';
 
 export default function BulkMessageDialog({
   open,
@@ -81,6 +82,12 @@ export default function BulkMessageDialog({
     const days = parseInt(daysFilter);
     return clients.filter((client) => {
       if (!client.phone) return false;
+      
+      // Filter for unpaid clients
+      if (daysFilter === 'unpaid') {
+        return client.is_paid === false;
+      }
+      
       const daysLeft = getDaysUntilExpiration(client.expiration_date);
       if (daysFilter === 'expired') {
         return daysLeft < 0;
@@ -127,12 +134,14 @@ export default function BulkMessageDialog({
     const expirationDate = new Date(client.expiration_date);
     const planName = client.plan_name || 'seu plano';
     const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
+    const price = client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A';
 
     const messages = {
       billing: `Olá ${client.name}! 👋\n\n*SanPlay* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *SanPlay* - Sua melhor experiência!`,
       welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *SanPlay*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
       renewal: `Olá ${client.name}! ✅\n\n*SanPlay* informa: Seu plano *${planName}* foi renovado com sucesso!\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
       reminder: `Olá ${client.name}! ⏰\n\n*SanPlay* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
+      unpaid: `Olá ${client.name}! 👋\n\nNotamos que seu pagamento do plano *${planName}* (*${price}*) ainda está pendente.\n\n⚠️ *Atenção:* Se o pagamento não for realizado até o vencimento, será necessário pagar *2 meses* no próximo mês.\n\n📅 Vencimento: *${formattedExpDate}*\n\nPor favor, regularize sua situação para evitar a interrupção do serviço.\n\nQualquer dúvida, estamos à disposição! 🙏\n\n🎬 *SanPlay*`,
     };
     return messages[type];
   };
@@ -186,6 +195,7 @@ export default function BulkMessageDialog({
     reminder: { label: 'Lembrete', icon: Clock, color: 'text-orange-500' },
     renewal: { label: 'Renovação', icon: CheckCircle, color: 'text-green-500' },
     welcome: { label: 'Boas-vindas', icon: Users, color: 'text-blue-500' },
+    unpaid: { label: 'Inadimplente', icon: AlertCircle, color: 'text-red-500' },
   };
 
   return (
@@ -223,6 +233,12 @@ export default function BulkMessageDialog({
                       Cobrança
                     </span>
                   </SelectItem>
+                  <SelectItem value="unpaid">
+                    <span className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      Inadimplente
+                    </span>
+                  </SelectItem>
                   <SelectItem value="renewal">
                     <span className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
@@ -246,6 +262,7 @@ export default function BulkMessageDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="unpaid">Não Pagos</SelectItem>
                   <SelectItem value="1">Hoje</SelectItem>
                   <SelectItem value="3">Próximos 3 dias</SelectItem>
                   <SelectItem value="7">Próximos 7 dias</SelectItem>
