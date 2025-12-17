@@ -59,6 +59,7 @@ interface Client {
   server_id: string | null;
   server_ids: string[] | null;
   created_at: string | null;
+  is_paid: boolean | null;
 }
 
 interface ServerOption {

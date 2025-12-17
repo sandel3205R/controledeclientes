@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -50,6 +50,7 @@ interface ClientCardProps {
     mac_address: string | null;
     server_name: string | null;
     server_ids: string[] | null;
+    is_paid?: boolean | null;
   };
   servers?: { id: string; name: string }[];
   onEdit: () => void;
@@ -247,12 +248,18 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
         {/* Header with gradient accent */}
         <div className="p-4 border-b border-border/30">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-base truncate">{client.name}</h3>
                 <Badge className={cn("shrink-0 text-[10px] px-1.5 py-0", status.class)}>
                   {status.label}
                 </Badge>
+                {client.is_paid === false && (
+                  <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0 gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Não Pago
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 {client.plan_name && (

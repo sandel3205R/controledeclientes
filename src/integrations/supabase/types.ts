@@ -45,6 +45,7 @@ export type Database = {
           device: string | null
           expiration_date: string
           id: string
+          is_paid: boolean | null
           login: string | null
           login2: string | null
           login3: string | null
@@ -58,6 +59,7 @@ export type Database = {
           password3: string | null
           password4: string | null
           password5: string | null
+          payment_notes: string | null
           phone: string | null
           plan_id: string | null
           plan_name: string | null
@@ -74,6 +76,7 @@ export type Database = {
           device?: string | null
           expiration_date: string
           id?: string
+          is_paid?: boolean | null
           login?: string | null
           login2?: string | null
           login3?: string | null
@@ -87,6 +90,7 @@ export type Database = {
           password3?: string | null
           password4?: string | null
           password5?: string | null
+          payment_notes?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
@@ -103,6 +107,7 @@ export type Database = {
           device?: string | null
           expiration_date?: string
           id?: string
+          is_paid?: boolean | null
           login?: string | null
           login2?: string | null
           login3?: string | null
@@ -116,6 +121,7 @@ export type Database = {
           password3?: string | null
           password4?: string | null
           password5?: string | null
+          payment_notes?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
