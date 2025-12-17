@@ -149,6 +149,102 @@ export type Database = {
           },
         ]
       }
+      coupon_usages: {
+        Row: {
+          client_id: string
+          coupon_id: string
+          created_at: string
+          discount_applied: number
+          final_price: number
+          id: string
+          original_price: number
+          seller_id: string
+        }
+        Insert: {
+          client_id: string
+          coupon_id: string
+          created_at?: string
+          discount_applied: number
+          final_price: number
+          id?: string
+          original_price: number
+          seller_id: string
+        }
+        Update: {
+          client_id?: string
+          coupon_id?: string
+          created_at?: string
+          discount_applied?: number
+          final_price?: number
+          id?: string
+          original_price?: number
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_usages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number
+          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          min_plan_value: number | null
+          name: string
+          seller_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_plan_value?: number | null
+          name: string
+          seller_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_plan_value?: number | null
+          name?: string
+          seller_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string
@@ -398,6 +494,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "seller"
+      discount_type: "percentage" | "fixed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -526,6 +623,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "seller"],
+      discount_type: ["percentage", "fixed"],
     },
   },
 } as const

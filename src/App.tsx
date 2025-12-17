@@ -14,6 +14,7 @@ import Clients from "./pages/Clients";
 import Plans from "./pages/Plans";
 import Sellers from "./pages/Sellers";
 import Templates from "./pages/Templates";
+import Coupons from "./pages/Coupons";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Install from "./pages/Install";
@@ -126,6 +127,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Templates />
+          </ProtectedRoute>
+        }
+        />
+      <Route
+        path="/coupons"
+        element={
+          <ProtectedRoute>
+            <Coupons />
           </ProtectedRoute>
         }
       />
