@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, Crown } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, Crown, DollarSign, AlertCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -68,6 +68,7 @@ interface ServerOption {
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
+type PaymentFilter = 'all' | 'paid' | 'unpaid';
 type SortOption = 'name' | 'expiration' | 'price';
 
 interface WhatsAppTemplate {
@@ -99,6 +100,7 @@ export default function Clients() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [serverFilter, setServerFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -219,6 +221,15 @@ export default function Clients() {
       }
     }
 
+    // Payment filter
+    if (paymentFilter !== 'all') {
+      if (paymentFilter === 'paid') {
+        result = result.filter((c) => c.is_paid !== false);
+      } else {
+        result = result.filter((c) => c.is_paid === false);
+      }
+    }
+
     // Check if client was created recently (within last 5 minutes)
     const isRecentlyCreated = (client: Client): boolean => {
       if (!client.created_at) return false;
@@ -255,7 +266,17 @@ export default function Clients() {
     });
 
     return result;
-  }, [clients, search, statusFilter, serverFilter, sortBy]);
+  }, [clients, search, statusFilter, serverFilter, paymentFilter, sortBy]);
+
+  // Calculate unpaid clients stats
+  const unpaidStats = useMemo(() => {
+    const unpaidClients = clients.filter(c => c.is_paid === false);
+    const totalUnpaid = unpaidClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+    return {
+      count: unpaidClients.length,
+      total: totalUnpaid,
+    };
+  }, [clients]);
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
@@ -637,7 +658,54 @@ export default function Clients() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentFilter)}>
+            <SelectTrigger className={cn(
+              "w-full sm:w-40",
+              paymentFilter === 'unpaid' && "border-red-500/50 text-red-500"
+            )}>
+              <DollarSign className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Pagamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="paid">Pagos</SelectItem>
+              <SelectItem value="unpaid">Não Pagos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        {/* Unpaid Clients Summary */}
+        {unpaidStats.count > 0 && (
+          <div 
+            className={cn(
+              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border cursor-pointer transition-colors",
+              paymentFilter === 'unpaid' 
+                ? "bg-red-500/20 border-red-500/50" 
+                : "bg-red-500/10 border-red-500/30 hover:bg-red-500/15"
+            )}
+            onClick={() => setPaymentFilter(paymentFilter === 'unpaid' ? 'all' : 'unpaid')}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-red-500/20">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-red-500">
+                  {unpaidStats.count} cliente{unpaidStats.count !== 1 ? 's' : ''} não pago{unpaidStats.count !== 1 ? 's' : ''}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Clique para {paymentFilter === 'unpaid' ? 'ver todos' : 'filtrar'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Total devido:</span>
+              <span className="text-xl font-bold text-red-500">
+                R$ {unpaidStats.total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Client Grid */}
         {filteredClients.length === 0 ? (
