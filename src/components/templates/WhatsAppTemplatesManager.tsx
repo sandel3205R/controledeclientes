@@ -16,7 +16,7 @@ interface WhatsAppTemplate {
   id: string;
   seller_id: string;
   name: string;
-  type: 'billing' | 'welcome' | 'renewal' | 'reminder' | 'custom';
+  type: 'billing' | 'welcome' | 'renewal' | 'reminder' | 'unpaid' | 'custom';
   message: string;
   is_default: boolean;
   created_at: string;
@@ -27,8 +27,22 @@ const templateTypes = [
   { value: 'welcome', label: 'Boas-vindas' },
   { value: 'renewal', label: 'Renovação' },
   { value: 'reminder', label: 'Lembrete' },
+  { value: 'unpaid', label: 'Inadimplente' },
   { value: 'custom', label: 'Personalizado' },
 ];
+
+// Default message for unpaid clients template
+const defaultUnpaidMessage = `Olá {nome}! 👋
+
+Notamos que seu pagamento do plano {plano} (R$ {preco}) ainda está pendente.
+
+⚠️ *Atenção:* Se o pagamento não for realizado até o vencimento, será necessário pagar 2 meses no próximo mês.
+
+📅 Vencimento: {vencimento}
+
+Por favor, regularize sua situação para evitar a interrupção do serviço.
+
+Qualquer dúvida, estamos à disposição! 🙏`;
 
 const availableVariables = [
   { var: '{nome}', desc: 'Nome do cliente' },
