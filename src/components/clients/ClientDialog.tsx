@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Server, Tv, Smartphone, Monitor } from 'lucide-react';
+import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 
 const DEVICE_OPTIONS = [
   { id: 'TV SMART', label: 'TV Smart', icon: Tv },
@@ -58,6 +59,7 @@ const clientSchema = z.object({
   mac_address: z.string().optional(),
   server_name: z.string().optional(),
   server_id: z.string().optional(),
+  is_paid: z.boolean().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
@@ -92,6 +94,7 @@ interface ClientDialogProps {
     mac_address: string | null;
     server_name: string | null;
     server_id?: string | null;
+    is_paid?: boolean | null;
   } | null;
   onSuccess: () => void;
 }
@@ -124,6 +127,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [customDevice, setCustomDevice] = useState('');
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [isPaid, setIsPaid] = useState(true);
 
   const {
     register,
@@ -171,6 +175,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       
       setSelectedDevices(predefined);
       setCustomDevice(custom);
+      setIsPaid(client.is_paid !== false);
       
       // Parse server_ids array or fallback to server_id
       const serverIds = (client as any).server_ids || [];
@@ -203,11 +208,13 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         mac_address: client.mac_address || '',
         server_name: client.server_name || '',
         server_id: client.server_id || '',
+        is_paid: client.is_paid !== false,
       });
     } else {
       setSelectedDevices([]);
       setCustomDevice('');
       setSelectedServers([]);
+      setIsPaid(true);
       reset({
         name: '',
         phone: '',
@@ -229,6 +236,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         mac_address: '',
         server_name: '',
         server_id: '',
+        is_paid: true,
       });
     }
   }, [client, reset]);
@@ -311,6 +319,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_id: primaryServerId,
         server_ids: selectedServers,
         seller_id: user.id,
+        is_paid: isPaid,
       };
 
       if (client) {
@@ -375,6 +384,29 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                 {...register('plan_price')} 
                 placeholder="0,00" 
               />
+            </div>
+          </div>
+
+          {/* Payment Status */}
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <DollarSign className={cn("h-4 w-4", isPaid ? "text-green-500" : "text-red-500")} />
+              <Label htmlFor="is_paid" className="font-medium cursor-pointer">
+                Status do Pagamento
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("text-sm font-medium", !isPaid ? "text-red-500" : "text-muted-foreground")}>
+                Não Pago
+              </span>
+              <Switch
+                id="is_paid"
+                checked={isPaid}
+                onCheckedChange={setIsPaid}
+              />
+              <span className={cn("text-sm font-medium", isPaid ? "text-green-500" : "text-muted-foreground")}>
+                Pago
+              </span>
             </div>
           </div>
 
