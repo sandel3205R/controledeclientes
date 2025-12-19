@@ -67,21 +67,42 @@ const themes = [
 ];
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeType>('netflix');
+  const [theme, setThemeState] = useState<ThemeType>(() => {
+    // Tenta recuperar do localStorage primeiro para evitar flash
+    const cached = localStorage.getItem('app-theme');
+    if (cached && themes.some(t => t.id === cached)) {
+      return cached as ThemeType;
+    }
+    return 'netflix';
+  });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Aplicar tema imediatamente ao carregar
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // Fetch theme from database on mount
   useEffect(() => {
     const fetchTheme = async () => {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'theme')
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'theme')
+          .single();
 
-      if (data && !error) {
-        setThemeState(data.value as ThemeType);
-        document.documentElement.setAttribute('data-theme', data.value);
+        if (data && !error) {
+          const newTheme = data.value as ThemeType;
+          setThemeState(newTheme);
+          document.documentElement.setAttribute('data-theme', newTheme);
+          localStorage.setItem('app-theme', newTheme);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar tema:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -148,6 +169,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!error) {
       setThemeState(newTheme);
       document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('app-theme', newTheme);
     }
   };
 

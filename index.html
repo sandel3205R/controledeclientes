@@ -41,6 +41,15 @@
   </head>
 
   <body>
+    <script>
+      // Aplica tema do cache imediatamente para evitar flash
+      (function() {
+        var theme = localStorage.getItem('app-theme');
+        if (theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
