@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+
+const STORAGE_KEY = 'valuesHidden';
 
 interface ValueVisibilityContextType {
   valuesHidden: boolean;
@@ -9,7 +11,14 @@ interface ValueVisibilityContextType {
 const ValueVisibilityContext = createContext<ValueVisibilityContextType | undefined>(undefined);
 
 export function ValueVisibilityProvider({ children }: { children: ReactNode }) {
-  const [valuesHidden, setValuesHidden] = useState(false);
+  const [valuesHidden, setValuesHidden] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(valuesHidden));
+  }, [valuesHidden]);
 
   const toggleVisibility = useCallback(() => {
     setValuesHidden(prev => !prev);
@@ -34,4 +43,22 @@ export function useValueVisibility() {
     throw new Error('useValueVisibility must be used within a ValueVisibilityProvider');
   }
   return context;
+}
+
+// Hook standalone para uso fora do provider (ex: página de Clientes)
+export function useLocalValueVisibility() {
+  const [valuesHidden, setValuesHidden] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(valuesHidden));
+  }, [valuesHidden]);
+
+  const toggleVisibility = useCallback(() => {
+    setValuesHidden(prev => !prev);
+  }, []);
+
+  return { valuesHidden, toggleVisibility };
 }
