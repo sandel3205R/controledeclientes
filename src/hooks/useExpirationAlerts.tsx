@@ -74,8 +74,11 @@ export function useExpirationAlerts({
       // Skip if already notified for this expiration
       if (notifiedClientsRef.current.has(notificationKey)) return;
 
-      if (isExpired && daysUntil >= -1) {
-        // Expired today or yesterday
+      // Skip clients expired for more than 24 hours (daysUntil < 0 means expired)
+      if (isExpired && daysUntil < 0) return;
+
+      if (isExpired && daysUntil === 0) {
+        // Expired today (within 24 hours)
         newlyExpired.push(client);
         notifiedClientsRef.current.add(notificationKey);
       } else if (daysUntil === 0) {
