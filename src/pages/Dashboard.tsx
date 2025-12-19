@@ -7,11 +7,12 @@ import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell, Crown, MessageCircle, RefreshCw } from 'lucide-react';
+import { Users, DollarSign, UserCheck, AlertTriangle, Clock, TrendingUp, Server, PiggyBank, Wallet, Receipt, Bell, Crown, MessageCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { differenceInDays, isPast, format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
+import { ValueVisibilityProvider, useValueVisibility } from '@/hooks/useValueVisibility';
 
 interface SellerDashboardStats {
   totalClients: number;
@@ -76,9 +77,10 @@ interface ExpiringSeller {
 const ADMIN_WHATSAPP = '+5531998518865';
 const ADMIN_NAME = 'SANDEL';
 
-export default function Dashboard() {
+function DashboardContent() {
   const { role, user } = useAuth();
   const navigate = useNavigate();
+  const { valuesHidden, formatValue } = useValueVisibility();
   const [sellerStats, setSellerStats] = useState<SellerDashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -440,6 +442,21 @@ ${ADMIN_NAME}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const VisibilityToggle = () => {
+    const { valuesHidden, toggleVisibility } = useValueVisibility();
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={toggleVisibility}
+        className="gap-2"
+      >
+        {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        {valuesHidden ? 'Mostrar' : 'Ocultar'}
+      </Button>
+    );
+  };
+
   // Admin Dashboard - Shows seller count and expiring sellers
   if (isAdmin) {
     return (
@@ -450,16 +467,19 @@ ${ADMIN_NAME}`;
               <h1 className="text-2xl lg:text-3xl font-bold">Dashboard Admin</h1>
               <p className="text-muted-foreground">Gestão de vendedores</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchStats(true)}
-              disabled={refreshing}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Atualizando...' : 'Atualizar'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <VisibilityToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchStats(true)}
+                disabled={refreshing}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Atualizando...' : 'Atualizar'}
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -590,16 +610,19 @@ ${ADMIN_NAME}`;
             <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
             <p className="text-muted-foreground">Seus clientes e estatísticas de vendas</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchStats(true)}
-            disabled={refreshing}
-            className="gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Atualizando...' : 'Atualizar'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <VisibilityToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchStats(true)}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Atualizando...' : 'Atualizar'}
+            </Button>
+          </div>
         </div>
 
         {/* Low Credit Alerts */}
@@ -617,7 +640,7 @@ ${ADMIN_NAME}`;
                   {alert.isCritical ? '⚠️ Créditos Críticos!' : '⚡ Créditos Baixos'}
                 </AlertTitle>
                 <AlertDescription className={!alert.isCritical ? 'text-warning/80' : ''}>
-                  <strong>{alert.serverName}</strong> tem apenas {alert.remaining} créditos restantes ({alert.percentage.toFixed(0)}%). 
+                  <strong>{alert.serverName}</strong> tem apenas {valuesHidden ? '••' : alert.remaining} créditos restantes ({valuesHidden ? '••' : `${alert.percentage.toFixed(0)}%`}). 
                   Clique para gerenciar.
                 </AlertDescription>
               </Alert>
@@ -706,19 +729,19 @@ ${ADMIN_NAME}`;
                 <div className="space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-border">
                     <span className="text-sm text-muted-foreground">Total de Servidores</span>
-                    <span className="font-bold">{fixedServers.count}</span>
+                    <span className="font-bold">{valuesHidden ? '••' : fixedServers.count}</span>
                   </div>
                   <div className="space-y-2">
                     {fixedServers.servers.map((server, index) => (
                       <div key={index} className="flex justify-between items-center text-sm">
                         <span>{server.name}</span>
-                        <span className="text-warning font-medium">R$ {server.cost.toFixed(2)}/mês</span>
+                        <span className="text-warning font-medium">{valuesHidden ? '•••••' : `R$ ${server.cost.toFixed(2)}/mês`}</span>
                       </div>
                     ))}
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-border">
                     <span className="font-medium">Total Mensal</span>
-                    <span className="text-lg font-bold text-warning">R$ {fixedServers.totalMonthlyCost.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-warning">{valuesHidden ? '•••••' : `R$ ${fixedServers.totalMonthlyCost.toFixed(2)}`}</span>
                   </div>
                 </div>
               ) : (
@@ -743,7 +766,7 @@ ${ADMIN_NAME}`;
                 <div className="space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-border">
                     <span className="text-sm text-muted-foreground">Total de Servidores</span>
-                    <span className="font-bold">{creditServers.count}</span>
+                    <span className="font-bold">{valuesHidden ? '••' : creditServers.count}</span>
                   </div>
                   <div className="space-y-2">
                     {creditServers.servers.map((server, index) => (
@@ -751,21 +774,21 @@ ${ADMIN_NAME}`;
                         <div>
                           <span>{server.name}</span>
                           <span className="text-xs text-muted-foreground ml-2">
-                            ({server.usedCredits}/{server.totalCredits} créditos)
+                            ({valuesHidden ? '••/••' : `${server.usedCredits}/${server.totalCredits}`} créditos)
                           </span>
                         </div>
-                        <span className="text-secondary font-medium">R$ {server.creditCost.toFixed(3)}/créd</span>
+                        <span className="text-secondary font-medium">{valuesHidden ? '•••••' : `R$ ${server.creditCost.toFixed(3)}/créd`}</span>
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
                     <div>
                       <p className="text-xs text-muted-foreground">Reserva/Cliente</p>
-                      <p className="font-bold text-secondary">R$ {creditServers.reservePerClient.toFixed(3)}</p>
+                      <p className="font-bold text-secondary">{valuesHidden ? '•••••' : `R$ ${creditServers.reservePerClient.toFixed(3)}`}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Gasto em Créditos</p>
-                      <p className="font-bold text-warning">R$ {creditServers.totalCreditExpense.toFixed(2)}</p>
+                      <p className="font-bold text-warning">{valuesHidden ? '•••••' : `R$ ${creditServers.totalCreditExpense.toFixed(2)}`}</p>
                     </div>
                   </div>
                 </div>
@@ -800,17 +823,17 @@ ${ADMIN_NAME}`;
                         <Crown className="w-4 h-4 text-amber-500" />
                         <div>
                           <p className="font-medium">{account.name}</p>
-                          <p className="text-xs text-muted-foreground">{account.clientCount} cliente{account.clientCount > 1 ? 's' : ''}</p>
+                          <p className="text-xs text-muted-foreground">{valuesHidden ? '••' : account.clientCount} cliente{account.clientCount > 1 ? 's' : ''}</p>
                         </div>
                       </div>
-                      <span className="text-lg font-bold text-amber-500">R$ {account.totalRevenue.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-amber-500">{valuesHidden ? '•••••' : `R$ ${account.totalRevenue.toFixed(2)}`}</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between items-center pt-4 border-t border-border">
                   <span className="font-medium">Total Contas Premium</span>
                   <span className="text-xl font-bold text-amber-500">
-                    R$ {premiumAccounts.reduce((sum, a) => sum + a.totalRevenue, 0).toFixed(2)}
+                    {valuesHidden ? '•••••' : `R$ ${premiumAccounts.reduce((sum, a) => sum + a.totalRevenue, 0).toFixed(2)}`}
                   </span>
                 </div>
               </div>
@@ -830,23 +853,23 @@ ${ADMIN_NAME}`;
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Receita Total</p>
-                <p className="text-lg font-bold text-success">+ R$ {financialSummary.totalRevenue.toFixed(2)}</p>
+                <p className="text-lg font-bold text-success">{valuesHidden ? '•••••' : `+ R$ ${financialSummary.totalRevenue.toFixed(2)}`}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">(-) Custos Fixos</p>
-                <p className="text-lg font-bold text-warning">- R$ {financialSummary.totalFixedCosts.toFixed(2)}</p>
+                <p className="text-lg font-bold text-warning">{valuesHidden ? '•••••' : `- R$ ${financialSummary.totalFixedCosts.toFixed(2)}`}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">(-) Custos Créditos</p>
-                <p className="text-lg font-bold text-warning">- R$ {financialSummary.totalCreditCosts.toFixed(2)}</p>
+                <p className="text-lg font-bold text-warning">{valuesHidden ? '•••••' : `- R$ ${financialSummary.totalCreditCosts.toFixed(2)}`}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Reserva Necessária</p>
-                <p className="text-lg font-bold text-secondary">R$ {financialSummary.totalReserve.toFixed(2)}</p>
+                <p className="text-lg font-bold text-secondary">{valuesHidden ? '•••••' : `R$ ${financialSummary.totalReserve.toFixed(2)}`}</p>
               </div>
               <div className="space-y-1 bg-primary/20 rounded-lg p-2 -m-2">
                 <p className="text-xs text-muted-foreground">= Lucro Líquido</p>
-                <p className="text-xl font-bold text-primary">R$ {financialSummary.netProfit.toFixed(2)}</p>
+                <p className="text-xl font-bold text-primary">{valuesHidden ? '•••••' : `R$ ${financialSummary.netProfit.toFixed(2)}`}</p>
               </div>
             </div>
           </CardContent>
@@ -927,5 +950,13 @@ ${ADMIN_NAME}`;
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ValueVisibilityProvider>
+      <DashboardContent />
+    </ValueVisibilityProvider>
   );
 }
