@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useValueVisibility } from '@/hooks/useValueVisibility';
 
 interface StatCardProps {
   title: string;
@@ -19,6 +20,7 @@ interface StatCardProps {
 
 export default function StatCard({ title, value, icon: Icon, trend, variant = 'default', onClick, linkTo }: StatCardProps) {
   const navigate = useNavigate();
+  const { valuesHidden, formatValue } = useValueVisibility();
   
   const iconStyles = {
     default: 'bg-muted text-muted-foreground',
@@ -38,6 +40,8 @@ export default function StatCard({ title, value, icon: Icon, trend, variant = 'd
     }
   };
 
+  const displayValue = valuesHidden ? formatValue(value) : value;
+
   return (
     <Card 
       variant="stat" 
@@ -51,13 +55,16 @@ export default function StatCard({ title, value, icon: Icon, trend, variant = 'd
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl lg:text-3xl font-bold">{value}</p>
+            <p className={cn(
+              "text-2xl lg:text-3xl font-bold",
+              valuesHidden && "tracking-wider"
+            )}>{displayValue}</p>
             {trend && (
               <p className={cn(
                 "text-xs font-medium",
                 trend.isPositive ? "text-success" : "text-destructive"
               )}>
-                {trend.isPositive ? '+' : ''}{trend.value}% este mês
+                {valuesHidden ? '••••' : `${trend.isPositive ? '+' : ''}${trend.value}% este mês`}
               </p>
             )}
           </div>
