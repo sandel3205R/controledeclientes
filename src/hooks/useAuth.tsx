@@ -89,7 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
 
     const initialize = async () => {
       try {
@@ -112,21 +111,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch role and subscription in parallel with timeout
-          try {
-            await Promise.race([
-              Promise.all([
-                fetchUserRole(session.user.id),
-                fetchSubscription(session.user.id)
-              ]),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-              )
-            ]);
-          } catch (err) {
+          // Fetch role and subscription in parallel - don't wait for them to finish loading
+          Promise.all([
+            fetchUserRole(session.user.id),
+            fetchSubscription(session.user.id)
+          ]).catch(err => {
             console.error('Error fetching user data:', err);
-          }
+          });
         }
+        
+        // Set loading to false immediately after getting session
+        setLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
         // Clear state on error to prevent infinite loading
@@ -135,21 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setRole(null);
           setSubscription(null);
-        }
-      } finally {
-        if (mounted) {
           setLoading(false);
         }
       }
     };
-
-    // Safety timeout - ensure loading always ends after 8 seconds max
-    timeoutId = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth initialization timeout - forcing loading to false');
-        setLoading(false);
-      }
-    }, 8000);
 
     initialize();
 
@@ -183,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
       authSubscription.unsubscribe();
     };
   }, []);
