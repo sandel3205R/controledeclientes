@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, Crown, DollarSign, AlertCircle } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, Crown, DollarSign, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -108,6 +108,7 @@ export default function Clients() {
   const [proExportOpen, setProExportOpen] = useState(false);
   const [hasProAccess, setHasProAccess] = useState(false);
   const [sellerName, setSellerName] = useState('');
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   const fetchClients = async () => {
     if (!user) return;
@@ -496,15 +497,26 @@ export default function Clients() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold">Meus Clientes</h1>
-            <p className="text-muted-foreground">{filteredClients.length} clientes encontrados</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold">Meus Clientes</h1>
+              <p className="text-muted-foreground">{valuesHidden ? '••' : filteredClients.length} clientes encontrados</p>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setValuesHidden(!valuesHidden)}
+              className="h-8 w-8"
+              title={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
           </div>
           
           {isSelectionMode ? (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-muted-foreground">
-                {selectedClients.size} selecionado(s)
+                {valuesHidden ? '••' : selectedClients.size} selecionado(s)
               </span>
               <Button
                 variant="outline"
@@ -521,7 +533,7 @@ export default function Clients() {
                 disabled={selectedClients.size === 0}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Excluir ({selectedClients.size})
+                Excluir ({valuesHidden ? '••' : selectedClients.size})
               </Button>
               <Button
                 variant="ghost"
