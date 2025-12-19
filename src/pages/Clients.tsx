@@ -108,7 +108,18 @@ export default function Clients() {
   const [proExportOpen, setProExportOpen] = useState(false);
   const [hasProAccess, setHasProAccess] = useState(false);
   const [sellerName, setSellerName] = useState('');
-  const [valuesHidden, setValuesHidden] = useState(false);
+  const [valuesHidden, setValuesHidden] = useState(() => {
+    const stored = localStorage.getItem('valuesHidden');
+    return stored === 'true';
+  });
+
+  const toggleValuesHidden = () => {
+    setValuesHidden(prev => {
+      const newValue = !prev;
+      localStorage.setItem('valuesHidden', String(newValue));
+      return newValue;
+    });
+  };
 
   const fetchClients = async () => {
     if (!user) return;
@@ -505,7 +516,7 @@ export default function Clients() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setValuesHidden(!valuesHidden)}
+              onClick={toggleValuesHidden}
               className="h-8 w-8"
               title={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
             >
