@@ -11,14 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Key, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Key, FileSpreadsheet, Search, KeyRound } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/sellers/ChangePasswordDialog';
+import { TempPasswordDialog } from '@/components/sellers/TempPasswordDialog';
 import ProActivationDialog from '@/components/sellers/ProActivationDialog';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addDays, isPast, differenceInDays } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
 
 interface SellerProfile {
   id: string;
@@ -93,6 +94,9 @@ export default function Sellers() {
   const [proActivationSeller, setProActivationSeller] = useState<SellerWithStats | null>(null);
   const [expiredFilter, setExpiredFilter] = useState<'all' | '7' | '15' | '30'>('all');
   const [moveToTrashConfirm, setMoveToTrashConfirm] = useState<SellerWithStats | null>(null);
+  const [tempPasswordSeller, setTempPasswordSeller] = useState<SellerWithStats | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [daysFilter, setDaysFilter] = useState<'all' | '3' | '7' | '15' | '30'>('all');
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -212,6 +216,40 @@ export default function Sellers() {
       toast.error('Erro ao mover vendedor para lixeira');
     }
   };
+
+  // Filter sellers by search and days
+  const filterSellers = (sellersList: SellerWithStats[]) => {
+    return sellersList.filter(seller => {
+      // Search filter
+      const matchesSearch = searchQuery === '' || 
+        seller.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        seller.email.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!matchesSearch) return false;
+      
+      // Days filter (subscription days remaining)
+      if (daysFilter === 'all') return true;
+      
+      if (seller.is_permanent) return true;
+      if (!seller.subscription_expires_at) return false;
+      
+      const now = new Date();
+      const expiresAt = new Date(seller.subscription_expires_at);
+      const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysRemaining < 0) return false; // Expired
+      
+      switch (daysFilter) {
+        case '3': return daysRemaining <= 3;
+        case '7': return daysRemaining <= 7;
+        case '15': return daysRemaining <= 15;
+        case '30': return daysRemaining <= 30;
+        default: return true;
+      }
+    });
+  };
+
+  const filteredActiveSellers = filterSellers(sellers);
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
     try {
@@ -870,6 +908,9 @@ SANDEL`
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setTempPasswordSeller(seller)} title="Gerar Senha Temporária">
+                <KeyRound className="w-4 h-4" />
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setPasswordSeller(seller)} title="Alterar Senha">
                 <Key className="w-4 h-4" />
               </Button>
@@ -937,11 +978,61 @@ SANDEL`
           </div>
         </div>
 
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant={daysFilter === 'all' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setDaysFilter('all')}
+            >
+              Todos
+            </Button>
+            <Button 
+              variant={daysFilter === '3' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setDaysFilter('3')}
+            >
+              ≤3 dias
+            </Button>
+            <Button 
+              variant={daysFilter === '7' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setDaysFilter('7')}
+            >
+              ≤7 dias
+            </Button>
+            <Button 
+              variant={daysFilter === '15' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setDaysFilter('15')}
+            >
+              ≤15 dias
+            </Button>
+            <Button 
+              variant={daysFilter === '30' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setDaysFilter('30')}
+            >
+              ≤30 dias
+            </Button>
+          </div>
+        </div>
+
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="active" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Ativos ({sellers.length})
+              Ativos ({filteredActiveSellers.length})
             </TabsTrigger>
             <TabsTrigger value="expired" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -954,21 +1045,27 @@ SANDEL`
           </TabsList>
 
           <TabsContent value="active" className="mt-6">
-            {sellers.length === 0 ? (
+            {filteredActiveSellers.length === 0 ? (
               <Card variant="glow">
                 <CardContent className="p-8 text-center">
                   <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum vendedor ativo</h3>
-                  <p className="text-muted-foreground mb-4">Adicione seu primeiro vendedor para começar.</p>
-                  <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Novo Vendedor
-                  </Button>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {sellers.length === 0 ? 'Nenhum vendedor ativo' : 'Nenhum vendedor encontrado'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {sellers.length === 0 ? 'Adicione seu primeiro vendedor para começar.' : 'Tente ajustar os filtros de busca.'}
+                  </p>
+                  {sellers.length === 0 && (
+                    <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Novo Vendedor
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sellers.map((seller) => (
+                {filteredActiveSellers.map((seller) => (
                   <SellerCard key={seller.id} seller={seller} />
                 ))}
               </div>
@@ -1396,6 +1493,14 @@ SANDEL`
           open={!!passwordSeller}
           onOpenChange={(open) => !open && setPasswordSeller(null)}
           seller={passwordSeller}
+          onSuccess={fetchSellers}
+        />
+
+        {/* Temp Password Dialog */}
+        <TempPasswordDialog
+          open={!!tempPasswordSeller}
+          onOpenChange={(open) => !open && setTempPasswordSeller(null)}
+          seller={tempPasswordSeller}
           onSuccess={fetchSellers}
         />
 

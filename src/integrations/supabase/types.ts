@@ -331,6 +331,7 @@ export type Database = {
           is_permanent: boolean | null
           pro_export_expires_at: string | null
           subscription_expires_at: string | null
+          temp_password_expires_at: string | null
           updated_at: string | null
           whatsapp: string | null
         }
@@ -346,6 +347,7 @@ export type Database = {
           is_permanent?: boolean | null
           pro_export_expires_at?: string | null
           subscription_expires_at?: string | null
+          temp_password_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
@@ -361,6 +363,7 @@ export type Database = {
           is_permanent?: boolean | null
           pro_export_expires_at?: string | null
           subscription_expires_at?: string | null
+          temp_password_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }

@@ -8,3 +8,18 @@ verify_jwt = false
 
 [functions.crypto]
 verify_jwt = true
+
+[functions.change-seller-password]
+verify_jwt = true
+
+[functions.generate-temp-password]
+verify_jwt = true
+
+[functions.backup-data]
+verify_jwt = true
+
+[functions.restore-data]
+verify_jwt = true
+
+[functions.send-push-notifications]
+verify_jwt = false
