@@ -11,10 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, FileSpreadsheet, Search, KeyRound } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Search, KeyRound } from 'lucide-react';
 
 import { TempPasswordDialog } from '@/components/sellers/TempPasswordDialog';
-import ProActivationDialog from '@/components/sellers/ProActivationDialog';
+
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,8 +31,6 @@ interface SellerProfile {
   deleted_at: string | null;
   subscription_expires_at: string | null;
   is_permanent: boolean | null;
-  has_pro_export?: boolean | null;
-  pro_export_expires_at?: string | null;
 }
 
 const sellerSchema = z.object({
@@ -91,7 +89,7 @@ export default function Sellers() {
   const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [retentionDays, setRetentionDays] = useState(30);
-  const [proActivationSeller, setProActivationSeller] = useState<SellerWithStats | null>(null);
+  
   const [expiredFilter, setExpiredFilter] = useState<'all' | '7' | '15' | '30'>('all');
   const [moveToTrashConfirm, setMoveToTrashConfirm] = useState<SellerWithStats | null>(null);
   const [tempPasswordSeller, setTempPasswordSeller] = useState<SellerWithStats | null>(null);
@@ -435,21 +433,6 @@ export default function Sellers() {
     return { label: `${daysRemaining}d restantes`, class: 'bg-green-500/20 text-green-600', icon: Clock };
   };
 
-  const getProStatus = (seller: SellerWithStats) => {
-    if (!seller.has_pro_export) {
-      return { hasPro: false, expiresAt: null, label: 'Sem Pro', class: 'bg-muted text-muted-foreground' };
-    }
-    if (!seller.pro_export_expires_at) {
-      return { hasPro: true, expiresAt: null, label: 'Pro Permanente', class: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black' };
-    }
-    const expiresAt = new Date(seller.pro_export_expires_at);
-    const now = new Date();
-    if (expiresAt < now) {
-      return { hasPro: false, expiresAt: seller.pro_export_expires_at, label: 'Pro Expirado', class: 'bg-destructive/20 text-destructive' };
-    }
-    const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return { hasPro: true, expiresAt: seller.pro_export_expires_at, label: `Pro (${daysRemaining}d)`, class: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black' };
-  };
 
   // Message templates with 3 layout options each
   const messageTemplates = {
@@ -756,30 +739,6 @@ SANDEL`
             </div>
           )}
           
-          {/* Pro Export Status */}
-          {!isTrash && (
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Exportar Pro</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={getProStatus(seller).class}>
-                  <Crown className="w-3 h-3 mr-1" />
-                  {getProStatus(seller).label}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => setProActivationSeller(seller)}
-                  title="Gerenciar Pro Export"
-                >
-                  <Settings2 className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          )}
           
           {seller.whatsapp && (
             <div className="flex items-center justify-between text-sm">
@@ -1537,14 +1496,6 @@ SANDEL`
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Pro Activation Dialog */}
-        <ProActivationDialog
-          open={!!proActivationSeller}
-          onOpenChange={(open) => !open && setProActivationSeller(null)}
-          seller={proActivationSeller}
-          currentProStatus={proActivationSeller ? getProStatus(proActivationSeller) : { hasPro: false, expiresAt: null }}
-          onSuccess={fetchSellers}
-        />
       </div>
     </AppLayout>
   );
