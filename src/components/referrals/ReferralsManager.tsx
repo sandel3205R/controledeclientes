@@ -44,10 +44,9 @@ import {
   Percent,
   Share2,
   UserPlus,
-  TrendingUp,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface Client {
   id: string;
@@ -56,6 +55,13 @@ interface Client {
   referral_code: string | null;
   plan_name: string | null;
   plan_price: number | null;
+  seller_id: string;
+}
+
+interface Seller {
+  id: string;
+  full_name: string | null;
+  email: string;
 }
 
 interface Referral {
@@ -70,19 +76,25 @@ interface Referral {
   created_at: string;
   referrer?: Client;
   referred?: Client;
+  seller?: Seller;
 }
 
 export default function ReferralsManager() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === 'admin';
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'expired'>('all');
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedClientForShare, setSelectedClientForShare] = useState<Client | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -102,24 +114,50 @@ export default function ReferralsManager() {
       // Fetch clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('id, name, phone, referral_code, plan_name, plan_price')
+        .select('id, name, phone, referral_code, plan_name, plan_price, seller_id')
         .order('name');
 
       if (clientsError) throw clientsError;
       setClients(clientsData || []);
+
+      // Fetch sellers for admin view
+      if (isAdmin) {
+        const { data: sellersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .order('full_name');
+        setSellers(sellersData || []);
+      }
 
       // Fetch referrals with related data
       const { data: referralsData, error: referralsError } = await supabase
         .from('referrals')
         .select(`
           *,
-          referrer:clients!referrals_referrer_client_id_fkey(id, name, phone, referral_code, plan_name, plan_price),
-          referred:clients!referrals_referred_client_id_fkey(id, name, phone, referral_code, plan_name, plan_price)
+          referrer:clients!referrals_referrer_client_id_fkey(id, name, phone, referral_code, plan_name, plan_price, seller_id),
+          referred:clients!referrals_referred_client_id_fkey(id, name, phone, referral_code, plan_name, plan_price, seller_id)
         `)
         .order('created_at', { ascending: false });
 
       if (referralsError) throw referralsError;
-      setReferrals((referralsData || []) as Referral[]);
+
+      // For admin, fetch seller info
+      let referralsWithSeller = referralsData || [];
+      if (isAdmin && referralsWithSeller.length > 0) {
+        const sellerIds = [...new Set(referralsWithSeller.map(r => r.seller_id))];
+        const { data: sellerProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', sellerIds);
+
+        const sellerMap = new Map(sellerProfiles?.map(s => [s.id, s]) || []);
+        referralsWithSeller = referralsWithSeller.map(r => ({
+          ...r,
+          seller: sellerMap.get(r.seller_id)
+        }));
+      }
+
+      setReferrals(referralsWithSeller as Referral[]);
     } catch (error: any) {
       toast.error('Erro ao carregar dados');
       console.error(error);
@@ -132,14 +170,19 @@ export default function ReferralsManager() {
     return referrals.filter((referral) => {
       const matchesSearch =
         referral.referrer?.name.toLowerCase().includes(search.toLowerCase()) ||
-        referral.referred?.name.toLowerCase().includes(search.toLowerCase());
+        referral.referred?.name.toLowerCase().includes(search.toLowerCase()) ||
+        referral.seller?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        referral.seller?.email?.toLowerCase().includes(search.toLowerCase());
 
       const matchesStatus =
         statusFilter === 'all' || referral.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesSeller =
+        sellerFilter === 'all' || referral.seller_id === sellerFilter;
+
+      return matchesSearch && matchesStatus && matchesSeller;
     });
-  }, [referrals, search, statusFilter]);
+  }, [referrals, search, statusFilter, sellerFilter]);
 
   const stats = useMemo(() => {
     const total = referrals.length;
@@ -269,6 +312,41 @@ export default function ReferralsManager() {
   const copyReferralCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success('Código copiado!');
+  };
+
+  const generateReferralLink = (client: Client) => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/?ref=${client.referral_code}`;
+  };
+
+  const handleShareLink = async (client: Client) => {
+    const link = generateReferralLink(client);
+    const message = `🎉 Indique amigos e ganhe 50% de desconto!\n\nUse meu código de indicação: ${client.referral_code}\n\nOu acesse: ${link}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Programa de Indicação',
+          text: message,
+          url: link,
+        });
+      } catch (err) {
+        // User cancelled or share failed, fallback to copy
+        copyToClipboard(message);
+      }
+    } else {
+      copyToClipboard(message);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Link copiado para a área de transferência!');
+  };
+
+  const openShareDialog = (client: Client) => {
+    setSelectedClientForShare(client);
+    setShareDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -461,6 +539,24 @@ export default function ReferralsManager() {
             <SelectItem value="expired">Expiradas</SelectItem>
           </SelectContent>
         </Select>
+        {isAdmin && sellers.length > 0 && (
+          <Select
+            value={sellerFilter}
+            onValueChange={setSellerFilter}
+          >
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Vendedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Vendedores</SelectItem>
+              {sellers.map((seller) => (
+                <SelectItem key={seller.id} value={seller.id}>
+                  {seller.full_name || seller.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Referrals Table */}
@@ -489,6 +585,7 @@ export default function ReferralsManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isAdmin && <TableHead>Vendedor</TableHead>}
                     <TableHead>Quem Indicou</TableHead>
                     <TableHead>Indicado</TableHead>
                     <TableHead>Desconto</TableHead>
@@ -500,6 +597,14 @@ export default function ReferralsManager() {
                 <TableBody>
                   {filteredReferrals.map((referral) => (
                     <TableRow key={referral.id}>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="text-sm">
+                            <p className="font-medium">{referral.seller?.full_name || 'Sem nome'}</p>
+                            <p className="text-xs text-muted-foreground">{referral.seller?.email}</p>
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div>
                           <p className="font-medium">{referral.referrer?.name}</p>
@@ -541,7 +646,7 @@ export default function ReferralsManager() {
                       </TableCell>
                       <TableCell>{getStatusBadge(referral.status)}</TableCell>
                       <TableCell className="text-right">
-                        {referral.status === 'pending' && (
+                        {referral.status === 'pending' && !isAdmin && (
                           <div className="flex gap-1 justify-end">
                             <Button
                               size="sm"
@@ -586,7 +691,7 @@ export default function ReferralsManager() {
                   key={client.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{client.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {client.plan_name || 'Sem plano'}
@@ -602,8 +707,18 @@ export default function ReferralsManager() {
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => copyReferralCode(client.referral_code!)}
+                        title="Copiar código"
                       >
                         <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => openShareDialog(client)}
+                        title="Compartilhar link"
+                      >
+                        <Share2 className="w-3 h-3" />
                       </Button>
                     </div>
                   )}
@@ -689,6 +804,105 @@ export default function ReferralsManager() {
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Salvando...' : 'Registrar Indicação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Link Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5" />
+              Compartilhar Link de Indicação
+            </DialogTitle>
+            <DialogDescription>
+              Compartilhe o link abaixo para que {selectedClientForShare?.name} indique novos clientes e ganhe 50% de desconto.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedClientForShare && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Código de Indicação</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="font-mono text-lg px-3 py-1">
+                      {selectedClientForShare.referral_code}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyReferralCode(selectedClientForShare.referral_code!)}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copiar
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Link Completo</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      readOnly
+                      value={generateReferralLink(selectedClientForShare)}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(generateReferralLink(selectedClientForShare))}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button 
+                  className="w-full"
+                  onClick={() => handleShareLink(selectedClientForShare)}
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Compartilhar via WhatsApp/Apps
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    const link = generateReferralLink(selectedClientForShare);
+                    const message = `🎉 Indique amigos e ganhe 50% de desconto!\n\nUse o código: ${selectedClientForShare.referral_code}\n\nOu acesse: ${link}`;
+                    copyToClipboard(message);
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar Mensagem Completa
+                </Button>
+                {selectedClientForShare.phone && (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      const phone = selectedClientForShare.phone!.replace(/\D/g, '');
+                      const link = generateReferralLink(selectedClientForShare);
+                      const message = encodeURIComponent(`🎉 Olá ${selectedClientForShare.name}!\n\nVocê pode indicar amigos e ganhar 50% de desconto!\n\nSeu código: ${selectedClientForShare.referral_code}\n\nLink: ${link}`);
+                      window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+                    }}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Enviar para o Cliente via WhatsApp
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
