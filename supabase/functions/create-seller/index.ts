@@ -44,18 +44,16 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     console.log("Token extracted, length:", token.length);
     
-    // Decode the JWT to get the user ID (without verification - the API gateway already verified it)
-    // The JWT payload is the second part of the token
-    const payloadBase64 = token.split('.')[1];
-    const payloadJson = atob(payloadBase64);
-    const payload = JSON.parse(payloadJson);
-    const userId = payload.sub;
+    // Properly verify the JWT using Supabase's getUser method
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
     
-    console.log("User ID from token:", userId);
-    
-    if (!userId) {
+    if (userError || !user) {
+      console.error("Token verification failed:", userError?.message);
       throw new Error("Não autorizado - token inválido");
     }
+    
+    const userId = user.id;
+    console.log("Verified user ID:", userId);
 
     // Check if requesting user is admin using the admin client
     const { data: roleData, error: roleError } = await supabaseAdmin
