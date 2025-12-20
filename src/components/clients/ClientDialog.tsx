@@ -42,6 +42,7 @@ const DEVICE_OPTIONS = [
 const clientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   phone: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   device: z.string().optional(),
   login: z.string().optional(),
   password: z.string().optional(),
@@ -77,6 +78,7 @@ interface ClientDialogProps {
     id: string;
     name: string;
     phone: string | null;
+    email?: string | null;
     device: string | null;
     login: string | null;
     password: string | null;
@@ -192,6 +194,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       reset({
         name: client.name,
         phone: client.phone || '',
+        email: (client as any).email || '',
         device: client.device || '',
         login: client.login || '',
         password: client.password || '',
@@ -220,6 +223,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       reset({
         name: '',
         phone: '',
+        email: '',
         device: '',
         login: '',
         password: '',
@@ -315,6 +319,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       const clientData = {
         name: data.name,
         phone: data.phone || null,
+        email: data.email || null,
         device: deviceString || null,
         login: encryptedCredentials.login || null,
         password: encryptedCredentials.password || null,
@@ -376,14 +381,26 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">WhatsApp</Label>
-            <Input 
-              id="phone" 
-              value={watch('phone') || ''}
-              onChange={handlePhoneChange}
-              placeholder="+55 31 95555-5555" 
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">WhatsApp</Label>
+              <Input 
+                id="phone" 
+                value={watch('phone') || ''}
+                onChange={handlePhoneChange}
+                placeholder="+55 31 95555-5555" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input 
+                id="email" 
+                type="email"
+                {...register('email')} 
+                placeholder="email@exemplo.com" 
+              />
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

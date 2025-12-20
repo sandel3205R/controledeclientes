@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -33,6 +33,7 @@ interface ClientCardProps {
     id: string;
     name: string;
     phone: string | null;
+    email?: string | null;
     device: string | null;
     login: string | null;
     password: string | null;
@@ -439,6 +440,12 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Wifi className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate font-mono text-xs">{client.mac_address}</span>
+              </div>
+            )}
+            {client.email && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate text-xs">{client.email}</span>
               </div>
             )}
           </div>
