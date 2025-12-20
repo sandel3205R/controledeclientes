@@ -78,6 +78,7 @@ const formatWhatsApp = (value: string): string => {
 export default function Sellers() {
   const [sellers, setSellers] = useState<SellerWithStats[]>([]);
   const [trashedSellers, setTrashedSellers] = useState<SellerWithStats[]>([]);
+  const [expiredSellers, setExpiredSellers] = useState<SellerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSeller, setEditingSeller] = useState<SellerWithStats | null>(null);
@@ -90,6 +91,8 @@ export default function Sellers() {
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [retentionDays, setRetentionDays] = useState(30);
   const [proActivationSeller, setProActivationSeller] = useState<SellerWithStats | null>(null);
+  const [expiredFilter, setExpiredFilter] = useState<'all' | '7' | '15' | '30'>('all');
+  const [moveToTrashConfirm, setMoveToTrashConfirm] = useState<SellerWithStats | null>(null);
 
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
@@ -153,13 +156,61 @@ export default function Sellers() {
       })
     );
 
-    // Separate active and trashed sellers
-    const active = sellersWithStats.filter(s => !s.deleted_at);
+    // Separate active, expired and trashed sellers
+    const now = new Date();
+    const active = sellersWithStats.filter(s => {
+      if (s.deleted_at) return false;
+      if (s.is_permanent) return true;
+      if (!s.subscription_expires_at) return false;
+      return new Date(s.subscription_expires_at) >= now;
+    });
+    
+    const expired = sellersWithStats.filter(s => {
+      if (s.deleted_at) return false;
+      if (s.is_permanent) return false;
+      if (!s.subscription_expires_at) return true; // No plan = expired
+      return new Date(s.subscription_expires_at) < now;
+    });
+    
     const trashed = sellersWithStats.filter(s => s.deleted_at);
 
     setSellers(active);
+    setExpiredSellers(expired);
     setTrashedSellers(trashed);
     setLoading(false);
+  };
+
+  // Filter expired sellers by days
+  const filteredExpiredSellers = expiredSellers.filter(seller => {
+    if (expiredFilter === 'all') return true;
+    
+    const now = new Date();
+    const expiredAt = seller.subscription_expires_at ? new Date(seller.subscription_expires_at) : now;
+    const daysExpired = differenceInDays(now, expiredAt);
+    
+    switch (expiredFilter) {
+      case '7': return daysExpired <= 7;
+      case '15': return daysExpired <= 15;
+      case '30': return daysExpired <= 30;
+      default: return true;
+    }
+  });
+
+  const handleMoveExpiredToTrash = async (seller: SellerWithStats) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
+        .eq('id', seller.id);
+
+      if (error) throw error;
+
+      toast.success('Vendedor movido para a lixeira!');
+      setMoveToTrashConfirm(null);
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao mover vendedor para lixeira');
+    }
   };
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
@@ -573,7 +624,7 @@ SANDEL`
     }
   };
 
-  const SellerCard = ({ seller, isTrash = false }: { seller: SellerWithStats; isTrash?: boolean }) => (
+  const SellerCard = ({ seller, isTrash = false, isExpired = false, onMoveToTrash }: { seller: SellerWithStats; isTrash?: boolean; isExpired?: boolean; onMoveToTrash?: () => void }) => (
     <Card variant="gradient" className={`animate-scale-in ${!seller.is_active ? 'opacity-60' : ''}`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
@@ -586,7 +637,7 @@ SANDEL`
               <p className="text-xs text-muted-foreground">{seller.email}</p>
             </div>
           </div>
-          {!isTrash && (
+          {!isTrash && !isExpired && (
             <div className="flex items-center gap-2">
               <Switch
                 checked={seller.is_active ?? true}
@@ -595,6 +646,19 @@ SANDEL`
               <Badge variant={seller.is_active ? 'default' : 'secondary'}>
                 {seller.is_active ? 'Ativo' : 'Inativo'}
               </Badge>
+            </div>
+          )}
+          {isExpired && (
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="destructive">
+                <Clock className="w-3 h-3 mr-1" />
+                Vencido
+              </Badge>
+              {seller.subscription_expires_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  Desde {format(new Date(seller.subscription_expires_at), 'dd/MM/yyyy')}
+                </span>
+              )}
             </div>
           )}
           {isTrash && seller.deleted_at && (
@@ -775,7 +839,32 @@ SANDEL`
         )}
 
         <div className="flex gap-2 mt-4">
-          {!isTrash ? (
+          {isExpired ? (
+            <>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingSeller(seller)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+              <Button variant="whatsapp" size="sm" onClick={() => {
+                if (seller.whatsapp) {
+                  const phone = seller.whatsapp.replace(/\D/g, '');
+                  const message = `Olá ${seller.full_name || 'Vendedor'}! 👋\n\nPercebemos que seu plano venceu. Gostaríamos de renovar sua assinatura!\n\nPodemos conversar?`;
+                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                }
+              }} disabled={!seller.whatsapp} title="WhatsApp">
+                <MessageCircle className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-destructive hover:text-destructive"
+                onClick={onMoveToTrash}
+                title="Mover para Lixeira"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          ) : !isTrash ? (
             <>
               <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingSeller(seller)}>
                 <Edit className="w-4 h-4 mr-2" />
@@ -834,7 +923,7 @@ SANDEL`
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold">Vendedores</h1>
-            <p className="text-muted-foreground">{sellers.length} ativos · {trashedSellers.length} na lixeira</p>
+            <p className="text-muted-foreground">{sellers.length} ativos · {expiredSellers.length} vencidos · {trashedSellers.length} na lixeira</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setMessageConfigOpen(true)}>
@@ -849,10 +938,14 @@ SANDEL`
         </div>
 
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="active" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Ativos ({sellers.length})
+            </TabsTrigger>
+            <TabsTrigger value="expired" className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Vencidos ({expiredSellers.length})
             </TabsTrigger>
             <TabsTrigger value="trash" className="flex items-center gap-2">
               <Archive className="w-4 h-4" />
@@ -865,7 +958,7 @@ SANDEL`
               <Card variant="glow">
                 <CardContent className="p-8 text-center">
                   <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum vendedor cadastrado</h3>
+                  <h3 className="text-lg font-semibold mb-2">Nenhum vendedor ativo</h3>
                   <p className="text-muted-foreground mb-4">Adicione seu primeiro vendedor para começar.</p>
                   <Button variant="gradient" onClick={() => { createForm.reset(); setDialogOpen(true); }}>
                     <Plus className="w-4 h-4 mr-2" />
@@ -878,6 +971,66 @@ SANDEL`
                 {sellers.map((seller) => (
                   <SellerCard key={seller.id} seller={seller} />
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="expired" className="mt-6">
+            {expiredSellers.length === 0 ? (
+              <Card variant="glow">
+                <CardContent className="p-8 text-center">
+                  <Clock className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum vendedor vencido</h3>
+                  <p className="text-muted-foreground">Todos os vendedores estão com o plano ativo.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between gap-3">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      variant={expiredFilter === 'all' ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setExpiredFilter('all')}
+                    >
+                      Todos ({expiredSellers.length})
+                    </Button>
+                    <Button 
+                      variant={expiredFilter === '7' ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setExpiredFilter('7')}
+                    >
+                      Até 7 dias
+                    </Button>
+                    <Button 
+                      variant={expiredFilter === '15' ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setExpiredFilter('15')}
+                    >
+                      Até 15 dias
+                    </Button>
+                    <Button 
+                      variant={expiredFilter === '30' ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setExpiredFilter('30')}
+                    >
+                      Até 30 dias
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredExpiredSellers.map((seller) => (
+                    <SellerCard key={seller.id} seller={seller} isExpired onMoveToTrash={() => setMoveToTrashConfirm(seller)} />
+                  ))}
+                </div>
+                {filteredExpiredSellers.length === 0 && (
+                  <Card variant="glow">
+                    <CardContent className="p-8 text-center">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground">Nenhum vendedor vencido neste período.</p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </TabsContent>
@@ -1114,6 +1267,37 @@ SANDEL`
                 onClick={() => permanentDeleteConfirm && handlePermanentDelete(permanentDeleteConfirm)}
               >
                 Excluir Permanentemente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Move Expired to Trash Confirmation */}
+        <AlertDialog open={!!moveToTrashConfirm} onOpenChange={() => setMoveToTrashConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mover Vendedor Vencido para Lixeira?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O vendedor <strong>{moveToTrashConfirm?.full_name || moveToTrashConfirm?.email}</strong> será movido para a lixeira.
+                {moveToTrashConfirm?.subscription_expires_at && (
+                  <span className="block mt-2">
+                    Plano vencido desde: {format(new Date(moveToTrashConfirm.subscription_expires_at), 'dd/MM/yyyy')}
+                  </span>
+                )}
+                {moveToTrashConfirm && moveToTrashConfirm.clientCount > 0 && (
+                  <span className="block mt-2 text-yellow-600">
+                    Atenção: Este vendedor possui {moveToTrashConfirm.clientCount} cliente(s) cadastrado(s).
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => moveToTrashConfirm && handleMoveExpiredToTrash(moveToTrashConfirm)}
+              >
+                Mover para Lixeira
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
