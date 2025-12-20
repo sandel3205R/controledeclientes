@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Mail, Lock, User, ArrowRight, Sparkles, Phone, LogOut } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, Phone, LogOut, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -45,8 +46,31 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allowFirstAdmin, setAllowFirstAdmin] = useState(false);
+  const [checkingFirstAdmin, setCheckingFirstAdmin] = useState(true);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  // Check if first admin signup is allowed
+  useEffect(() => {
+    const checkFirstAdminSetting = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'allow_first_admin_signup')
+          .maybeSingle();
+        
+        setAllowFirstAdmin(data?.value === 'true');
+      } catch (error) {
+        console.error('Error checking first admin setting:', error);
+      } finally {
+        setCheckingFirstAdmin(false);
+      }
+    };
+    
+    checkFirstAdminSetting();
+  }, []);
 
   const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatWhatsApp(e.target.value);
@@ -129,10 +153,20 @@ export default function Auth() {
           <p className="text-muted-foreground mt-2">Gestão inteligente de revendas</p>
         </div>
 
+        {/* First Admin Signup Alert */}
+        {allowFirstAdmin && !isLogin && !checkingFirstAdmin && (
+          <Alert className="mb-4 border-primary/50 bg-primary/10">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-primary">
+              <strong>Modo Admin Ativo:</strong> O primeiro usuário cadastrado será automaticamente administrador.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card variant="gradient" className="animate-slide-up">
           <CardHeader className="text-center">
             <CardTitle className="text-xl">
-              {isLogin ? 'Bem-vindo de volta' : 'Criar conta'}
+              {isLogin ? 'Bem-vindo de volta' : (allowFirstAdmin ? 'Criar conta Admin' : 'Criar conta')}
             </CardTitle>
             <CardDescription>
               {isLogin
@@ -140,7 +174,9 @@ export default function Auth() {
                 : (
                   <span className="flex flex-col gap-1">
                     <span>Preencha os dados para criar sua conta</span>
-                    <span className="text-green-600 dark:text-green-400 font-medium">🎁 Ganhe 3 dias de teste grátis!</span>
+                    {!allowFirstAdmin && (
+                      <span className="text-green-600 dark:text-green-400 font-medium">🎁 Ganhe 3 dias de teste grátis!</span>
+                    )}
                   </span>
                 )}
             </CardDescription>

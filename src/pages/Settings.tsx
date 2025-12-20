@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock, Save, Palette, Check } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationSettings as NotificationSettingsComponent } from '@/components/notifications/NotificationSettings';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -27,13 +29,66 @@ const passwordSchema = z.object({
 
 export default function Settings() {
   const { user, role } = useAuth();
-  const { theme, setTheme, themes, isAdmin } = useTheme();
+  const { theme, setTheme, themes } = useTheme();
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
+  const [allowFirstAdminSignup, setAllowFirstAdminSignup] = useState(false);
+  const [loadingAdminSetting, setLoadingAdminSetting] = useState(true);
+  const [savingAdminSetting, setSavingAdminSetting] = useState(false);
+  const isAdmin = role === 'admin';
+
+  // Load first admin signup setting
+  useEffect(() => {
+    if (!isAdmin) return;
+    
+    const loadSetting = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'allow_first_admin_signup')
+          .maybeSingle();
+        
+        setAllowFirstAdminSignup(data?.value === 'true');
+      } catch (error) {
+        console.error('Error loading admin setting:', error);
+      } finally {
+        setLoadingAdminSetting(false);
+      }
+    };
+    
+    loadSetting();
+  }, [isAdmin]);
+
+  const handleToggleFirstAdminSignup = async (enabled: boolean) => {
+    setSavingAdminSetting(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          key: 'allow_first_admin_signup', 
+          value: enabled ? 'true' : 'false',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      
+      setAllowFirstAdminSignup(enabled);
+      toast.success(enabled 
+        ? 'Cadastro de primeiro admin ATIVADO' 
+        : 'Cadastro de primeiro admin DESATIVADO'
+      );
+    } catch (error: any) {
+      toast.error('Erro ao atualizar configuração');
+      console.error(error);
+    } finally {
+      setSavingAdminSetting(false);
+    }
+  };
 
   const handleThemeChange = async (newTheme: typeof theme) => {
     setSavingTheme(true);
@@ -106,6 +161,50 @@ export default function Settings() {
 
         {/* Notification Settings */}
         <NotificationSettingsComponent />
+
+        {/* First Admin Signup - Admin Only */}
+        {isAdmin && (
+          <Card variant="glow" className="border-destructive/30">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-destructive/10">
+                  <ShieldCheck className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Primeiro Login Admin</CardTitle>
+                  <CardDescription>
+                    Permite criar conta admin sem precisar de convite (use apenas no deploy inicial)
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {allowFirstAdminSignup && (
+                <Alert className="border-yellow-500/50 bg-yellow-500/10">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-yellow-600 dark:text-yellow-500">
+                    <strong>Atenção:</strong> Esta opção está ativada! Desative após configurar o admin.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="first-admin-toggle">Permitir cadastro de admin</Label>
+                  <p className="text-xs text-muted-foreground">
+                    O primeiro usuário a se cadastrar será automaticamente admin
+                  </p>
+                </div>
+                <Switch
+                  id="first-admin-toggle"
+                  checked={allowFirstAdminSignup}
+                  onCheckedChange={handleToggleFirstAdminSignup}
+                  disabled={loadingAdminSetting || savingAdminSetting}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Theme Settings - Admin Only */}
         {isAdmin && (
