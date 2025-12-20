@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { useCrypto } from '@/hooks/useCrypto';
 
 const DEVICE_OPTIONS = [
   { id: 'TV SMART', label: 'TV Smart', icon: Tv },
@@ -128,6 +129,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [isPaid, setIsPaid] = useState(true);
+  const { encryptCredentials } = useCrypto();
 
   const {
     register,
@@ -296,10 +298,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       // Use first selected server for server_id (for backwards compatibility)
       const primaryServerId = selectedServers.length > 0 ? selectedServers[0] : null;
 
-      const clientData = {
-        name: data.name,
-        phone: data.phone || null,
-        device: deviceString || null,
+      // Encrypt credentials before saving
+      const encryptedCredentials = await encryptCredentials({
         login: data.login || null,
         password: data.password || null,
         login2: data.login2 || null,
@@ -310,6 +310,22 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         password4: data.password4 || null,
         login5: data.login5 || null,
         password5: data.password5 || null,
+      });
+
+      const clientData = {
+        name: data.name,
+        phone: data.phone || null,
+        device: deviceString || null,
+        login: encryptedCredentials.login || null,
+        password: encryptedCredentials.password || null,
+        login2: encryptedCredentials.login2 || null,
+        password2: encryptedCredentials.password2 || null,
+        login3: encryptedCredentials.login3 || null,
+        password3: encryptedCredentials.password3 || null,
+        login4: encryptedCredentials.login4 || null,
+        password4: encryptedCredentials.password4 || null,
+        login5: encryptedCredentials.login5 || null,
+        password5: encryptedCredentials.password5 || null,
         expiration_date: data.expiration_date,
         plan_name: data.plan_name || null,
         plan_price: data.plan_price ? parseFloat(data.plan_price) : null,

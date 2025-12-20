@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import WhatsAppCredentialSelector from './WhatsAppCredentialSelector';
+import { useCrypto } from '@/hooks/useCrypto';
 
 interface ClientCardProps {
   client: {
@@ -74,9 +75,23 @@ interface Credential {
 
 export default function ClientCard({ client, servers = [], onEdit, onDelete, onRenew }: ClientCardProps) {
   const { user } = useAuth();
+  const { decryptCredentials } = useCrypto();
   const [showPassword, setShowPassword] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [decryptedCredentials, setDecryptedCredentials] = useState<{
+    login: string | null;
+    password: string | null;
+    login2: string | null;
+    password2: string | null;
+    login3: string | null;
+    password3: string | null;
+    login4: string | null;
+    password4: string | null;
+    login5: string | null;
+    password5: string | null;
+  } | null>(null);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [credentialSelectorOpen, setCredentialSelectorOpen] = useState(false);
   const [pendingMessageType, setPendingMessageType] = useState<'billing' | 'welcome' | 'renewal' | 'reminder'>('billing');
@@ -85,6 +100,38 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
   const isExpired = isPast(expirationDate);
   const isExpiring = !isExpired && daysUntilExpiration <= 7;
+
+  // Handle password reveal with decryption
+  const handleTogglePassword = async () => {
+    if (!showPassword && !decryptedCredentials) {
+      setIsDecrypting(true);
+      try {
+        const decrypted = await decryptCredentials({
+          login: client.login,
+          password: client.password,
+          login2: client.login2,
+          password2: client.password2,
+          login3: client.login3,
+          password3: client.password3,
+          login4: client.login4,
+          password4: client.password4,
+          login5: client.login5,
+          password5: client.password5,
+        });
+        setDecryptedCredentials(decrypted as any);
+      } catch (error) {
+        console.error('Decryption error:', error);
+        toast.error('Erro ao descriptografar credenciais');
+      } finally {
+        setIsDecrypting(false);
+      }
+    }
+    setShowPassword(!showPassword);
+  };
+
+  // Get display values - use decrypted if available, otherwise use original
+  const getDisplayLogin = () => decryptedCredentials?.login || client.login;
+  const getDisplayPassword = () => decryptedCredentials?.password || client.password;
 
   // Build credentials array based on server_ids
   const credentials = useMemo(() => {
@@ -211,8 +258,31 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const handleWhatsAppClick = (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+  const handleWhatsAppClick = async (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
     if (!client.phone) return;
+    
+    // Decrypt credentials before sending
+    let creds = decryptedCredentials;
+    if (!creds) {
+      try {
+        creds = await decryptCredentials({
+          login: client.login,
+          password: client.password,
+          login2: client.login2,
+          password2: client.password2,
+          login3: client.login3,
+          password3: client.password3,
+          login4: client.login4,
+          password4: client.password4,
+          login5: client.login5,
+          password5: client.password5,
+        }) as any;
+        setDecryptedCredentials(creds);
+      } catch (error) {
+        console.error('Decryption error:', error);
+        // Continue with encrypted values if decryption fails
+      }
+    }
     
     // If has multiple credentials, show selector
     if (hasMultipleCredentials) {
@@ -220,13 +290,25 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
       setCredentialSelectorOpen(true);
     } else {
       // Use first credential (or default)
-      const cred = credentials[0];
-      sendWhatsAppWithCredential(type, cred?.login || client.login, cred?.password || client.password);
+      const login = creds?.login || client.login;
+      const password = creds?.password || client.password;
+      sendWhatsAppWithCredential(type, login, password);
     }
   };
 
-  const handleCredentialSelect = (credential: Credential) => {
-    sendWhatsAppWithCredential(pendingMessageType, credential.login, credential.password);
+  const handleCredentialSelect = async (credential: Credential) => {
+    // Get decrypted value for the selected credential index
+    let login = credential.login;
+    let password = credential.password;
+    
+    if (decryptedCredentials) {
+      const loginFields = ['login', 'login2', 'login3', 'login4', 'login5'] as const;
+      const passwordFields = ['password', 'password2', 'password3', 'password4', 'password5'] as const;
+      login = decryptedCredentials[loginFields[credential.index]] || credential.login;
+      password = decryptedCredentials[passwordFields[credential.index]] || credential.password;
+    }
+    
+    sendWhatsAppWithCredential(pendingMessageType, login, password);
   };
 
   const handleRenew = async () => {
@@ -368,11 +450,16 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button 
-                      onClick={() => copyToClipboard(client.login!, 'Usuário')}
+                      onClick={() => {
+                        const displayLogin = getDisplayLogin();
+                        if (displayLogin) copyToClipboard(displayLogin, 'Usuário');
+                      }}
                       className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <User className="w-3.5 h-3.5" />
-                      <span className="truncate max-w-[80px]">{client.login}</span>
+                      <span className="truncate max-w-[80px]">
+                        {showPassword ? getDisplayLogin() : '••••••'}
+                      </span>
                       <Copy className="w-3 h-3 opacity-50" />
                     </button>
                   </TooltipTrigger>
@@ -383,27 +470,37 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button 
-                      onClick={() => copyToClipboard(client.password!, 'Senha')}
+                      onClick={() => {
+                        const displayPassword = getDisplayPassword();
+                        if (displayPassword) copyToClipboard(displayPassword, 'Senha');
+                      }}
                       className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Lock className="w-3.5 h-3.5" />
                       <span className="truncate max-w-[60px]">
-                        {showPassword ? client.password : '••••••'}
+                        {showPassword ? getDisplayPassword() : '••••••'}
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowPassword(!showPassword);
-                        }}
-                        className="ml-1"
-                      >
-                        {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      </button>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Copiar senha</TooltipContent>
                 </Tooltip>
               )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTogglePassword();
+                }}
+                disabled={isDecrypting}
+                className="ml-auto p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isDecrypting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
             </div>
           )}
         </div>

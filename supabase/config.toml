@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.cleanup-trash]
 verify_jwt = false
+
+[functions.crypto]
+verify_jwt = true
