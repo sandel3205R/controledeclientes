@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Key, FileSpreadsheet, Search, KeyRound } from 'lucide-react';
-import { ChangePasswordDialog } from '@/components/sellers/ChangePasswordDialog';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, FileSpreadsheet, Search, KeyRound } from 'lucide-react';
+
 import { TempPasswordDialog } from '@/components/sellers/TempPasswordDialog';
 import ProActivationDialog from '@/components/sellers/ProActivationDialog';
 import { toast } from 'sonner';
@@ -87,7 +87,7 @@ export default function Sellers() {
   const [deleteConfirm, setDeleteConfirm] = useState<SellerWithStats | null>(null);
   const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState<SellerWithStats | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<SellerWithStats | null>(null);
-  const [passwordSeller, setPasswordSeller] = useState<SellerWithStats | null>(null);
+  
   const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [retentionDays, setRetentionDays] = useState(30);
@@ -911,9 +911,6 @@ SANDEL`
               <Button variant="outline" size="sm" onClick={() => setTempPasswordSeller(seller)} title="Gerar Senha Temporária">
                 <KeyRound className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPasswordSeller(seller)} title="Alterar Senha">
-                <Key className="w-4 h-4" />
-              </Button>
               <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(seller)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -1488,13 +1485,6 @@ SANDEL`
           </DialogContent>
         </Dialog>
 
-        {/* Change Password Dialog */}
-        <ChangePasswordDialog
-          open={!!passwordSeller}
-          onOpenChange={(open) => !open && setPasswordSeller(null)}
-          seller={passwordSeller}
-          onSuccess={fetchSellers}
-        />
 
         {/* Temp Password Dialog */}
         <TempPasswordDialog
