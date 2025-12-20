@@ -7,7 +7,7 @@ import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import BulkImportDialog from '@/components/clients/BulkImportDialog';
-import ProExportDialog from '@/components/clients/ProExportDialog';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, Crown, DollarSign, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -105,8 +105,6 @@ export default function Clients() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
-  const [proExportOpen, setProExportOpen] = useState(false);
-  const [hasProAccess, setHasProAccess] = useState(false);
   const [sellerName, setSellerName] = useState('');
   const [valuesHidden, setValuesHidden] = useState(() => {
     const stored = localStorage.getItem('valuesHidden');
@@ -158,29 +156,16 @@ export default function Clients() {
     if (data) setServers(data);
   };
 
-  const fetchProStatus = async () => {
+  const fetchSellerName = async () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('has_pro_export, pro_export_expires_at, full_name')
+      .select('full_name')
       .eq('id', user.id)
       .single();
     
     if (data) {
       setSellerName(data.full_name || '');
-      // Check if has pro and not expired
-      if (data.has_pro_export) {
-        if (!data.pro_export_expires_at) {
-          // Permanent access
-          setHasProAccess(true);
-        } else {
-          // Check expiration
-          const expiresAt = new Date(data.pro_export_expires_at);
-          setHasProAccess(expiresAt > new Date());
-        }
-      } else {
-        setHasProAccess(false);
-      }
     }
   };
 
@@ -188,7 +173,7 @@ export default function Clients() {
     fetchClients();
     fetchTemplates();
     fetchServers();
-    fetchProStatus();
+    fetchSellerName();
 
     // Auto-refresh every 5 seconds
     const interval = setInterval(() => {
@@ -577,25 +562,6 @@ export default function Clients() {
                 <Download className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Exportar</span>
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setProExportOpen(true)}
-                className={cn(
-                  "relative",
-                  hasProAccess 
-                    ? "bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-yellow-500/30 text-yellow-600 hover:bg-yellow-500/20"
-                    : "opacity-70"
-                )}
-              >
-                <Crown className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Exportar Pro</span>
-                <span className="sm:hidden">Pro</span>
-                {hasProAccess && (
-                  <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] px-1 py-0">
-                    PRO
-                  </Badge>
-                )}
-              </Button>
               <label>
                 <input
                   type="file"
@@ -827,15 +793,6 @@ export default function Clients() {
           servers={servers}
         />
 
-        {/* Pro Export Dialog */}
-        <ProExportDialog
-          open={proExportOpen}
-          onOpenChange={setProExportOpen}
-          clients={filteredClients}
-          templates={templates}
-          hasProAccess={hasProAccess}
-          sellerName={sellerName}
-        />
 
         {/* Bulk Delete Confirmation */}
         <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
