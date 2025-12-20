@@ -43,6 +43,7 @@ export type Database = {
           app_name: string | null
           created_at: string | null
           device: string | null
+          email: string | null
           expiration_date: string
           id: string
           is_paid: boolean | null
@@ -76,6 +77,7 @@ export type Database = {
           app_name?: string | null
           created_at?: string | null
           device?: string | null
+          email?: string | null
           expiration_date: string
           id?: string
           is_paid?: boolean | null
@@ -109,6 +111,7 @@ export type Database = {
           app_name?: string | null
           created_at?: string | null
           device?: string | null
+          email?: string | null
           expiration_date?: string
           id?: string
           is_paid?: boolean | null
