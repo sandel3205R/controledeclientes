@@ -470,6 +470,7 @@ export type Database = {
         Row: {
           created_at: string | null
           credit_cost: number | null
+          credit_recharge_cost: number | null
           id: string
           is_active: boolean | null
           monthly_cost: number | null
@@ -484,6 +485,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           credit_cost?: number | null
+          credit_recharge_cost?: number | null
           id?: string
           is_active?: boolean | null
           monthly_cost?: number | null
@@ -498,6 +500,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           credit_cost?: number | null
+          credit_recharge_cost?: number | null
           id?: string
           is_active?: boolean | null
           monthly_cost?: number | null
