@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,6 +80,7 @@ export function SharedPanelsManager() {
   const [selectedExistingClientId, setSelectedExistingClientId] = useState<string>('');
   const [addMode, setAddMode] = useState<'new' | 'existing'>('existing');
   const [selectedSlotType, setSelectedSlotType] = useState<'p2p' | 'iptv'>('iptv');
+  const [clientSearch, setClientSearch] = useState('');
   
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -261,6 +262,7 @@ export function SharedPanelsManager() {
     setSelectedPanel(panel);
     setAddMode('existing');
     setSelectedExistingClientId('');
+    setClientSearch('');
     
     const availP2P = panel.p2p_slots - (panel.filled_p2p || 0);
     const availIPTV = panel.iptv_slots - (panel.filled_iptv || 0);
@@ -736,28 +738,56 @@ export function SharedPanelsManager() {
                 ) : (
                   <>
                     <div className="space-y-2">
+                      <Label>Buscar cliente</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por nome ou login..."
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
                       <Label>Selecione um cliente</Label>
-                      <Select value={selectedExistingClientId} onValueChange={setSelectedExistingClientId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Escolha um cliente..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <ScrollArea className="max-h-[200px]">
-                            {existingClients.map(client => (
-                              <SelectItem key={client.id} value={client.id}>
-                                <div className="flex flex-col">
-                                  <span>{client.name}</span>
-                                  {client.login && (
-                                    <span className="text-xs text-muted-foreground">
-                                      Login: {client.login}
-                                    </span>
-                                  )}
-                                </div>
-                              </SelectItem>
+                      <ScrollArea className="h-[180px] border rounded-md p-2">
+                        <div className="space-y-1">
+                          {existingClients
+                            .filter(client => {
+                              const searchLower = clientSearch.toLowerCase();
+                              return client.name.toLowerCase().includes(searchLower) ||
+                                     (client.login?.toLowerCase().includes(searchLower));
+                            })
+                            .map(client => (
+                              <div
+                                key={client.id}
+                                className={`p-2 rounded-md cursor-pointer transition-colors ${
+                                  selectedExistingClientId === client.id
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted'
+                                }`}
+                                onClick={() => setSelectedExistingClientId(client.id)}
+                              >
+                                <div className="font-medium text-sm">{client.name}</div>
+                                {client.login && (
+                                  <div className={`text-xs ${selectedExistingClientId === client.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                    Login: {client.login}
+                                  </div>
+                                )}
+                              </div>
                             ))}
-                          </ScrollArea>
-                        </SelectContent>
-                      </Select>
+                          {existingClients.filter(client => {
+                            const searchLower = clientSearch.toLowerCase();
+                            return client.name.toLowerCase().includes(searchLower) ||
+                                   (client.login?.toLowerCase().includes(searchLower));
+                          }).length === 0 && (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              Nenhum cliente encontrado
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
                     </div>
                     
                     {panelClients.length === 0 && selectedExistingClientId && (
