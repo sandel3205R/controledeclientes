@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail, Tv, Radio 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -54,6 +54,8 @@ interface ClientCardProps {
     server_ids: string[] | null;
     is_paid?: boolean | null;
     is_annual_paid?: boolean | null;
+    shared_slot_type?: string | null;
+    shared_panel_id?: string | null;
   };
   servers?: { id: string; name: string }[];
   onEdit: () => void;
@@ -358,6 +360,18 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
                   <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0 gap-1">
                     <AlertCircle className="w-3 h-3" />
                     Não Pago
+                  </Badge>
+                )}
+                {client.shared_slot_type === 'p2p' && (
+                  <Badge className="shrink-0 text-[10px] px-1.5 py-0 bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
+                    <Radio className="w-3 h-3" />
+                    P2P
+                  </Badge>
+                )}
+                {client.shared_slot_type === 'iptv' && (
+                  <Badge className="shrink-0 text-[10px] px-1.5 py-0 bg-purple-500/20 text-purple-400 border-purple-500/30 gap-1">
+                    <Tv className="w-3 h-3" />
+                    IPTV
                   </Badge>
                 )}
               </div>

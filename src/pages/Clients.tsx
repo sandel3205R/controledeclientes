@@ -61,6 +61,8 @@ interface Client {
   server_ids: string[] | null;
   created_at: string | null;
   is_paid: boolean | null;
+  shared_slot_type: string | null;
+  shared_panel_id: string | null;
 }
 
 interface ServerOption {
