@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
+import { format, differenceInDays, parseISO, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +34,9 @@ import {
   TrendingUp,
   CreditCard,
   Calculator,
-  AlertTriangle
+  AlertTriangle,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +52,7 @@ interface ServerData {
   used_credits: number;
   notes: string | null;
   is_active: boolean;
+  payment_due_date: string | null;
   clients_count?: number;
   total_revenue?: number;
 }
@@ -74,6 +79,7 @@ export default function Servers() {
     credit_cost: '',
     total_credits: '',
     notes: '',
+    payment_due_date: '',
   });
 
   const fetchServers = async () => {
@@ -152,6 +158,7 @@ export default function Servers() {
       credit_cost: parseFloat(formData.credit_cost) || 0,
       total_credits: parseInt(formData.total_credits) || 0,
       notes: formData.notes || null,
+      payment_due_date: formData.payment_due_date || null,
       seller_id: user.id,
     };
 
@@ -186,6 +193,7 @@ export default function Servers() {
       credit_cost: server.credit_cost?.toString() || '',
       total_credits: server.total_credits?.toString() || '',
       notes: server.notes || '',
+      payment_due_date: server.payment_due_date || '',
     });
     setDialogOpen(true);
   };
@@ -211,8 +219,31 @@ export default function Servers() {
       credit_cost: '',
       total_credits: '',
       notes: '',
+      payment_due_date: '',
     });
     setEditingServer(null);
+  };
+
+  const getPaymentStatus = (paymentDueDate: string | null) => {
+    if (!paymentDueDate) return null;
+    
+    const dueDate = parseISO(paymentDueDate);
+    if (!isValid(dueDate)) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntilDue = differenceInDays(dueDate, today);
+    
+    if (daysUntilDue < 0) {
+      return { status: 'overdue', days: Math.abs(daysUntilDue), label: `Vencido há ${Math.abs(daysUntilDue)} dia(s)`, color: 'destructive' };
+    } else if (daysUntilDue === 0) {
+      return { status: 'today', days: 0, label: 'Vence hoje!', color: 'destructive' };
+    } else if (daysUntilDue <= 3) {
+      return { status: 'urgent', days: daysUntilDue, label: `Vence em ${daysUntilDue} dia(s)`, color: 'destructive' };
+    } else if (daysUntilDue <= 7) {
+      return { status: 'warning', days: daysUntilDue, label: `Vence em ${daysUntilDue} dias`, color: 'warning' };
+    }
+    return { status: 'ok', days: daysUntilDue, label: `Vence em ${daysUntilDue} dias`, color: 'muted' };
   };
 
   const openNewDialog = () => {
@@ -341,6 +372,7 @@ export default function Servers() {
               const isCriticalCredits = server.total_credits > 0 && creditUsage >= 95;
               const serverCost = (server.monthly_cost || 0) + ((server.credit_cost || 0) * server.used_credits);
               const serverProfit = (server.total_revenue || 0) - serverCost;
+              const paymentStatus = getPaymentStatus(server.payment_due_date);
 
               return (
                 <Card 
@@ -376,6 +408,26 @@ export default function Servers() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Payment Due Alert */}
+                    {paymentStatus && (paymentStatus.status === 'overdue' || paymentStatus.status === 'today' || paymentStatus.status === 'urgent') && (
+                      <Alert variant="destructive" className="py-2">
+                        <Clock className="h-4 w-4" />
+                        <AlertTitle className="text-sm">Pagamento {paymentStatus.status === 'overdue' ? 'Atrasado!' : 'Próximo!'}</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          {paymentStatus.label}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {paymentStatus && paymentStatus.status === 'warning' && (
+                      <Alert className="py-2 border-warning/50 bg-warning/10 text-warning">
+                        <Clock className="h-4 w-4" />
+                        <AlertTitle className="text-sm">Lembrete de Pagamento</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          {paymentStatus.label}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     {/* Low Credits Alert */}
                     {isCriticalCredits && (
                       <Alert variant="destructive" className="py-2">
@@ -432,7 +484,37 @@ export default function Servers() {
                       </div>
                     </div>
 
-                    {/* Profit */}
+                    {/* Payment Due Date */}
+                    {server.payment_due_date && (
+                      <div className={`p-3 rounded-lg border flex items-center gap-3 ${
+                        paymentStatus?.status === 'overdue' || paymentStatus?.status === 'today' || paymentStatus?.status === 'urgent' 
+                          ? 'bg-destructive/10 border-destructive/30' 
+                          : paymentStatus?.status === 'warning' 
+                            ? 'bg-warning/10 border-warning/30' 
+                            : 'bg-background/50 border-border/30'
+                      }`}>
+                        <Calendar className={`w-5 h-5 ${
+                          paymentStatus?.status === 'overdue' || paymentStatus?.status === 'today' || paymentStatus?.status === 'urgent' 
+                            ? 'text-destructive' 
+                            : paymentStatus?.status === 'warning' 
+                              ? 'text-warning' 
+                              : 'text-muted-foreground'
+                        }`} />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Vencimento</p>
+                          <p className={`text-sm font-medium ${
+                            paymentStatus?.status === 'overdue' || paymentStatus?.status === 'today' || paymentStatus?.status === 'urgent' 
+                              ? 'text-destructive' 
+                              : paymentStatus?.status === 'warning' 
+                                ? 'text-warning' 
+                                : ''
+                          }`}>
+                            {format(parseISO(server.payment_due_date), "dd 'de' MMMM", { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className={`p-4 rounded-lg ${serverProfit >= 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} border`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -509,6 +591,17 @@ export default function Servers() {
                   onChange={(e) => setFormData({ ...formData, total_credits: e.target.value })}
                   placeholder="Ex: 100"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment_due_date">Data de Pagamento</Label>
+                <Input
+                  id="payment_due_date"
+                  type="date"
+                  value={formData.payment_due_date}
+                  onChange={(e) => setFormData({ ...formData, payment_due_date: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Você será lembrado 7 e 3 dias antes do vencimento</p>
               </div>
 
               <div className="space-y-2">

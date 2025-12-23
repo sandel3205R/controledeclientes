@@ -475,6 +475,7 @@ export type Database = {
           monthly_cost: number | null
           name: string
           notes: string | null
+          payment_due_date: string | null
           seller_id: string
           total_credits: number | null
           updated_at: string | null
@@ -488,6 +489,7 @@ export type Database = {
           monthly_cost?: number | null
           name: string
           notes?: string | null
+          payment_due_date?: string | null
           seller_id: string
           total_credits?: number | null
           updated_at?: string | null
@@ -501,6 +503,7 @@ export type Database = {
           monthly_cost?: number | null
           name?: string
           notes?: string | null
+          payment_due_date?: string | null
           seller_id?: string
           total_credits?: number | null
           updated_at?: string | null
