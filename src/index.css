@@ -617,6 +617,10 @@
     @apply bg-destructive/20 text-destructive border-destructive/30;
   }
 
+  .status-annual-renewal {
+    @apply bg-blue-500/20 text-blue-400 border-blue-500/30;
+  }
+
   /* Card hover effect */
   .card-hover {
     @apply transition-all duration-300;
