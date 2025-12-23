@@ -123,14 +123,18 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
           password5: client.password5,
         });
         setDecryptedCredentials(decrypted as any);
+        setShowPassword(true);
       } catch (error) {
         console.error('Decryption error:', error);
         toast.error('Erro ao descriptografar credenciais');
+        // Even on error, show the original values
+        setShowPassword(true);
       } finally {
         setIsDecrypting(false);
       }
+    } else {
+      setShowPassword(!showPassword);
     }
-    setShowPassword(!showPassword);
   };
 
   // Get display values - use decrypted if available, otherwise use original
