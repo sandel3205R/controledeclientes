@@ -8,6 +8,7 @@ import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import BulkImportDialog from '@/components/clients/BulkImportDialog';
 import { SharedPanelsManager } from '@/components/shared-panels/SharedPanelsManager';
+import { ClientAppsManager } from '@/components/apps/ClientAppsManager';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,7 @@ export default function Clients() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [sellerName, setSellerName] = useState('');
   const [panelsOpen, setPanelsOpen] = useState(false);
+  const [appsOpen, setAppsOpen] = useState(false);
   const [valuesHidden, setValuesHidden] = useState(() => {
     const stored = localStorage.getItem('valuesHidden');
     return stored === 'true';
@@ -766,6 +768,22 @@ export default function Clients() {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-4">
             <SharedPanelsManager />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Client Apps Section */}
+        <Collapsible open={appsOpen} onOpenChange={setAppsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Cloud className="w-4 h-4" />
+                Aplicativos (Clouddy, IBO)
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform ${appsOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4">
+            <ClientAppsManager />
           </CollapsibleContent>
         </Collapsible>
 

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail, Tv, Radio 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail, Tv, Radio, Cloud 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -56,6 +56,8 @@ interface ClientCardProps {
     is_annual_paid?: boolean | null;
     shared_slot_type?: string | null;
     shared_panel_id?: string | null;
+    has_app?: boolean | null;
+    app_type?: string | null;
   };
   servers?: { id: string; name: string }[];
   onEdit: () => void;
@@ -376,6 +378,12 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
                   <Badge className="shrink-0 text-[10px] px-1.5 py-0 bg-purple-500/20 text-purple-400 border-purple-500/30 gap-1">
                     <Tv className="w-3 h-3" />
                     IPTV
+                  </Badge>
+                )}
+                {client.has_app && (
+                  <Badge className="shrink-0 text-[10px] px-1.5 py-0 bg-cyan-500/20 text-cyan-400 border-cyan-500/30 gap-1">
+                    <Cloud className="w-3 h-3" />
+                    {client.app_type === 'clouddy' ? 'Clouddy' : client.app_type === 'ibo_pro' ? 'IBO PRO' : client.app_type === 'ibo_player' ? 'IBO PLAYER' : 'App'}
                   </Badge>
                 )}
               </div>
