@@ -549,26 +549,28 @@ export default function Clients() {
               </Button>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
               <Button
                 variant="outline"
+                size="sm"
+                className="text-xs sm:text-sm px-2 sm:px-3"
                 onClick={() => setIsSelectionMode(true)}
               >
-                <CheckSquare className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Selecionar</span>
+                <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Selecionar
               </Button>
               <Button 
                 variant="outline" 
+                size="sm"
+                className="bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 text-xs sm:text-sm px-2 sm:px-3"
                 onClick={() => setBulkMessageOpen(true)}
-                className="bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20"
               >
-                <Send className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Mensagem em Massa</span>
-                <span className="sm:hidden">Massa</span>
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Mensagem
               </Button>
-              <Button variant="outline" onClick={exportToExcel}>
-                <Download className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Exportar</span>
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3" onClick={exportToExcel}>
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Exportar
               </Button>
               <label>
                 <input
@@ -577,31 +579,33 @@ export default function Clients() {
                   onChange={handleImportExcel}
                   className="hidden"
                 />
-                <Button variant="outline" asChild>
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3" asChild>
                   <span className="cursor-pointer">
-                    <Upload className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Excel</span>
+                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    Excel
                   </span>
                 </Button>
               </label>
               <Button 
                 variant="outline" 
+                size="sm"
+                className="bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20 text-xs sm:text-sm px-2 sm:px-3"
                 onClick={() => setBulkImportOpen(true)}
-                className="bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20"
               >
-                <FileText className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Importar em Massa</span>
-                <span className="sm:hidden">Em Massa</span>
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Em Massa
               </Button>
               <Button
                 variant="gradient"
+                size="sm"
+                className="text-xs sm:text-sm px-2 sm:px-3"
                 onClick={() => {
                   setEditingClient(null);
                   setDialogOpen(true);
                 }}
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Cliente
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Novo
               </Button>
             </div>
           )}
