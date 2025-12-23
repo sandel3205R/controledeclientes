@@ -38,6 +38,65 @@ export type Database = {
         }
         Relationships: []
       }
+      client_apps: {
+        Row: {
+          activation_date: string
+          app_price: number | null
+          app_type: string
+          client_id: string
+          created_at: string
+          device_id: string | null
+          email: string | null
+          expiration_date: string
+          id: string
+          mac_address: string | null
+          notes: string | null
+          password: string | null
+          seller_id: string
+          updated_at: string
+        }
+        Insert: {
+          activation_date?: string
+          app_price?: number | null
+          app_type: string
+          client_id: string
+          created_at?: string
+          device_id?: string | null
+          email?: string | null
+          expiration_date: string
+          id?: string
+          mac_address?: string | null
+          notes?: string | null
+          password?: string | null
+          seller_id: string
+          updated_at?: string
+        }
+        Update: {
+          activation_date?: string
+          app_price?: number | null
+          app_type?: string
+          client_id?: string
+          created_at?: string
+          device_id?: string | null
+          email?: string | null
+          expiration_date?: string
+          id?: string
+          mac_address?: string | null
+          notes?: string | null
+          password?: string | null
+          seller_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_apps_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           app_name: string | null
