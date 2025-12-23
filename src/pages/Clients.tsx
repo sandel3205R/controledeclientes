@@ -122,19 +122,25 @@ export default function Clients() {
   const fetchClients = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('seller_id', user.id)
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('name');
 
-    if (error) {
-      toast.error('Erro ao carregar clientes');
-      return;
+      if (error) {
+        console.error('Erro ao carregar clientes:', error);
+        toast.error('Erro ao carregar clientes');
+      } else {
+        setClients(data || []);
+      }
+    } catch (err) {
+      console.error('Erro de conexão:', err);
+      toast.error('Erro de conexão ao carregar clientes');
+    } finally {
+      setLoading(false);
     }
-
-    setClients(data || []);
-    setLoading(false);
   };
 
   const fetchTemplates = async () => {
