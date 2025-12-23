@@ -44,6 +44,9 @@ interface CreditPanel {
   created_at: string;
   filled_p2p?: number;
   filled_iptv?: number;
+  clients?: PanelClientInfo[];
+  shared_login?: string;
+  shared_password?: string;
 }
 
 interface PanelClient {
@@ -52,6 +55,12 @@ interface PanelClient {
   shared_slot_type: string | null;
   login: string | null;
   password: string | null;
+}
+
+interface PanelClientInfo {
+  id: string;
+  name: string;
+  shared_slot_type: string | null;
 }
 
 interface ExistingClient {
@@ -109,9 +118,10 @@ export function SharedPanelsManager() {
         return;
       }
 
+      // Get clients with their shared_panel_id and slot type
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('shared_panel_id, shared_slot_type')
+        .select('id, name, shared_panel_id, shared_slot_type, login, password')
         .eq('seller_id', user.id)
         .not('shared_panel_id', 'is', null);
 
@@ -120,16 +130,26 @@ export function SharedPanelsManager() {
         return;
       }
 
-      const panelCounts: { [key: string]: { p2p: number; iptv: number } } = {};
+      const panelCounts: { [key: string]: { p2p: number; iptv: number; clients: PanelClientInfo[]; login?: string; password?: string } } = {};
       clientsData?.forEach(client => {
         if (client.shared_panel_id) {
           if (!panelCounts[client.shared_panel_id]) {
-            panelCounts[client.shared_panel_id] = { p2p: 0, iptv: 0 };
+            panelCounts[client.shared_panel_id] = { p2p: 0, iptv: 0, clients: [] };
           }
           if (client.shared_slot_type === 'p2p') {
             panelCounts[client.shared_panel_id].p2p++;
           } else if (client.shared_slot_type === 'iptv') {
             panelCounts[client.shared_panel_id].iptv++;
+          }
+          panelCounts[client.shared_panel_id].clients.push({
+            id: client.id,
+            name: client.name,
+            shared_slot_type: client.shared_slot_type,
+          });
+          // Get login/password from first client
+          if (!panelCounts[client.shared_panel_id].login && client.login) {
+            panelCounts[client.shared_panel_id].login = client.login;
+            panelCounts[client.shared_panel_id].password = client.password || undefined;
           }
         }
       });
@@ -138,6 +158,9 @@ export function SharedPanelsManager() {
         ...panel,
         filled_p2p: panelCounts[panel.id]?.p2p || 0,
         filled_iptv: panelCounts[panel.id]?.iptv || 0,
+        clients: panelCounts[panel.id]?.clients || [],
+        shared_login: panelCounts[panel.id]?.login,
+        shared_password: panelCounts[panel.id]?.password,
       })) || [];
 
       setPanels(panelsWithCounts);
@@ -538,6 +561,49 @@ export function SharedPanelsManager() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
+                  {/* Show shared credentials for easy copy */}
+                  {panel.shared_login && (
+                    <div className="p-2 bg-muted/50 rounded-md text-xs space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Login:</span>
+                        <span className="font-mono font-medium">{panel.shared_login}</span>
+                      </div>
+                      {panel.shared_password && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Senha:</span>
+                          <span className="font-mono font-medium">{panel.shared_password}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show linked clients */}
+                  {panel.clients && panel.clients.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">Clientes vinculados:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {panel.clients.map(client => (
+                          <Badge 
+                            key={client.id} 
+                            variant="outline" 
+                            className={`text-xs ${
+                              client.shared_slot_type === 'p2p' 
+                                ? 'border-blue-500/30 text-blue-500' 
+                                : 'border-purple-500/30 text-purple-500'
+                            }`}
+                          >
+                            {client.shared_slot_type === 'p2p' ? (
+                              <Radio className="w-2.5 h-2.5 mr-1" />
+                            ) : (
+                              <Tv className="w-2.5 h-2.5 mr-1" />
+                            )}
+                            {client.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="text-sm text-muted-foreground">
                     Falta: {' '}
                     {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
