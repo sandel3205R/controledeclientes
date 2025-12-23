@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign } from 'lucide-react';
 import {
@@ -131,6 +131,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [isPaid, setIsPaid] = useState(true);
+  const [annualMonthlyRenewal, setAnnualMonthlyRenewal] = useState(false);
   const { encryptCredentials } = useCrypto();
 
   const {
@@ -568,13 +569,29 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                     size="sm"
                     className="text-[10px] px-1 h-7"
                     onClick={() => {
-                      const oneYearLater = addMonths(new Date(), 12);
-                      setValue('expiration_date', format(oneYearLater, 'yyyy-MM-dd'));
-                      setCalendarMonth(oneYearLater);
+                      // If annual with monthly renewal, add only 30 days
+                      // Otherwise add full 12 months
+                      const newDate = annualMonthlyRenewal 
+                        ? addDays(new Date(), 30)
+                        : addMonths(new Date(), 12);
+                      setValue('expiration_date', format(newDate, 'yyyy-MM-dd'));
+                      setCalendarMonth(newDate);
                     }}
                   >
-                    +1a
+                    {annualMonthlyRenewal ? '+30d' : '+1a'}
                   </Button>
+                </div>
+                {/* Annual with monthly renewal option */}
+                <div className="px-2 py-1.5 border-b flex items-center justify-between">
+                  <Label htmlFor="annual-monthly" className="text-xs text-muted-foreground cursor-pointer">
+                    Plano Anual com renovação mensal (30 dias)
+                  </Label>
+                  <Switch
+                    id="annual-monthly"
+                    checked={annualMonthlyRenewal}
+                    onCheckedChange={setAnnualMonthlyRenewal}
+                    className="scale-75"
+                  />
                 </div>
                 <Calendar
                   mode="single"
