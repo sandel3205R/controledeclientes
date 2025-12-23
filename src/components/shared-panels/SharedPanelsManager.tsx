@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCrypto } from '@/hooks/useCrypto';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,6 +77,7 @@ type PanelPreset = 'p2p_iptv' | 'iptv_only';
 
 export function SharedPanelsManager() {
   const { user } = useAuth();
+  const { decryptSingle } = useCrypto();
   const [panels, setPanels] = useState<CreditPanel[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -155,14 +157,24 @@ export function SharedPanelsManager() {
         }
       });
 
-      const panelsWithCounts = panelsData?.map(panel => ({
-        ...panel,
-        filled_p2p: panelCounts[panel.id]?.p2p || 0,
-        filled_iptv: panelCounts[panel.id]?.iptv || 0,
-        clients: panelCounts[panel.id]?.clients || [],
-        shared_login: panelCounts[panel.id]?.login,
-        shared_password: panelCounts[panel.id]?.password,
-      })) || [];
+      const panelsWithCounts = await Promise.all(
+        (panelsData ?? []).map(async (panel) => {
+          const counts = panelCounts[panel.id];
+          const [login, password] = await Promise.all([
+            decryptSingle(counts?.login ?? null),
+            decryptSingle(counts?.password ?? null),
+          ]);
+
+          return {
+            ...panel,
+            filled_p2p: counts?.p2p || 0,
+            filled_iptv: counts?.iptv || 0,
+            clients: counts?.clients || [],
+            shared_login: login ?? undefined,
+            shared_password: password ?? undefined,
+          };
+        })
+      );
 
       setPanels(panelsWithCounts);
     } catch (err) {
@@ -170,7 +182,7 @@ export function SharedPanelsManager() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, decryptSingle]);
 
   useEffect(() => {
     fetchPanels();
@@ -492,15 +504,10 @@ export function SharedPanelsManager() {
         </div>
       )}
 
-      {panelsWithAvailableSlots.length === 0 ? (
+      {panels.length === 0 ? (
         <div className="text-center py-8">
           <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-          <p className="text-muted-foreground text-sm">
-            {panels.length === 0 
-              ? 'Nenhum crédito compartilhado' 
-              : 'Todos os créditos estão completos!'
-            }
-          </p>
+          <p className="text-muted-foreground text-sm">Nenhum crédito compartilhado</p>
           <Button variant="outline" size="sm" className="mt-3" onClick={openNewDialog}>
             <Plus className="w-4 h-4 mr-2" />
             Criar crédito
@@ -508,9 +515,10 @@ export function SharedPanelsManager() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {panelsWithAvailableSlots.map((panel) => {
+          {panels.map((panel) => {
             const availP2P = panel.p2p_slots - (panel.filled_p2p || 0);
             const availIPTV = panel.iptv_slots - (panel.filled_iptv || 0);
+            const isFull = availP2P <= 0 && availIPTV <= 0;
 
             return (
               <Card 
@@ -663,10 +671,16 @@ export function SharedPanelsManager() {
                   )}
 
                   <div className="text-sm text-muted-foreground">
-                    Falta: {' '}
-                    {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
-                    {availP2P > 0 && availIPTV > 0 && ' e '}
-                    {availIPTV > 0 && <span className="text-purple-500 font-medium">{availIPTV} IPTV</span>}
+                    {isFull ? (
+                      <span className="text-green-500 font-medium">Completo</span>
+                    ) : (
+                      <>
+                        Falta:{' '}
+                        {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
+                        {availP2P > 0 && availIPTV > 0 && ' e '}
+                        {availIPTV > 0 && <span className="text-purple-500 font-medium">{availIPTV} IPTV</span>}
+                      </>
+                    )}
                   </div>
                   
                   <Button
@@ -684,6 +698,7 @@ export function SharedPanelsManager() {
           })}
         </div>
       )}
+
 
       {/* Create/Edit Panel Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
