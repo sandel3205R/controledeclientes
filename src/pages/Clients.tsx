@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,7 @@ interface ServerOption {
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 type PaymentFilter = 'all' | 'paid' | 'unpaid';
+type SlotTypeFilter = 'all' | 'p2p' | 'iptv' | 'none';
 type SortOption = 'name' | 'expiration' | 'price';
 
 interface WhatsAppTemplate {
@@ -104,6 +105,7 @@ export default function Clients() {
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
+  const [slotTypeFilter, setSlotTypeFilter] = useState<SlotTypeFilter>('all');
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -237,6 +239,15 @@ export default function Clients() {
       }
     }
 
+    // Slot type filter (P2P/IPTV)
+    if (slotTypeFilter !== 'all') {
+      if (slotTypeFilter === 'none') {
+        result = result.filter((c) => !c.shared_slot_type);
+      } else {
+        result = result.filter((c) => c.shared_slot_type === slotTypeFilter);
+      }
+    }
+
     // Check if client was created recently (within last 5 minutes)
     const isRecentlyCreated = (client: Client): boolean => {
       if (!client.created_at) return false;
@@ -273,7 +284,7 @@ export default function Clients() {
     });
 
     return result;
-  }, [clients, search, statusFilter, serverFilter, paymentFilter, sortBy]);
+  }, [clients, search, statusFilter, serverFilter, paymentFilter, slotTypeFilter, sortBy]);
 
   // Calculate unpaid clients stats
   const unpaidStats = useMemo(() => {
@@ -673,6 +684,24 @@ export default function Clients() {
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="paid">Pagos</SelectItem>
               <SelectItem value="unpaid">Não Pagos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={slotTypeFilter} onValueChange={(v) => setSlotTypeFilter(v as SlotTypeFilter)}>
+            <SelectTrigger className={cn(
+              "w-full sm:w-40",
+              slotTypeFilter === 'p2p' && "border-blue-500/50 text-blue-500",
+              slotTypeFilter === 'iptv' && "border-purple-500/50 text-purple-500"
+            )}>
+              {slotTypeFilter === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> : 
+               slotTypeFilter === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> : 
+               <Users className="w-4 h-4 mr-2" />}
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Tipos</SelectItem>
+              <SelectItem value="p2p">P2P</SelectItem>
+              <SelectItem value="iptv">IPTV</SelectItem>
+              <SelectItem value="none">Sem Painel</SelectItem>
             </SelectContent>
           </Select>
         </div>
