@@ -73,6 +73,7 @@ export type Database = {
           server_ids: string[] | null
           server_name: string | null
           shared_panel_id: string | null
+          shared_slot_type: string | null
           updated_at: string | null
         }
         Insert: {
@@ -109,6 +110,7 @@ export type Database = {
           server_ids?: string[] | null
           server_name?: string | null
           shared_panel_id?: string | null
+          shared_slot_type?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -145,6 +147,7 @@ export type Database = {
           server_ids?: string[] | null
           server_name?: string | null
           shared_panel_id?: string | null
+          shared_slot_type?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -528,7 +531,9 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          iptv_slots: number
           name: string
+          p2p_slots: number
           seller_id: string
           total_slots: number
           updated_at: string
@@ -536,7 +541,9 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          iptv_slots?: number
           name: string
+          p2p_slots?: number
           seller_id: string
           total_slots?: number
           updated_at?: string
@@ -544,7 +551,9 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          iptv_slots?: number
           name?: string
+          p2p_slots?: number
           seller_id?: string
           total_slots?: number
           updated_at?: string
