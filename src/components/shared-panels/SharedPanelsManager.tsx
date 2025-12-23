@@ -30,11 +30,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check, MessageCircle, Bell, DollarSign, PartyPopper, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface CreditPanel {
   id: string;
@@ -61,6 +68,7 @@ interface PanelClient {
 interface PanelClientInfo {
   id: string;
   name: string;
+  phone: string | null;
   shared_slot_type: string | null;
 }
 
@@ -124,7 +132,7 @@ export function SharedPanelsManager() {
       // Get clients with their shared_panel_id and slot type
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('id, name, shared_panel_id, shared_slot_type, login, password')
+        .select('id, name, phone, shared_panel_id, shared_slot_type, login, password')
         .eq('seller_id', user.id)
         .not('shared_panel_id', 'is', null);
 
@@ -147,6 +155,7 @@ export function SharedPanelsManager() {
           panelCounts[client.shared_panel_id].clients.push({
             id: client.id,
             name: client.name,
+            phone: client.phone,
             shared_slot_type: client.shared_slot_type,
           });
           // Get login/password from first client
@@ -643,28 +652,111 @@ export function SharedPanelsManager() {
                     </div>
                   )}
 
-                  {/* Show linked clients */}
+                  {/* Show linked clients with action menu */}
                   {panel.clients && panel.clients.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground font-medium">Clientes vinculados:</p>
                       <div className="flex flex-wrap gap-1">
                         {panel.clients.map(client => (
-                          <Badge 
-                            key={client.id} 
-                            variant="outline" 
-                            className={`text-xs ${
-                              client.shared_slot_type === 'p2p' 
-                                ? 'border-blue-500/30 text-blue-500' 
-                                : 'border-purple-500/30 text-purple-500'
-                            }`}
-                          >
-                            {client.shared_slot_type === 'p2p' ? (
-                              <Radio className="w-2.5 h-2.5 mr-1" />
-                            ) : (
-                              <Tv className="w-2.5 h-2.5 mr-1" />
-                            )}
-                            {client.name}
-                          </Badge>
+                          <DropdownMenu key={client.id}>
+                            <DropdownMenuTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                                  client.shared_slot_type === 'p2p' 
+                                    ? 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10' 
+                                    : 'border-purple-500/30 text-purple-500 hover:bg-purple-500/10'
+                                }`}
+                              >
+                                {client.shared_slot_type === 'p2p' ? (
+                                  <Radio className="w-2.5 h-2.5 mr-1" />
+                                ) : (
+                                  <Tv className="w-2.5 h-2.5 mr-1" />
+                                )}
+                                {client.name}
+                              </Badge>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  if (!client.phone) {
+                                    toast.error('Cliente não possui telefone');
+                                    return;
+                                  }
+                                  const phone = client.phone.replace(/\D/g, '');
+                                  const msg = `Olá ${client.name}! 💰\n\nSeu plano está vencendo. Gostaria de renovar?`;
+                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                }}
+                                disabled={!client.phone}
+                              >
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                Cobrar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  if (!client.phone) {
+                                    toast.error('Cliente não possui telefone');
+                                    return;
+                                  }
+                                  const phone = client.phone.replace(/\D/g, '');
+                                  const msg = `Olá ${client.name}! ⏰\n\nLembrete: Seu plano está próximo do vencimento. Renove para não perder o acesso!`;
+                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                }}
+                                disabled={!client.phone}
+                              >
+                                <Bell className="w-4 h-4 mr-2" />
+                                Lembrar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  if (!client.phone) {
+                                    toast.error('Cliente não possui telefone');
+                                    return;
+                                  }
+                                  const phone = client.phone.replace(/\D/g, '');
+                                  const msg = `Olá ${client.name}! 🎉\n\nBem-vindo(a)!\n\nSeus dados de acesso:\n👤 Login: ${panel.shared_login || 'N/A'}\n🔑 Senha: ${panel.shared_password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`;
+                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                }}
+                                disabled={!client.phone}
+                              >
+                                <PartyPopper className="w-4 h-4 mr-2" />
+                                Boas-vindas
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  if (!client.phone) {
+                                    toast.error('Cliente não possui telefone');
+                                    return;
+                                  }
+                                  const phone = client.phone.replace(/\D/g, '');
+                                  window.open(`https://wa.me/55${phone}`, '_blank');
+                                }}
+                                disabled={!client.phone}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                Enviar mensagem
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('clients')
+                                    .update({ shared_panel_id: null, shared_slot_type: null })
+                                    .eq('id', client.id);
+                                  if (error) {
+                                    toast.error('Erro ao desvincular cliente');
+                                  } else {
+                                    toast.success('Cliente desvinculado');
+                                    fetchPanels();
+                                  }
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Unlink className="w-4 h-4 mr-2" />
+                                Desvincular
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         ))}
                       </div>
                     </div>
