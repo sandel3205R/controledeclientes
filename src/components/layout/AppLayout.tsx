@@ -8,6 +8,8 @@ import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
 import { PushNotificationToggle } from '@/components/PushNotificationToggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useSharedPanels } from '@/hooks/useSharedPanels';
+import { SharedPanelsBadge } from '@/components/shared-panels/SharedPanelsBadge';
 import {
   LayoutDashboard,
   Users,
@@ -25,6 +27,7 @@ import {
   Clock,
   Ticket,
   Gift,
+  Users2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
@@ -41,6 +44,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { availableSlots } = useSharedPanels();
 
   const isAdmin = role === 'admin';
   
@@ -116,6 +120,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const showBadge = item.path === '/clients' && !isAdmin && availableSlots > 0;
             return (
               <button
                 key={item.path}
@@ -132,7 +137,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               >
                 <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
                 <span className="flex-1 text-left truncate">{item.label}</span>
-                {isActive && <ChevronRight className="w-4 h-4 text-primary" />}
+                {showBadge && <SharedPanelsBadge count={availableSlots} />}
+                {isActive && !showBadge && <ChevronRight className="w-4 h-4 text-primary" />}
               </button>
             );
           })}
