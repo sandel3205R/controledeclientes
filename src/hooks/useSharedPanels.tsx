@@ -6,9 +6,13 @@ export interface SharedPanel {
   id: string;
   name: string;
   total_slots: number;
+  p2p_slots: number;
+  iptv_slots: number;
   seller_id: string;
   created_at: string;
   filled_slots?: number;
+  filled_p2p?: number;
+  filled_iptv?: number;
 }
 
 export function useSharedPanels() {

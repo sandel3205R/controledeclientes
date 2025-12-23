@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,20 +28,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { useSharedPanels, SharedPanel } from '@/hooks/useSharedPanels';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface CreditPanel {
+  id: string;
+  name: string;
+  p2p_slots: number;
+  iptv_slots: number;
+  seller_id: string;
+  created_at: string;
+  filled_p2p?: number;
+  filled_iptv?: number;
+}
 
 interface PanelClient {
   id: string;
   name: string;
-  phone: string | null;
+  shared_slot_type: string | null;
   login: string | null;
   password: string | null;
 }
@@ -52,74 +60,180 @@ interface ExistingClient {
   phone: string | null;
   login: string | null;
   password: string | null;
-  expiration_date: string;
   shared_panel_id: string | null;
 }
 
+type PanelPreset = 'p2p_iptv' | 'iptv_only';
+
 export function SharedPanelsManager() {
   const { user } = useAuth();
-  const { panels, loading, createPanel, updatePanel, deletePanel, fetchPanels } = useSharedPanels();
+  const [panels, setPanels] = useState<CreditPanel[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
-  const [editingPanel, setEditingPanel] = useState<SharedPanel | null>(null);
+  const [editingPanel, setEditingPanel] = useState<CreditPanel | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [selectedPanel, setSelectedPanel] = useState<SharedPanel | null>(null);
+  const [selectedPanel, setSelectedPanel] = useState<CreditPanel | null>(null);
   const [panelClients, setPanelClients] = useState<PanelClient[]>([]);
   const [sharedCredentials, setSharedCredentials] = useState({ login: '', password: '' });
   const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
   const [selectedExistingClientId, setSelectedExistingClientId] = useState<string>('');
-  const [addMode, setAddMode] = useState<'new' | 'existing'>('new');
+  const [addMode, setAddMode] = useState<'new' | 'existing'>('existing');
+  const [selectedSlotType, setSelectedSlotType] = useState<'p2p' | 'iptv'>('iptv');
   
-  const [formData, setFormData] = useState({ name: '', total_slots: '3' });
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    preset: 'p2p_iptv' as PanelPreset,
+    p2p_slots: 1,
+    iptv_slots: 2,
+  });
   const [clientFormData, setClientFormData] = useState({
     name: '',
     phone: '',
     expiration_date: '',
   });
 
+  const fetchPanels = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: panelsData, error: panelsError } = await supabase
+        .from('shared_panels')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (panelsError) {
+        console.error('Error fetching panels:', panelsError);
+        return;
+      }
+
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('shared_panel_id, shared_slot_type')
+        .eq('seller_id', user.id)
+        .not('shared_panel_id', 'is', null);
+
+      if (clientsError) {
+        console.error('Error fetching clients:', clientsError);
+        return;
+      }
+
+      const panelCounts: { [key: string]: { p2p: number; iptv: number } } = {};
+      clientsData?.forEach(client => {
+        if (client.shared_panel_id) {
+          if (!panelCounts[client.shared_panel_id]) {
+            panelCounts[client.shared_panel_id] = { p2p: 0, iptv: 0 };
+          }
+          if (client.shared_slot_type === 'p2p') {
+            panelCounts[client.shared_panel_id].p2p++;
+          } else if (client.shared_slot_type === 'iptv') {
+            panelCounts[client.shared_panel_id].iptv++;
+          }
+        }
+      });
+
+      const panelsWithCounts = panelsData?.map(panel => ({
+        ...panel,
+        filled_p2p: panelCounts[panel.id]?.p2p || 0,
+        filled_iptv: panelCounts[panel.id]?.iptv || 0,
+      })) || [];
+
+      setPanels(panelsWithCounts);
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchPanels();
+  }, [fetchPanels]);
+
+  const handlePresetChange = (preset: PanelPreset) => {
+    if (preset === 'p2p_iptv') {
+      setFormData({ ...formData, preset, p2p_slots: 1, iptv_slots: 2 });
+    } else {
+      setFormData({ ...formData, preset, p2p_slots: 0, iptv_slots: 2 });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
 
     if (editingPanel) {
-      const success = await updatePanel(editingPanel.id, formData.name, parseInt(formData.total_slots) || 3);
-      if (success) {
-        toast.success('Painel atualizado!');
+      const { error } = await supabase
+        .from('shared_panels')
+        .update({ 
+          name: formData.name, 
+          p2p_slots: formData.p2p_slots,
+          iptv_slots: formData.iptv_slots,
+        })
+        .eq('id', editingPanel.id);
+
+      if (error) {
+        toast.error('Erro ao atualizar crédito');
+      } else {
+        toast.success('Crédito atualizado!');
         setDialogOpen(false);
         resetForm();
-      } else {
-        toast.error('Erro ao atualizar painel');
+        fetchPanels();
       }
     } else {
-      const result = await createPanel(formData.name, parseInt(formData.total_slots) || 3);
-      if (result) {
-        toast.success('Painel criado!');
+      const { error } = await supabase
+        .from('shared_panels')
+        .insert({
+          name: formData.name,
+          p2p_slots: formData.p2p_slots,
+          iptv_slots: formData.iptv_slots,
+          seller_id: user.id,
+          total_slots: formData.p2p_slots + formData.iptv_slots,
+        });
+
+      if (error) {
+        toast.error('Erro ao criar crédito');
+      } else {
+        toast.success('Crédito criado!');
         setDialogOpen(false);
         resetForm();
-      } else {
-        toast.error('Erro ao criar painel');
+        fetchPanels();
       }
     }
   };
 
-  const handleEdit = (panel: SharedPanel) => {
+  const handleEdit = (panel: CreditPanel) => {
     setEditingPanel(panel);
-    setFormData({ name: panel.name, total_slots: panel.total_slots.toString() });
+    const preset: PanelPreset = panel.p2p_slots > 0 ? 'p2p_iptv' : 'iptv_only';
+    setFormData({ 
+      name: panel.name, 
+      preset,
+      p2p_slots: panel.p2p_slots,
+      iptv_slots: panel.iptv_slots,
+    });
     setDialogOpen(true);
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const success = await deletePanel(deleteId);
-    if (success) {
-      toast.success('Painel excluído');
+    
+    const { error } = await supabase
+      .from('shared_panels')
+      .delete()
+      .eq('id', deleteId);
+
+    if (error) {
+      toast.error('Erro ao excluir crédito');
     } else {
-      toast.error('Erro ao excluir painel');
+      toast.success('Crédito excluído');
+      fetchPanels();
     }
     setDeleteId(null);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', total_slots: '3' });
+    setFormData({ name: '', preset: 'p2p_iptv', p2p_slots: 1, iptv_slots: 2 });
     setEditingPanel(null);
   };
 
@@ -131,10 +245,9 @@ export function SharedPanelsManager() {
   const fetchExistingClients = async () => {
     if (!user) return;
     
-    // Fetch clients that are not in any panel
     const { data } = await supabase
       .from('clients')
-      .select('id, name, phone, login, password, expiration_date, shared_panel_id')
+      .select('id, name, phone, login, password, shared_panel_id')
       .eq('seller_id', user.id)
       .is('shared_panel_id', null)
       .order('name');
@@ -144,21 +257,28 @@ export function SharedPanelsManager() {
     }
   };
 
-  const openAddClientDialog = async (panel: SharedPanel) => {
+  const openAddClientDialog = async (panel: CreditPanel) => {
     setSelectedPanel(panel);
-    setAddMode('new');
+    setAddMode('existing');
     setSelectedExistingClientId('');
     
-    // Fetch existing clients in this panel to get the shared login/password
+    const availP2P = panel.p2p_slots - (panel.filled_p2p || 0);
+    const availIPTV = panel.iptv_slots - (panel.filled_iptv || 0);
+    
+    if (availP2P > 0) {
+      setSelectedSlotType('p2p');
+    } else {
+      setSelectedSlotType('iptv');
+    }
+    
     const { data: clients } = await supabase
       .from('clients')
-      .select('id, name, phone, login, password')
+      .select('id, name, shared_slot_type, login, password')
       .eq('shared_panel_id', panel.id)
       .order('created_at');
     
     if (clients && clients.length > 0) {
       setPanelClients(clients);
-      // Pre-fill login/password from existing client
       setSharedCredentials({
         login: clients[0].login || '',
         password: clients[0].password || '',
@@ -174,9 +294,7 @@ export function SharedPanelsManager() {
       expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     });
     
-    // Fetch available clients
     await fetchExistingClients();
-    
     setAddClientDialogOpen(true);
   };
 
@@ -188,17 +306,13 @@ export function SharedPanelsManager() {
       return;
     }
 
-    if (!clientFormData.expiration_date) {
-      toast.error('Data de vencimento é obrigatória');
-      return;
-    }
-
     const { error } = await supabase.from('clients').insert({
       seller_id: user.id,
       name: clientFormData.name,
       phone: clientFormData.phone || null,
       expiration_date: clientFormData.expiration_date,
       shared_panel_id: selectedPanel.id,
+      shared_slot_type: selectedSlotType,
       login: sharedCredentials.login || null,
       password: sharedCredentials.password || null,
     });
@@ -207,7 +321,7 @@ export function SharedPanelsManager() {
       console.error('Error adding client:', error);
       toast.error('Erro ao adicionar cliente');
     } else {
-      toast.success('Cliente adicionado ao painel!');
+      toast.success(`Cliente ${selectedSlotType.toUpperCase()} adicionado!`);
       await handleAfterAddClient();
     }
   };
@@ -224,20 +338,17 @@ export function SharedPanelsManager() {
       return;
     }
 
-    // If this is the first client in the panel, use their credentials as shared
-    // Otherwise, update the client with the shared credentials
     let updateData: Record<string, unknown> = {
       shared_panel_id: selectedPanel.id,
+      shared_slot_type: selectedSlotType,
     };
 
     if (panelClients.length === 0) {
-      // First client - their credentials become shared
       setSharedCredentials({
         login: selectedClient.login || '',
         password: selectedClient.password || '',
       });
     } else {
-      // Not first client - update with shared credentials
       updateData.login = sharedCredentials.login || null;
       updateData.password = sharedCredentials.password || null;
     }
@@ -251,7 +362,7 @@ export function SharedPanelsManager() {
       console.error('Error linking client:', error);
       toast.error('Erro ao vincular cliente');
     } else {
-      toast.success('Cliente vinculado ao painel!');
+      toast.success(`Cliente vinculado como ${selectedSlotType.toUpperCase()}!`);
       await handleAfterAddClient();
     }
   };
@@ -261,16 +372,17 @@ export function SharedPanelsManager() {
     
     if (!selectedPanel) return;
     
-    // Check if panel is now full
-    const newFilledSlots = (selectedPanel.filled_slots || 0) + 1;
-    if (newFilledSlots >= selectedPanel.total_slots) {
-      toast.success('Painel completo! Todas as vagas foram preenchidas.');
+    const newFilledP2P = (selectedPanel.filled_p2p || 0) + (selectedSlotType === 'p2p' ? 1 : 0);
+    const newFilledIPTV = (selectedPanel.filled_iptv || 0) + (selectedSlotType === 'iptv' ? 1 : 0);
+    const isFull = newFilledP2P >= selectedPanel.p2p_slots && newFilledIPTV >= selectedPanel.iptv_slots;
+    
+    if (isFull) {
+      toast.success('Crédito completo! Todas as vagas foram preenchidas.');
       setAddClientDialogOpen(false);
     } else {
-      // Refresh clients list and update selected panel
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name, phone, login, password')
+        .select('id, name, shared_slot_type, login, password')
         .eq('shared_panel_id', selectedPanel.id)
         .order('created_at');
       if (clients) {
@@ -283,22 +395,27 @@ export function SharedPanelsManager() {
         }
       }
       
-      // Reset forms
       setClientFormData({
         name: '',
         phone: '',
         expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       });
       setSelectedExistingClientId('');
-      
-      // Refresh existing clients list
       await fetchExistingClients();
       
-      // Update selected panel slots count
       setSelectedPanel({
         ...selectedPanel,
-        filled_slots: newFilledSlots,
+        filled_p2p: newFilledP2P,
+        filled_iptv: newFilledIPTV,
       });
+      
+      const availP2P = selectedPanel.p2p_slots - newFilledP2P;
+      const availIPTV = selectedPanel.iptv_slots - newFilledIPTV;
+      if (availP2P <= 0 && availIPTV > 0) {
+        setSelectedSlotType('iptv');
+      } else if (availIPTV <= 0 && availP2P > 0) {
+        setSelectedSlotType('p2p');
+      }
     }
   };
 
@@ -310,32 +427,43 @@ export function SharedPanelsManager() {
     );
   }
 
-  // Only show panels with available slots
-  const panelsWithAvailableSlots = panels.filter(p => (p.filled_slots || 0) < p.total_slots);
+  const panelsWithAvailableSlots = panels.filter(p => {
+    const availP2P = p.p2p_slots - (p.filled_p2p || 0);
+    const availIPTV = p.iptv_slots - (p.filled_iptv || 0);
+    return availP2P > 0 || availIPTV > 0;
+  });
+
+  const totalAvailableSlots = panelsWithAvailableSlots.reduce((acc, p) => {
+    const availP2P = p.p2p_slots - (p.filled_p2p || 0);
+    const availIPTV = p.iptv_slots - (p.filled_iptv || 0);
+    return acc + availP2P + availIPTV;
+  }, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Painéis Compartilhados</h2>
+          <h2 className="text-lg font-semibold">Créditos Compartilhados</h2>
           <p className="text-sm text-muted-foreground">
-            Gerencie créditos que servem para múltiplos clientes
+            Gerencie créditos com vagas P2P e IPTV
           </p>
         </div>
         <Button variant="gradient" size="sm" onClick={openNewDialog}>
           <Plus className="w-4 h-4 mr-2" />
-          Novo Painel
+          Novo Crédito
         </Button>
       </div>
 
-      {panelsWithAvailableSlots.length > 0 && (
-        <Alert className="border-amber-500/50 bg-amber-500/10">
-          <AlertCircle className="h-4 w-4 text-amber-500" />
-          <AlertTitle className="text-amber-500">Vagas Disponíveis</AlertTitle>
-          <AlertDescription className="text-amber-400">
-            {panelsWithAvailableSlots.length} painel(is) com vagas para preencher
-          </AlertDescription>
-        </Alert>
+      {totalAvailableSlots > 0 && (
+        <div className="flex flex-wrap gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-500">Vagas Disponíveis</p>
+            <p className="text-xs text-amber-400">
+              {panelsWithAvailableSlots.length} crédito(s) com vagas para preencher
+            </p>
+          </div>
+        </div>
       )}
 
       {panelsWithAvailableSlots.length === 0 ? (
@@ -343,21 +471,20 @@ export function SharedPanelsManager() {
           <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-muted-foreground text-sm">
             {panels.length === 0 
-              ? 'Nenhum painel compartilhado' 
-              : 'Todos os painéis estão completos!'
+              ? 'Nenhum crédito compartilhado' 
+              : 'Todos os créditos estão completos!'
             }
           </p>
           <Button variant="outline" size="sm" className="mt-3" onClick={openNewDialog}>
             <Plus className="w-4 h-4 mr-2" />
-            Criar painel
+            Criar crédito
           </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {panelsWithAvailableSlots.map((panel) => {
-            const filledSlots = panel.filled_slots || 0;
-            const availableSlots = panel.total_slots - filledSlots;
-            const progress = (filledSlots / panel.total_slots) * 100;
+            const availP2P = panel.p2p_slots - (panel.filled_p2p || 0);
+            const availIPTV = panel.iptv_slots - (panel.filled_iptv || 0);
 
             return (
               <Card 
@@ -368,9 +495,30 @@ export function SharedPanelsManager() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-base">{panel.name}</CardTitle>
-                      <Badge variant="secondary" className="mt-1 bg-amber-500/20 text-amber-500">
-                        {availableSlots} vaga(s) disponível(is)
-                      </Badge>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {panel.p2p_slots > 0 && (
+                          <Badge 
+                            variant="secondary" 
+                            className={availP2P > 0 
+                              ? "bg-blue-500/20 text-blue-500" 
+                              : "bg-green-500/20 text-green-500"
+                            }
+                          >
+                            <Radio className="w-3 h-3 mr-1" />
+                            P2P: {panel.filled_p2p || 0}/{panel.p2p_slots}
+                          </Badge>
+                        )}
+                        <Badge 
+                          variant="secondary" 
+                          className={availIPTV > 0 
+                            ? "bg-purple-500/20 text-purple-500" 
+                            : "bg-green-500/20 text-green-500"
+                          }
+                        >
+                          <Tv className="w-3 h-3 mr-1" />
+                          IPTV: {panel.filled_iptv || 0}/{panel.iptv_slots}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(panel)}>
@@ -388,17 +536,11 @@ export function SharedPanelsManager() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Ocupação</span>
-                      <span className="text-amber-500 font-medium">
-                        {filledSlots} / {panel.total_slots}
-                      </span>
-                    </div>
-                    <Progress 
-                      value={progress} 
-                      className="h-2 [&>div]:bg-amber-500"
-                    />
+                  <div className="text-sm text-muted-foreground">
+                    Falta: {' '}
+                    {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
+                    {availP2P > 0 && availIPTV > 0 && ' e '}
+                    {availIPTV > 0 && <span className="text-purple-500 font-medium">{availIPTV} IPTV</span>}
                   </div>
                   
                   <Button
@@ -408,7 +550,7 @@ export function SharedPanelsManager() {
                     onClick={() => openAddClientDialog(panel)}
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
-                    Adicionar Cliente ({availableSlots} vaga{availableSlots !== 1 ? 's' : ''})
+                    Adicionar Cliente
                   </Button>
                 </CardContent>
               </Card>
@@ -421,11 +563,11 @@ export function SharedPanelsManager() {
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingPanel ? 'Editar Painel' : 'Novo Painel'}</DialogTitle>
+            <DialogTitle>{editingPanel ? 'Editar Crédito' : 'Novo Crédito'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="panel_name">Nome do Painel *</Label>
+              <Label htmlFor="panel_name">Nome do Crédito *</Label>
               <Input
                 id="panel_name"
                 value={formData.name}
@@ -434,19 +576,56 @@ export function SharedPanelsManager() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="total_slots">Total de Vagas</Label>
-              <Input
-                id="total_slots"
-                type="number"
-                min="1"
-                max="10"
-                value={formData.total_slots}
-                onChange={(e) => setFormData({ ...formData, total_slots: e.target.value })}
-                placeholder="3"
-              />
-              <p className="text-xs text-muted-foreground">Quantos clientes cabem neste crédito</p>
+            
+            <div className="space-y-3">
+              <Label>Tipo de Vagas</Label>
+              <RadioGroup 
+                value={formData.preset} 
+                onValueChange={(v) => handlePresetChange(v as PanelPreset)}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="p2p_iptv" id="p2p_iptv" />
+                  <Label htmlFor="p2p_iptv" className="flex-1 cursor-pointer">
+                    <div className="font-medium">1 P2P + 2 IPTV</div>
+                    <div className="text-xs text-muted-foreground">Painel completo</div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <RadioGroupItem value="iptv_only" id="iptv_only" />
+                  <Label htmlFor="iptv_only" className="flex-1 cursor-pointer">
+                    <div className="font-medium">Apenas 2 IPTV</div>
+                    <div className="text-xs text-muted-foreground">Sem vaga P2P</div>
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="p2p_slots">Vagas P2P</Label>
+                <Input
+                  id="p2p_slots"
+                  type="number"
+                  min="0"
+                  max="5"
+                  value={formData.p2p_slots}
+                  onChange={(e) => setFormData({ ...formData, p2p_slots: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="iptv_slots">Vagas IPTV</Label>
+                <Input
+                  id="iptv_slots"
+                  type="number"
+                  min="0"
+                  max="5"
+                  value={formData.iptv_slots}
+                  onChange={(e) => setFormData({ ...formData, iptv_slots: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>
                 Cancelar
@@ -470,10 +649,20 @@ export function SharedPanelsManager() {
           <div className="space-y-4 py-2">
             {panelClients.length > 0 && (
               <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">Clientes neste painel:</p>
+                <p className="text-sm font-medium mb-2">Clientes neste crédito:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   {panelClients.map(client => (
-                    <li key={client.id}>• {client.name}</li>
+                    <li key={client.id} className="flex items-center gap-2">
+                      {client.shared_slot_type === 'p2p' ? (
+                        <Radio className="w-3 h-3 text-blue-500" />
+                      ) : (
+                        <Tv className="w-3 h-3 text-purple-500" />
+                      )}
+                      {client.name}
+                      <span className="text-xs opacity-70">
+                        ({client.shared_slot_type?.toUpperCase()})
+                      </span>
+                    </li>
                   ))}
                 </ul>
                 {sharedCredentials.login && (
@@ -483,20 +672,63 @@ export function SharedPanelsManager() {
                 )}
               </div>
             )}
+
+            {/* Slot Type Selection */}
+            {selectedPanel && (
+              <div className="space-y-2">
+                <Label>Tipo de Vaga</Label>
+                <div className="flex gap-2">
+                  {selectedPanel.p2p_slots > 0 && (
+                    <Button
+                      type="button"
+                      variant={selectedSlotType === 'p2p' ? 'default' : 'outline'}
+                      size="sm"
+                      className={selectedSlotType === 'p2p' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                      onClick={() => setSelectedSlotType('p2p')}
+                      disabled={(selectedPanel.filled_p2p || 0) >= selectedPanel.p2p_slots}
+                    >
+                      <Radio className="w-3.5 h-3.5 mr-1.5" />
+                      P2P ({selectedPanel.p2p_slots - (selectedPanel.filled_p2p || 0)} vaga)
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant={selectedSlotType === 'iptv' ? 'default' : 'outline'}
+                    size="sm"
+                    className={selectedSlotType === 'iptv' ? 'bg-purple-500 hover:bg-purple-600' : ''}
+                    onClick={() => setSelectedSlotType('iptv')}
+                    disabled={(selectedPanel.filled_iptv || 0) >= selectedPanel.iptv_slots}
+                  >
+                    <Tv className="w-3.5 h-3.5 mr-1.5" />
+                    IPTV ({selectedPanel.iptv_slots - (selectedPanel.filled_iptv || 0)} vaga{selectedPanel.iptv_slots - (selectedPanel.filled_iptv || 0) !== 1 ? 's' : ''})
+                  </Button>
+                </div>
+              </div>
+            )}
             
-            <Tabs value={addMode} onValueChange={(v) => setAddMode(v as 'new' | 'existing')}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="existing" className="text-xs sm:text-sm">
-                  <Link className="w-3.5 h-3.5 mr-1.5" />
-                  Cliente Existente
-                </TabsTrigger>
-                <TabsTrigger value="new" className="text-xs sm:text-sm">
-                  <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                  Novo Cliente
-                </TabsTrigger>
-              </TabsList>
+            <div className="flex gap-2 border-b pb-2">
+              <Button
+                type="button"
+                variant={addMode === 'existing' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddMode('existing')}
+              >
+                <Link className="w-3.5 h-3.5 mr-1.5" />
+                Cliente Existente
+              </Button>
+              <Button
+                type="button"
+                variant={addMode === 'new' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddMode('new')}
+              >
+                <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                Novo Cliente
+              </Button>
+            </div>
               
-              <TabsContent value="existing" className="space-y-4 mt-4">
+            {addMode === 'existing' ? (
+              <div className="space-y-3">
                 {existingClients.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground text-sm">
                     Nenhum cliente disponível para vincular
@@ -533,17 +765,11 @@ export function SharedPanelsManager() {
                         O login/senha deste cliente será compartilhado com os próximos
                       </p>
                     )}
-                    
-                    {panelClients.length > 0 && selectedExistingClientId && (
-                      <p className="text-xs text-muted-foreground">
-                        O cliente receberá o login/senha compartilhado do painel
-                      </p>
-                    )}
                   </>
                 )}
-              </TabsContent>
-              
-              <TabsContent value="new" className="space-y-4 mt-4">
+              </div>
+            ) : (
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="client-name">Nome do Cliente *</Label>
                   <Input
@@ -596,23 +822,6 @@ export function SharedPanelsManager() {
                     />
                   </div>
                 </div>
-                
-                {panelClients.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Login/senha são compartilhados com os clientes existentes
-                  </p>
-                )}
-              </TabsContent>
-            </Tabs>
-
-            {selectedPanel && (
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <p className="text-sm">
-                  Vagas restantes após adicionar: {' '}
-                  <span className="font-bold">
-                    {selectedPanel.total_slots - (selectedPanel.filled_slots || 0) - 1}
-                  </span>
-                </p>
               </div>
             )}
           </div>
@@ -639,9 +848,9 @@ export function SharedPanelsManager() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir painel?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir crédito?</AlertDialogTitle>
             <AlertDialogDescription>
-              O painel será removido. Os clientes vinculados não serão excluídos.
+              O crédito será removido. Os clientes vinculados não serão excluídos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
