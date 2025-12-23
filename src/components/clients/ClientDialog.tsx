@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign } from 'lucide-react';
+import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign, Users } from 'lucide-react';
+import { useSharedPanels, SharedPanel } from '@/hooks/useSharedPanels';
 import {
   Dialog,
   DialogContent,
@@ -132,7 +133,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [isPaid, setIsPaid] = useState(true);
   const [annualMonthlyRenewal, setAnnualMonthlyRenewal] = useState(false);
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const { encryptCredentials } = useCrypto();
+  const { panels, fetchPanels } = useSharedPanels();
 
   const {
     register,
@@ -182,6 +185,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setCustomDevice(custom);
       setIsPaid(client.is_paid !== false);
       setAnnualMonthlyRenewal((client as any).is_annual_paid === true);
+      setSelectedPanelId((client as any).shared_panel_id || null);
       
       // Parse server_ids array or fallback to server_id
       const serverIds = (client as any).server_ids || [];
@@ -223,6 +227,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setSelectedServers([]);
       setIsPaid(true);
       setAnnualMonthlyRenewal(false);
+      setSelectedPanelId(null);
       reset({
         name: '',
         phone: '',
@@ -345,6 +350,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         seller_id: user.id,
         is_paid: isPaid,
         is_annual_paid: annualMonthlyRenewal,
+        shared_panel_id: selectedPanelId,
       };
 
       if (client) {
@@ -695,6 +701,39 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               <Input id="mac_address" {...register('mac_address')} placeholder="00:00:00:00:00:00" />
             </div>
           </div>
+
+          {/* Shared Panel Selection */}
+          {panels.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Painel Compartilhado
+              </Label>
+              <Select
+                value={selectedPanelId || 'none'}
+                onValueChange={(value) => setSelectedPanelId(value === 'none' ? null : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar painel (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {panels.map((panel) => {
+                    const filledSlots = panel.filled_slots || 0;
+                    const availableSlots = panel.total_slots - filledSlots;
+                    return (
+                      <SelectItem key={panel.id} value={panel.id}>
+                        {panel.name} ({filledSlots}/{panel.total_slots} - {availableSlots > 0 ? `${availableSlots} vaga(s)` : 'Completo'})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Vincule a um crédito compartilhado para controlar vagas
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="server_name">Contas Premium</Label>

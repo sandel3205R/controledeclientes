@@ -72,6 +72,7 @@ export type Database = {
           server_id: string | null
           server_ids: string[] | null
           server_name: string | null
+          shared_panel_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -107,6 +108,7 @@ export type Database = {
           server_id?: string | null
           server_ids?: string[] | null
           server_name?: string | null
+          shared_panel_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -142,6 +144,7 @@ export type Database = {
           server_id?: string | null
           server_ids?: string[] | null
           server_name?: string | null
+          shared_panel_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -164,6 +167,13 @@ export type Database = {
             columns: ["server_id"]
             isOneToOne: false
             referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_shared_panel_id_fkey"
+            columns: ["shared_panel_id"]
+            isOneToOne: false
+            referencedRelation: "shared_panels"
             referencedColumns: ["id"]
           },
         ]
@@ -511,6 +521,33 @@ export type Database = {
           total_credits?: number | null
           updated_at?: string | null
           used_credits?: number | null
+        }
+        Relationships: []
+      }
+      shared_panels: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          seller_id: string
+          total_slots: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          seller_id: string
+          total_slots?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          seller_id?: string
+          total_slots?: number
+          updated_at?: string
         }
         Relationships: []
       }

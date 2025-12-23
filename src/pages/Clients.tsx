@@ -7,7 +7,8 @@ import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import BulkImportDialog from '@/components/clients/BulkImportDialog';
-
+import { SharedPanelsManager } from '@/components/shared-panels/SharedPanelsManager';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -106,6 +107,7 @@ export default function Clients() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [sellerName, setSellerName] = useState('');
+  const [panelsOpen, setPanelsOpen] = useState(false);
   const [valuesHidden, setValuesHidden] = useState(() => {
     const stored = localStorage.getItem('valuesHidden');
     return stored === 'true';
@@ -701,6 +703,22 @@ export default function Clients() {
             </div>
           </div>
         )}
+
+        {/* Shared Panels Section */}
+        <Collapsible open={panelsOpen} onOpenChange={setPanelsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Painéis Compartilhados
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform ${panelsOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4">
+            <SharedPanelsManager />
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Client Grid */}
         {filteredClients.length === 0 ? (
