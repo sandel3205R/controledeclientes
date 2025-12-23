@@ -48,6 +48,7 @@ interface ServerData {
   name: string;
   monthly_cost: number;
   credit_cost: number;
+  credit_recharge_cost: number;
   total_credits: number;
   used_credits: number;
   notes: string | null;
@@ -77,6 +78,7 @@ export default function Servers() {
     name: '',
     monthly_cost: '',
     credit_cost: '',
+    credit_recharge_cost: '',
     total_credits: '',
     notes: '',
     payment_due_date: '',
@@ -140,12 +142,13 @@ export default function Servers() {
 
   const totalStats = useMemo(() => {
     const totalMonthlyCost = serversWithStats.reduce((acc, s) => acc + (s.monthly_cost || 0), 0);
-    const totalCreditCost = serversWithStats.reduce((acc, s) => acc + ((s.credit_cost || 0) * s.used_credits), 0);
+    const totalRechargeCost = serversWithStats.reduce((acc, s) => acc + (s.credit_recharge_cost || 0), 0);
     const totalRevenue = serversWithStats.reduce((acc, s) => acc + (s.total_revenue || 0), 0);
     const totalClients = serversWithStats.reduce((acc, s) => acc + (s.clients_count || 0), 0);
-    const totalProfit = totalRevenue - totalMonthlyCost - totalCreditCost;
+    const totalCost = totalMonthlyCost + totalRechargeCost;
+    const totalProfit = totalRevenue - totalCost;
 
-    return { totalMonthlyCost, totalCreditCost, totalRevenue, totalClients, totalProfit };
+    return { totalMonthlyCost, totalRechargeCost, totalCost, totalRevenue, totalClients, totalProfit };
   }, [serversWithStats]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,6 +159,7 @@ export default function Servers() {
       name: formData.name,
       monthly_cost: parseFloat(formData.monthly_cost) || 0,
       credit_cost: parseFloat(formData.credit_cost) || 0,
+      credit_recharge_cost: parseFloat(formData.credit_recharge_cost) || 0,
       total_credits: parseInt(formData.total_credits) || 0,
       notes: formData.notes || null,
       payment_due_date: formData.payment_due_date || null,
@@ -191,6 +195,7 @@ export default function Servers() {
       name: server.name,
       monthly_cost: server.monthly_cost?.toString() || '',
       credit_cost: server.credit_cost?.toString() || '',
+      credit_recharge_cost: server.credit_recharge_cost?.toString() || '',
       total_credits: server.total_credits?.toString() || '',
       notes: server.notes || '',
       payment_due_date: server.payment_due_date || '',
@@ -217,6 +222,7 @@ export default function Servers() {
       name: '',
       monthly_cost: '',
       credit_cost: '',
+      credit_recharge_cost: '',
       total_credits: '',
       notes: '',
       payment_due_date: '',
@@ -313,8 +319,11 @@ export default function Servers() {
                   <CreditCard className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Custo Mensal</p>
-                  <p className="text-xl font-bold">R$ {totalStats.totalMonthlyCost.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">Custo Total</p>
+                  <p className="text-xl font-bold">R$ {totalStats.totalCost.toFixed(2)}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Fixo: R$ {totalStats.totalMonthlyCost.toFixed(2)} + Recargas: R$ {totalStats.totalRechargeCost.toFixed(2)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -370,7 +379,7 @@ export default function Servers() {
               const remainingCredits = server.total_credits - server.used_credits;
               const isLowCredits = server.total_credits > 0 && creditUsage >= 80;
               const isCriticalCredits = server.total_credits > 0 && creditUsage >= 95;
-              const serverCost = (server.monthly_cost || 0) + ((server.credit_cost || 0) * server.used_credits);
+              const serverCost = (server.monthly_cost || 0) + (server.credit_recharge_cost || 0);
               const serverProfit = (server.total_revenue || 0) - serverCost;
               const paymentStatus = getPaymentStatus(server.payment_due_date);
 
@@ -475,8 +484,8 @@ export default function Servers() {
                         <p className="text-lg font-semibold">R$ {(server.monthly_cost || 0).toFixed(2)}</p>
                       </div>
                       <div className="p-3 rounded-lg bg-background/50 border border-border/30">
-                        <p className="text-xs text-muted-foreground">Custo/Crédito</p>
-                        <p className="text-lg font-semibold">R$ {(server.credit_cost || 0).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">Recargas</p>
+                        <p className="text-lg font-semibold text-red-400">R$ {(server.credit_recharge_cost || 0).toFixed(2)}</p>
                       </div>
                       <div className="p-3 rounded-lg bg-background/50 border border-border/30">
                         <p className="text-xs text-muted-foreground">Receita</p>
@@ -582,15 +591,29 @@ export default function Servers() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="total_credits">Total de Créditos</Label>
-                <Input
-                  id="total_credits"
-                  type="number"
-                  value={formData.total_credits}
-                  onChange={(e) => setFormData({ ...formData, total_credits: e.target.value })}
-                  placeholder="Ex: 100"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="total_credits">Total de Créditos</Label>
+                  <Input
+                    id="total_credits"
+                    type="number"
+                    value={formData.total_credits}
+                    onChange={(e) => setFormData({ ...formData, total_credits: e.target.value })}
+                    placeholder="Ex: 100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="credit_recharge_cost">Custo de Recargas (R$)</Label>
+                  <Input
+                    id="credit_recharge_cost"
+                    type="number"
+                    step="0.01"
+                    value={formData.credit_recharge_cost}
+                    onChange={(e) => setFormData({ ...formData, credit_recharge_cost: e.target.value })}
+                    placeholder="0,00"
+                  />
+                  <p className="text-xs text-muted-foreground">Some aqui o valor das recargas</p>
+                </div>
               </div>
 
               <div className="space-y-2">
