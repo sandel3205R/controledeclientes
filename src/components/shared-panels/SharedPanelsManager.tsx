@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,6 +97,7 @@ export function SharedPanelsManager() {
     p2p_slots: 1,
     iptv_slots: 2,
   });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [clientFormData, setClientFormData] = useState({
     name: '',
     phone: '',
@@ -563,17 +564,74 @@ export function SharedPanelsManager() {
                 <CardContent className="pt-0 space-y-3">
                   {/* Show shared credentials for easy copy */}
                   {panel.shared_login && (
-                    <div className="p-2 bg-muted/50 rounded-md text-xs space-y-1">
-                      <div className="flex justify-between items-center">
+                    <div className="p-2 bg-muted/50 rounded-md text-xs space-y-1.5">
+                      <div className="flex justify-between items-center gap-2">
                         <span className="text-muted-foreground">Login:</span>
-                        <span className="font-mono font-medium">{panel.shared_login}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-medium">{panel.shared_login}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(panel.shared_login || '');
+                              setCopiedId(`${panel.id}-login`);
+                              toast.success('Login copiado!');
+                              setTimeout(() => setCopiedId(null), 2000);
+                            }}
+                          >
+                            {copiedId === `${panel.id}-login` ? (
+                              <Check className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                       {panel.shared_password && (
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center gap-2">
                           <span className="text-muted-foreground">Senha:</span>
-                          <span className="font-mono font-medium">{panel.shared_password}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-medium">{panel.shared_password}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => {
+                                navigator.clipboard.writeText(panel.shared_password || '');
+                                setCopiedId(`${panel.id}-password`);
+                                toast.success('Senha copiada!');
+                                setTimeout(() => setCopiedId(null), 2000);
+                              }}
+                            >
+                              {copiedId === `${panel.id}-password` ? (
+                                <Check className="w-3 h-3 text-green-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-1 h-7 text-xs"
+                        onClick={() => {
+                          const text = `Login: ${panel.shared_login}${panel.shared_password ? `\nSenha: ${panel.shared_password}` : ''}`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedId(`${panel.id}-all`);
+                          toast.success('Credenciais copiadas!');
+                          setTimeout(() => setCopiedId(null), 2000);
+                        }}
+                      >
+                        {copiedId === `${panel.id}-all` ? (
+                          <Check className="w-3 h-3 mr-1.5 text-green-500" />
+                        ) : (
+                          <Copy className="w-3 h-3 mr-1.5" />
+                        )}
+                        Copiar tudo
+                      </Button>
                     </div>
                   )}
 
