@@ -181,6 +181,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setSelectedDevices(predefined);
       setCustomDevice(custom);
       setIsPaid(client.is_paid !== false);
+      setAnnualMonthlyRenewal((client as any).is_annual_paid === true);
       
       // Parse server_ids array or fallback to server_id
       const serverIds = (client as any).server_ids || [];
@@ -221,6 +222,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       setCustomDevice('');
       setSelectedServers([]);
       setIsPaid(true);
+      setAnnualMonthlyRenewal(false);
       reset({
         name: '',
         phone: '',
@@ -342,6 +344,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_ids: selectedServers,
         seller_id: user.id,
         is_paid: isPaid,
+        is_annual_paid: annualMonthlyRenewal,
       };
 
       if (client) {

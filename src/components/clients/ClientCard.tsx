@@ -53,6 +53,7 @@ interface ClientCardProps {
     server_name: string | null;
     server_ids: string[] | null;
     is_paid?: boolean | null;
+    is_annual_paid?: boolean | null;
   };
   servers?: { id: string; name: string }[];
   onEdit: () => void;
@@ -182,9 +183,19 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
 
   const getStatus = () => {
     const formattedDate = format(expirationDate, 'dd/MM/yyyy');
-    if (isExpired) return { label: formattedDate, class: 'status-expired', icon: '🔴' };
-    if (isExpiring) return { label: formattedDate, class: 'status-expiring', icon: '🟡' };
-    return { label: formattedDate, class: 'status-active', icon: '🟢' };
+    const isAnnualPaid = client.is_annual_paid === true;
+    
+    if (isExpired) {
+      // For annual paid clients, show blue (just renewal reminder, not payment needed)
+      if (isAnnualPaid) return { label: formattedDate, class: 'status-annual-renewal', icon: '🔵', isAnnualPaid: true };
+      return { label: formattedDate, class: 'status-expired', icon: '🔴', isAnnualPaid: false };
+    }
+    if (isExpiring) {
+      // For annual paid clients, show blue (just renewal reminder, not payment needed)
+      if (isAnnualPaid) return { label: formattedDate, class: 'status-annual-renewal', icon: '🔵', isAnnualPaid: true };
+      return { label: formattedDate, class: 'status-expiring', icon: '🟡', isAnnualPaid: false };
+    }
+    return { label: formattedDate, class: 'status-active', icon: '🟢', isAnnualPaid: false };
   };
 
   const status = getStatus();
@@ -337,6 +348,12 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
                 <Badge className={cn("shrink-0 text-[10px] px-1.5 py-0", status.class)}>
                   {status.label}
                 </Badge>
+                {status.isAnnualPaid && (
+                  <Badge className="shrink-0 text-[10px] px-1.5 py-0 bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Anual Pago
+                  </Badge>
+                )}
                 {client.is_paid === false && (
                   <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0 gap-1">
                     <AlertCircle className="w-3 h-3" />

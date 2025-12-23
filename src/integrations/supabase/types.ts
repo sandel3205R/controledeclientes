@@ -46,6 +46,7 @@ export type Database = {
           email: string | null
           expiration_date: string
           id: string
+          is_annual_paid: boolean | null
           is_paid: boolean | null
           login: string | null
           login2: string | null
@@ -80,6 +81,7 @@ export type Database = {
           email?: string | null
           expiration_date: string
           id?: string
+          is_annual_paid?: boolean | null
           is_paid?: boolean | null
           login?: string | null
           login2?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           email?: string | null
           expiration_date?: string
           id?: string
+          is_annual_paid?: boolean | null
           is_paid?: boolean | null
           login?: string | null
           login2?: string | null
