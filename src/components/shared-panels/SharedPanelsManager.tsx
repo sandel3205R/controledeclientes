@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,13 +21,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useSharedPanels, SharedPanel } from '@/hooks/useSharedPanels';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PanelClient {
   id: string;
@@ -35,6 +44,16 @@ interface PanelClient {
   phone: string | null;
   login: string | null;
   password: string | null;
+}
+
+interface ExistingClient {
+  id: string;
+  name: string;
+  phone: string | null;
+  login: string | null;
+  password: string | null;
+  expiration_date: string;
+  shared_panel_id: string | null;
 }
 
 export function SharedPanelsManager() {
@@ -47,6 +66,9 @@ export function SharedPanelsManager() {
   const [selectedPanel, setSelectedPanel] = useState<SharedPanel | null>(null);
   const [panelClients, setPanelClients] = useState<PanelClient[]>([]);
   const [sharedCredentials, setSharedCredentials] = useState({ login: '', password: '' });
+  const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
+  const [selectedExistingClientId, setSelectedExistingClientId] = useState<string>('');
+  const [addMode, setAddMode] = useState<'new' | 'existing'>('new');
   
   const [formData, setFormData] = useState({ name: '', total_slots: '3' });
   const [clientFormData, setClientFormData] = useState({
@@ -106,8 +128,26 @@ export function SharedPanelsManager() {
     setDialogOpen(true);
   };
 
+  const fetchExistingClients = async () => {
+    if (!user) return;
+    
+    // Fetch clients that are not in any panel
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, phone, login, password, expiration_date, shared_panel_id')
+      .eq('seller_id', user.id)
+      .is('shared_panel_id', null)
+      .order('name');
+    
+    if (data) {
+      setExistingClients(data);
+    }
+  };
+
   const openAddClientDialog = async (panel: SharedPanel) => {
     setSelectedPanel(panel);
+    setAddMode('new');
+    setSelectedExistingClientId('');
     
     // Fetch existing clients in this panel to get the shared login/password
     const { data: clients } = await supabase
@@ -133,6 +173,9 @@ export function SharedPanelsManager() {
       phone: '',
       expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     });
+    
+    // Fetch available clients
+    await fetchExistingClients();
     
     setAddClientDialogOpen(true);
   };
@@ -165,37 +208,97 @@ export function SharedPanelsManager() {
       toast.error('Erro ao adicionar cliente');
     } else {
       toast.success('Cliente adicionado ao painel!');
-      await fetchPanels();
-      
-      // Check if panel is now full
-      const newFilledSlots = (selectedPanel.filled_slots || 0) + 1;
-      if (newFilledSlots >= selectedPanel.total_slots) {
-        toast.success('Painel completo! Todas as vagas foram preenchidas.');
-        setAddClientDialogOpen(false);
-      } else {
-        // Refresh clients list and update selected panel
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('id, name, phone, login, password')
-          .eq('shared_panel_id', selectedPanel.id)
-          .order('created_at');
-        if (clients) {
-          setPanelClients(clients);
+      await handleAfterAddClient();
+    }
+  };
+
+  const handleLinkExistingClient = async () => {
+    if (!user || !selectedPanel || !selectedExistingClientId) {
+      toast.error('Selecione um cliente');
+      return;
+    }
+
+    const selectedClient = existingClients.find(c => c.id === selectedExistingClientId);
+    if (!selectedClient) {
+      toast.error('Cliente não encontrado');
+      return;
+    }
+
+    // If this is the first client in the panel, use their credentials as shared
+    // Otherwise, update the client with the shared credentials
+    let updateData: Record<string, unknown> = {
+      shared_panel_id: selectedPanel.id,
+    };
+
+    if (panelClients.length === 0) {
+      // First client - their credentials become shared
+      setSharedCredentials({
+        login: selectedClient.login || '',
+        password: selectedClient.password || '',
+      });
+    } else {
+      // Not first client - update with shared credentials
+      updateData.login = sharedCredentials.login || null;
+      updateData.password = sharedCredentials.password || null;
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .update(updateData)
+      .eq('id', selectedExistingClientId);
+
+    if (error) {
+      console.error('Error linking client:', error);
+      toast.error('Erro ao vincular cliente');
+    } else {
+      toast.success('Cliente vinculado ao painel!');
+      await handleAfterAddClient();
+    }
+  };
+
+  const handleAfterAddClient = async () => {
+    await fetchPanels();
+    
+    if (!selectedPanel) return;
+    
+    // Check if panel is now full
+    const newFilledSlots = (selectedPanel.filled_slots || 0) + 1;
+    if (newFilledSlots >= selectedPanel.total_slots) {
+      toast.success('Painel completo! Todas as vagas foram preenchidas.');
+      setAddClientDialogOpen(false);
+    } else {
+      // Refresh clients list and update selected panel
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id, name, phone, login, password')
+        .eq('shared_panel_id', selectedPanel.id)
+        .order('created_at');
+      if (clients) {
+        setPanelClients(clients);
+        if (clients.length > 0) {
+          setSharedCredentials({
+            login: clients[0].login || '',
+            password: clients[0].password || '',
+          });
         }
-        
-        // Reset form for next client
-        setClientFormData({
-          name: '',
-          phone: '',
-          expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        });
-        
-        // Update selected panel slots count
-        setSelectedPanel({
-          ...selectedPanel,
-          filled_slots: newFilledSlots,
-        });
       }
+      
+      // Reset forms
+      setClientFormData({
+        name: '',
+        phone: '',
+        expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      });
+      setSelectedExistingClientId('');
+      
+      // Refresh existing clients list
+      await fetchExistingClients();
+      
+      // Update selected panel slots count
+      setSelectedPanel({
+        ...selectedPanel,
+        filled_slots: newFilledSlots,
+      });
     }
   };
 
@@ -373,67 +476,134 @@ export function SharedPanelsManager() {
                     <li key={client.id}>• {client.name}</li>
                   ))}
                 </ul>
+                {sharedCredentials.login && (
+                  <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                    Login: <span className="font-medium">{sharedCredentials.login}</span>
+                  </p>
+                )}
               </div>
             )}
             
-            <div className="space-y-2">
-              <Label htmlFor="client-name">Nome do Cliente *</Label>
-              <Input
-                id="client-name"
-                value={clientFormData.name}
-                onChange={(e) => setClientFormData({ ...clientFormData, name: e.target.value })}
-                placeholder="Nome do cliente"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="client-phone">Telefone</Label>
-              <Input
-                id="client-phone"
-                value={clientFormData.phone}
-                onChange={(e) => setClientFormData({ ...clientFormData, phone: e.target.value })}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="client-expiration">Data de Vencimento *</Label>
-              <Input
-                id="client-expiration"
-                type="date"
-                value={clientFormData.expiration_date}
-                onChange={(e) => setClientFormData({ ...clientFormData, expiration_date: e.target.value })}
-              />
-            </div>
+            <Tabs value={addMode} onValueChange={(v) => setAddMode(v as 'new' | 'existing')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="existing" className="text-xs sm:text-sm">
+                  <Link className="w-3.5 h-3.5 mr-1.5" />
+                  Cliente Existente
+                </TabsTrigger>
+                <TabsTrigger value="new" className="text-xs sm:text-sm">
+                  <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                  Novo Cliente
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="existing" className="space-y-4 mt-4">
+                {existingClients.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    Nenhum cliente disponível para vincular
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Selecione um cliente</Label>
+                      <Select value={selectedExistingClientId} onValueChange={setSelectedExistingClientId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Escolha um cliente..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <ScrollArea className="max-h-[200px]">
+                            {existingClients.map(client => (
+                              <SelectItem key={client.id} value={client.id}>
+                                <div className="flex flex-col">
+                                  <span>{client.name}</span>
+                                  {client.login && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Login: {client.login}
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </ScrollArea>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {panelClients.length === 0 && selectedExistingClientId && (
+                      <p className="text-xs text-amber-500 bg-amber-500/10 p-2 rounded">
+                        O login/senha deste cliente será compartilhado com os próximos
+                      </p>
+                    )}
+                    
+                    {panelClients.length > 0 && selectedExistingClientId && (
+                      <p className="text-xs text-muted-foreground">
+                        O cliente receberá o login/senha compartilhado do painel
+                      </p>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="new" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="client-name">Nome do Cliente *</Label>
+                  <Input
+                    id="client-name"
+                    value={clientFormData.name}
+                    onChange={(e) => setClientFormData({ ...clientFormData, name: e.target.value })}
+                    placeholder="Nome do cliente"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="client-phone">Telefone</Label>
+                  <Input
+                    id="client-phone"
+                    value={clientFormData.phone}
+                    onChange={(e) => setClientFormData({ ...clientFormData, phone: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="client-expiration">Data de Vencimento *</Label>
+                  <Input
+                    id="client-expiration"
+                    type="date"
+                    value={clientFormData.expiration_date}
+                    onChange={(e) => setClientFormData({ ...clientFormData, expiration_date: e.target.value })}
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="shared-login">Login Compartilhado</Label>
-                <Input
-                  id="shared-login"
-                  value={sharedCredentials.login}
-                  onChange={(e) => setSharedCredentials({ ...sharedCredentials, login: e.target.value })}
-                  placeholder="Login"
-                  disabled={panelClients.length > 0}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shared-password">Senha Compartilhada</Label>
-                <Input
-                  id="shared-password"
-                  value={sharedCredentials.password}
-                  onChange={(e) => setSharedCredentials({ ...sharedCredentials, password: e.target.value })}
-                  placeholder="Senha"
-                  disabled={panelClients.length > 0}
-                />
-              </div>
-            </div>
-            
-            {panelClients.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Login/senha são compartilhados com os clientes existentes
-              </p>
-            )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="shared-login">Login</Label>
+                    <Input
+                      id="shared-login"
+                      value={sharedCredentials.login}
+                      onChange={(e) => setSharedCredentials({ ...sharedCredentials, login: e.target.value })}
+                      placeholder="Login"
+                      disabled={panelClients.length > 0}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shared-password">Senha</Label>
+                    <Input
+                      id="shared-password"
+                      value={sharedCredentials.password}
+                      onChange={(e) => setSharedCredentials({ ...sharedCredentials, password: e.target.value })}
+                      placeholder="Senha"
+                      disabled={panelClients.length > 0}
+                    />
+                  </div>
+                </div>
+                
+                {panelClients.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Login/senha são compartilhados com os clientes existentes
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
 
             {selectedPanel && (
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -450,10 +620,17 @@ export function SharedPanelsManager() {
             <Button variant="outline" onClick={() => setAddClientDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleAddClient}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Adicionar
-            </Button>
+            {addMode === 'existing' ? (
+              <Button onClick={handleLinkExistingClient} disabled={!selectedExistingClientId}>
+                <Link className="w-4 h-4 mr-2" />
+                Vincular
+              </Button>
+            ) : (
+              <Button onClick={handleAddClient}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Adicionar
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
