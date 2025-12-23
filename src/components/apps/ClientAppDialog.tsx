@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Mail, Lock, Wifi, Hash, Cloud, Tv } from 'lucide-react';
+import { CalendarIcon, Mail, Lock, Wifi, Hash, Cloud, Tv, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -33,14 +33,16 @@ import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
 import { useCrypto } from '@/hooks/useCrypto';
 
-const APP_TYPES = [
+const PREDEFINED_APP_TYPES = [
   { id: 'clouddy', label: 'Clouddy', icon: Cloud, usesEmail: true },
   { id: 'ibo_pro', label: 'IBO PRO', icon: Tv, usesEmail: false },
   { id: 'ibo_player', label: 'IBO PLAYER', icon: Tv, usesEmail: false },
-] as const;
+];
 
 const appSchema = z.object({
-  app_type: z.enum(['clouddy', 'ibo_pro', 'ibo_player']),
+  app_type: z.string().min(1, 'Tipo de aplicativo é obrigatório'),
+  custom_app_name: z.string().optional(),
+  credential_type: z.enum(['email', 'mac']),
   email: z.string().optional(),
   password: z.string().optional(),
   mac_address: z.string().optional(),
@@ -48,7 +50,12 @@ const appSchema = z.object({
   app_price: z.string().optional(),
   expiration_date: z.string().min(1, 'Data de vencimento é obrigatória'),
   notes: z.string().optional(),
-});
+}).refine((data) => {
+  if (data.app_type === 'custom' && !data.custom_app_name) {
+    return false;
+  }
+  return true;
+}, { message: 'Nome do aplicativo é obrigatório', path: ['custom_app_name'] });
 
 type AppForm = z.infer<typeof appSchema>;
 
@@ -99,20 +106,26 @@ export default function ClientAppDialog({
   });
 
   const selectedAppType = watch('app_type');
-  const selectedApp = APP_TYPES.find(a => a.id === selectedAppType);
-  const usesEmail = selectedApp?.usesEmail ?? true;
+  const selectedPredefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === selectedAppType);
+  const isCustomApp = selectedAppType === 'custom';
+  const credentialType = watch('credential_type');
+  const usesEmail = isCustomApp ? credentialType === 'email' : (selectedPredefinedApp?.usesEmail ?? true);
 
   useEffect(() => {
     const loadExistingApp = async () => {
       if (existingApp) {
-        // Decrypt credentials
         const decrypted = await decryptCredentials({
           login: existingApp.email,
           password: existingApp.password,
         });
 
+        const isPredefined = PREDEFINED_APP_TYPES.some(a => a.id === existingApp.app_type);
+        const predefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === existingApp.app_type);
+
         reset({
-          app_type: existingApp.app_type as 'clouddy' | 'ibo_pro' | 'ibo_player',
+          app_type: isPredefined ? existingApp.app_type : 'custom',
+          custom_app_name: isPredefined ? '' : existingApp.app_type,
+          credential_type: predefinedApp?.usesEmail !== false ? 'email' : 'mac',
           email: decrypted.login || '',
           password: decrypted.password || '',
           mac_address: existingApp.mac_address || '',
@@ -124,6 +137,8 @@ export default function ClientAppDialog({
       } else {
         reset({
           app_type: 'clouddy',
+          custom_app_name: '',
+          credential_type: 'email',
           email: '',
           password: '',
           mac_address: '',
@@ -146,7 +161,8 @@ export default function ClientAppDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Encrypt email/password for Clouddy
+      const finalAppType = data.app_type === 'custom' ? data.custom_app_name : data.app_type;
+
       let encryptedEmail: string | null = null;
       let encryptedPassword: string | null = null;
 
@@ -162,11 +178,11 @@ export default function ClientAppDialog({
       const appData = {
         client_id: clientId,
         seller_id: user.id,
-        app_type: data.app_type,
+        app_type: finalAppType,
         email: encryptedEmail,
         password: encryptedPassword,
-        mac_address: data.mac_address || null,
-        device_id: data.device_id || null,
+        mac_address: !usesEmail ? (data.mac_address || null) : null,
+        device_id: !usesEmail ? (data.device_id || null) : null,
         app_price: data.app_price ? parseFloat(data.app_price) : null,
         expiration_date: data.expiration_date,
         notes: data.notes || null,
@@ -218,18 +234,23 @@ export default function ClientAppDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-2">
-          {/* App Type */}
           <div className="space-y-2">
             <Label>Tipo de Aplicativo *</Label>
             <Select
               value={selectedAppType}
-              onValueChange={(value) => setValue('app_type', value as 'clouddy' | 'ibo_pro' | 'ibo_player')}
+              onValueChange={(value) => {
+                setValue('app_type', value);
+                const predefined = PREDEFINED_APP_TYPES.find(a => a.id === value);
+                if (predefined) {
+                  setValue('credential_type', predefined.usesEmail ? 'email' : 'mac');
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o aplicativo" />
               </SelectTrigger>
               <SelectContent>
-                {APP_TYPES.map((app) => {
+                {PREDEFINED_APP_TYPES.map((app) => {
                   const Icon = app.icon;
                   return (
                     <SelectItem key={app.id} value={app.id}>
@@ -240,9 +261,46 @@ export default function ClientAppDialog({
                     </SelectItem>
                   );
                 })}
+                <SelectItem value="custom">
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Outro (personalizado)
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {isCustomApp && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="custom_app_name">Nome do Aplicativo *</Label>
+                <Input
+                  id="custom_app_name"
+                  {...register('custom_app_name')}
+                  placeholder="Digite o nome do aplicativo"
+                />
+                {errors.custom_app_name && (
+                  <p className="text-xs text-destructive">{errors.custom_app_name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo de Credencial</Label>
+                <Select
+                  value={credentialType}
+                  onValueChange={(value) => setValue('credential_type', value as 'email' | 'mac')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email + Senha</SelectItem>
+                    <SelectItem value="mac">MAC + ID</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           {/* Clouddy fields - Email/Password */}
           {usesEmail && (
@@ -278,12 +336,11 @@ export default function ClientAppDialog({
             </div>
           )}
 
-          {/* IBO fields - MAC/ID */}
           {!usesEmail && (
             <div className="space-y-4 p-3 rounded-lg border border-purple-500/30 bg-purple-500/5">
               <div className="flex items-center gap-2 text-purple-500 text-sm font-medium">
                 <Tv className="h-4 w-4" />
-                Credenciais {selectedApp?.label}
+                Credenciais {isCustomApp ? watch('custom_app_name') : selectedPredefinedApp?.label}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
