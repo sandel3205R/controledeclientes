@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -125,7 +125,10 @@ export default function Clients() {
     });
   };
 
-  const fetchClients = async () => {
+  const lastErrorRef = useRef<number>(0);
+  const isInitialLoadRef = useRef<boolean>(true);
+
+  const fetchClients = async (showErrorToast = true) => {
     if (!user) return;
 
     try {
@@ -137,13 +140,24 @@ export default function Clients() {
 
       if (error) {
         console.error('Erro ao carregar clientes:', error);
-        toast.error('Erro ao carregar clientes');
+        // Only show toast on initial load or if more than 30 seconds since last error
+        const now = Date.now();
+        if (showErrorToast && (isInitialLoadRef.current || now - lastErrorRef.current > 30000)) {
+          toast.error('Erro ao carregar clientes');
+          lastErrorRef.current = now;
+        }
       } else {
         setClients(data || []);
+        isInitialLoadRef.current = false;
       }
     } catch (err) {
       console.error('Erro de conexão:', err);
-      toast.error('Erro de conexão ao carregar clientes');
+      // Only show toast on initial load or if more than 30 seconds since last error
+      const now = Date.now();
+      if (showErrorToast && (isInitialLoadRef.current || now - lastErrorRef.current > 30000)) {
+        toast.error('Erro de conexão ao carregar clientes');
+        lastErrorRef.current = now;
+      }
     } finally {
       setLoading(false);
     }
@@ -182,15 +196,15 @@ export default function Clients() {
   };
 
   useEffect(() => {
-    fetchClients();
+    fetchClients(true); // Show error on initial load
     fetchTemplates();
     fetchServers();
     fetchSellerName();
 
-    // Auto-refresh every 5 seconds
+    // Auto-refresh every 10 seconds (increased interval, no error toasts)
     const interval = setInterval(() => {
-      fetchClients();
-    }, 5000);
+      fetchClients(false); // Don't show error toasts on auto-refresh
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [user]);
