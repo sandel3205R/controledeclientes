@@ -691,112 +691,118 @@ export function SharedPanelsManager() {
                       <p className="text-[10px] text-muted-foreground font-medium">Clientes:</p>
                       <div className="flex flex-wrap gap-1">
                         {panel.clients.map(client => (
-                          <DropdownMenu key={client.id}>
-                            <DropdownMenuTrigger asChild>
-                              <Badge 
-                                variant="outline" 
-                                className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${
-                                  client.shared_slot_type === 'p2p' 
-                                    ? 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10' 
-                                    : 'border-purple-500/30 text-purple-500 hover:bg-purple-500/10'
-                                }`}
-                              >
-                                {client.shared_slot_type === 'p2p' ? (
-                                  <Radio className="w-2 h-2 mr-0.5" />
-                                ) : (
-                                  <Tv className="w-2 h-2 mr-0.5" />
-                                )}
-                                {client.name}
-                              </Badge>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-44">
-                              <DropdownMenuItem onClick={() => navigateToClient(client.id)}>
-                                <Users className="w-4 h-4 mr-2" />
-                                Ver cliente
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  if (!client.phone) {
-                                    toast.error('Cliente não possui telefone');
-                                    return;
-                                  }
-                                  const phone = client.phone.replace(/\D/g, '');
-                                  const msg = `Olá ${client.name}! 💰\n\nSeu plano está vencendo. Gostaria de renovar?`;
-                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                }}
-                                disabled={!client.phone}
-                              >
-                                <DollarSign className="w-4 h-4 mr-2" />
-                                Cobrar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  if (!client.phone) {
-                                    toast.error('Cliente não possui telefone');
-                                    return;
-                                  }
-                                  const phone = client.phone.replace(/\D/g, '');
-                                  const brandName = sellerName || 'Nossa equipe';
-                                  const msg = `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano está próximo do vencimento. Renove para não perder o acesso!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
-                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                }}
-                                disabled={!client.phone}
-                              >
-                                <Bell className="w-4 h-4 mr-2" />
-                                Lembrar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  if (!client.phone) {
-                                    toast.error('Cliente não possui telefone');
-                                    return;
-                                  }
-                                  const phone = client.phone.replace(/\D/g, '');
-                                  const brandName = sellerName || 'Nossa equipe';
-                                  const msg = `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeus dados de acesso:\n👤 Login: ${panel.shared_login || 'N/A'}\n🔑 Senha: ${panel.shared_password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
-                                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                }}
-                                disabled={!client.phone}
-                              >
-                                <PartyPopper className="w-4 h-4 mr-2" />
-                                Boas-vindas
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  if (!client.phone) {
-                                    toast.error('Cliente não possui telefone');
-                                    return;
-                                  }
-                                  const phone = client.phone.replace(/\D/g, '');
-                                  window.open(`https://wa.me/55${phone}`, '_blank');
-                                }}
-                                disabled={!client.phone}
-                              >
-                                <MessageCircle className="w-4 h-4 mr-2" />
-                                Enviar mensagem
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from('clients')
-                                    .update({ shared_panel_id: null, shared_slot_type: null })
-                                    .eq('id', client.id);
-                                  if (error) {
-                                    toast.error('Erro ao desvincular cliente');
-                                  } else {
-                                    toast.success('Cliente desvinculado');
-                                    fetchPanels();
-                                  }
-                                }}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Unlink className="w-4 h-4 mr-2" />
-                                Desvincular
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div key={client.id} className="flex items-center">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${
+                                client.shared_slot_type === 'p2p' 
+                                  ? 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10' 
+                                  : 'border-purple-500/30 text-purple-500 hover:bg-purple-500/10'
+                              }`}
+                              onClick={() => navigateToClient(client.id)}
+                            >
+                              {client.shared_slot_type === 'p2p' ? (
+                                <Radio className="w-2 h-2 mr-0.5" />
+                              ) : (
+                                <Tv className="w-2 h-2 mr-0.5" />
+                              )}
+                              {client.name}
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 ml-0.5">
+                                  <MessageCircle className="w-3 h-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-44">
+                                <DropdownMenuItem onClick={() => navigateToClient(client.id)}>
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Ver cliente
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (!client.phone) {
+                                      toast.error('Cliente não possui telefone');
+                                      return;
+                                    }
+                                    const phone = client.phone.replace(/\D/g, '');
+                                    const msg = `Olá ${client.name}! 💰\n\nSeu plano está vencendo. Gostaria de renovar?`;
+                                    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }}
+                                  disabled={!client.phone}
+                                >
+                                  <DollarSign className="w-4 h-4 mr-2" />
+                                  Cobrar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (!client.phone) {
+                                      toast.error('Cliente não possui telefone');
+                                      return;
+                                    }
+                                    const phone = client.phone.replace(/\D/g, '');
+                                    const brandName = sellerName || 'Nossa equipe';
+                                    const msg = `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano está próximo do vencimento. Renove para não perder o acesso!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
+                                    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }}
+                                  disabled={!client.phone}
+                                >
+                                  <Bell className="w-4 h-4 mr-2" />
+                                  Lembrar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (!client.phone) {
+                                      toast.error('Cliente não possui telefone');
+                                      return;
+                                    }
+                                    const phone = client.phone.replace(/\D/g, '');
+                                    const brandName = sellerName || 'Nossa equipe';
+                                    const msg = `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeus dados de acesso:\n👤 Login: ${panel.shared_login || 'N/A'}\n🔑 Senha: ${panel.shared_password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
+                                    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }}
+                                  disabled={!client.phone}
+                                >
+                                  <PartyPopper className="w-4 h-4 mr-2" />
+                                  Boas-vindas
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (!client.phone) {
+                                      toast.error('Cliente não possui telefone');
+                                      return;
+                                    }
+                                    const phone = client.phone.replace(/\D/g, '');
+                                    window.open(`https://wa.me/55${phone}`, '_blank');
+                                  }}
+                                  disabled={!client.phone}
+                                >
+                                  <MessageCircle className="w-4 h-4 mr-2" />
+                                  Enviar mensagem
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('clients')
+                                      .update({ shared_panel_id: null, shared_slot_type: null })
+                                      .eq('id', client.id);
+                                    if (error) {
+                                      toast.error('Erro ao desvincular cliente');
+                                    } else {
+                                      toast.success('Cliente desvinculado');
+                                      fetchPanels();
+                                    }
+                                  }}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Unlink className="w-4 h-4 mr-2" />
+                                  Desvincular
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         ))}
                       </div>
                     </div>
