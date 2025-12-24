@@ -119,21 +119,21 @@ export function useOfflineSync(options: OfflineSyncOptions = {}) {
         
         switch (action.action) {
           case 'insert': {
-            // @ts-expect-error - dynamic table access
-            const { error } = await tableRef.insert(action.data);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await tableRef.insert(action.data as any);
             result = { error };
             break;
           }
           case 'update': {
             const { id: updateId, ...updateData } = action.data;
-            // @ts-expect-error - dynamic table access
-            const { error } = await tableRef.update(updateData).eq('id', updateId);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await (tableRef.update(updateData as any) as any).eq('id', updateId);
             result = { error };
             break;
           }
           case 'delete': {
-            // @ts-expect-error - dynamic table access  
-            const { error } = await tableRef.delete().eq('id', action.data.id);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await (tableRef.delete() as any).eq('id', action.data.id);
             result = { error };
             break;
           }

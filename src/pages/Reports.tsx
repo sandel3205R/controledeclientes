@@ -51,8 +51,8 @@ export default function Reports() {
     
     if (!clients) { setLoading(false); return; }
     
-    const profileMap = new Map(profiles?.map(p => [p.id, p.full_name || p.email]) || []);
-    const filteredClients = clients.filter(c => isWithinInterval(parseISO(c.created_at), { start, end }));
+    const profileMap = new Map<string, string>(profiles?.map(p => [p.id, p.full_name || p.email]) || []);
+    const filteredClients = clients.filter(c => c.created_at && isWithinInterval(parseISO(c.created_at), { start, end }));
     const totalRevenue = filteredClients.reduce((sum, c) => sum + (c.plan?.price || 0), 0);
 
     const sellerMap = new Map<string, { name: string; clients: number; revenue: number }>();
@@ -65,6 +65,7 @@ export default function Reports() {
 
     const monthlyMap = new Map<string, { revenue: number; clients: number }>();
     clients.forEach(c => {
+      if (!c.created_at) return;
       const month = format(parseISO(c.created_at), 'MMM/yy', { locale: ptBR });
       const cur = monthlyMap.get(month) || { revenue: 0, clients: 0 };
       cur.clients++; cur.revenue += c.plan?.price || 0;
