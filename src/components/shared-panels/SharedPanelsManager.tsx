@@ -31,8 +31,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check, MessageCircle, Bell, DollarSign, PartyPopper, Unlink, Server, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check, MessageCircle, Bell, DollarSign, PartyPopper, Unlink, Server, Eye, EyeOff, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, parseISO, differenceInDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -61,6 +63,7 @@ interface CreditPanel {
   clients?: PanelClientInfo[];
   shared_login?: string;
   shared_password?: string;
+  expiration_date?: string;
 }
 
 interface PanelClient {
@@ -163,16 +166,17 @@ export function SharedPanelsManager() {
       // Get clients with their shared_panel_id and slot type
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('id, name, phone, shared_panel_id, shared_slot_type, login, password')
+        .select('id, name, phone, shared_panel_id, shared_slot_type, login, password, expiration_date, created_at')
         .eq('seller_id', user.id)
-        .not('shared_panel_id', 'is', null);
+        .not('shared_panel_id', 'is', null)
+        .order('created_at', { ascending: true });
 
       if (clientsError) {
         console.error('Error fetching clients:', clientsError);
         return;
       }
 
-      const panelCounts: { [key: string]: { p2p: number; iptv: number; clients: PanelClientInfo[]; login?: string; password?: string } } = {};
+      const panelCounts: { [key: string]: { p2p: number; iptv: number; clients: PanelClientInfo[]; login?: string; password?: string; expiration_date?: string } } = {};
       clientsData?.forEach(client => {
         if (client.shared_panel_id) {
           if (!panelCounts[client.shared_panel_id]) {
@@ -189,10 +193,13 @@ export function SharedPanelsManager() {
             phone: client.phone,
             shared_slot_type: client.shared_slot_type,
           });
-          // Get login/password from first client
+          // Get login/password/expiration from first client
           if (!panelCounts[client.shared_panel_id].login && client.login) {
             panelCounts[client.shared_panel_id].login = client.login;
             panelCounts[client.shared_panel_id].password = client.password || undefined;
+          }
+          if (!panelCounts[client.shared_panel_id].expiration_date && client.expiration_date) {
+            panelCounts[client.shared_panel_id].expiration_date = client.expiration_date;
           }
         }
       });
@@ -212,6 +219,7 @@ export function SharedPanelsManager() {
             clients: counts?.clients || [],
             shared_login: login ?? undefined,
             shared_password: password ?? undefined,
+            expiration_date: counts?.expiration_date,
           };
         })
       );
@@ -594,6 +602,27 @@ export function SharedPanelsManager() {
                           <Tv className="w-2.5 h-2.5 mr-0.5" />
                           IPTV {panel.filled_iptv || 0}/{panel.iptv_slots}
                         </Badge>
+                        {panel.expiration_date && (() => {
+                          const expDate = parseISO(panel.expiration_date);
+                          const daysLeft = differenceInDays(expDate, new Date());
+                          const isExpired = daysLeft < 0;
+                          const isExpiring = daysLeft >= 0 && daysLeft <= 7;
+                          return (
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-[10px] px-1.5 py-0 ${
+                                isExpired 
+                                  ? "bg-red-500/20 text-red-500" 
+                                  : isExpiring 
+                                    ? "bg-amber-500/20 text-amber-500"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <Calendar className="w-2.5 h-2.5 mr-0.5" />
+                              {format(expDate, 'dd/MM/yy', { locale: ptBR })}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex gap-0.5 flex-shrink-0">
