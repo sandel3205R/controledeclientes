@@ -101,6 +101,7 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [credentialSelectorOpen, setCredentialSelectorOpen] = useState(false);
   const [pendingMessageType, setPendingMessageType] = useState<'billing' | 'welcome' | 'renewal' | 'reminder'>('billing');
+  const [sellerName, setSellerName] = useState<string>('');
   
   const expirationDate = new Date(client.expiration_date);
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
@@ -178,6 +179,7 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
 
   useEffect(() => {
     if (user) {
+      // Fetch templates
       supabase
         .from('whatsapp_templates')
         .select('id, type, message, is_default')
@@ -185,6 +187,16 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
         .eq('is_default', true)
         .then(({ data }) => {
           if (data) setTemplates(data as WhatsAppTemplate[]);
+        });
+      
+      // Fetch seller name
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) setSellerName(data.full_name);
         });
     }
   }, [user]);
@@ -257,6 +269,7 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     if (!client.phone) return;
     const phone = formatPhone(client.phone);
     const planName = client.plan_name || 'seu plano';
+    const brandName = sellerName || 'Nossa equipe';
     
     const customTemplate = templates.find(t => t.type === type && t.is_default);
     
@@ -267,10 +280,10 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     } else {
       const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
       const defaultMessages = {
-        billing: `Olá ${client.name}! 👋\n\n*SanPlay* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *SanPlay*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        renewal: `Olá ${client.name}! ✅\n\n*SanPlay* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: *${formattedExpDate}*\n\nAgradecemos pela confiança!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-        reminder: `Olá ${client.name}! ⏰\n\n*SanPlay* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
+        billing: `Olá ${client.name}! 👋\n\n*${brandName}* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        renewal: `Olá ${client.name}! ✅\n\n*${brandName}* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: *${formattedExpDate}*\n\nAgradecemos pela confiança!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        reminder: `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
       };
       message = defaultMessages[type];
     }
