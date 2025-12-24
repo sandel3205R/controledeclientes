@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrypto } from '@/hooks/useCrypto';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check, MessageCircle, Bell, DollarSign, PartyPopper, Unlink } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, UserPlus, Link, Tv, Radio, Search, Copy, Check, MessageCircle, Bell, DollarSign, PartyPopper, Unlink, Server, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +43,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+
+interface ServerInfo {
+  id: string;
+  name: string;
+}
 
 interface CreditPanel {
   id: string;
@@ -85,7 +91,8 @@ type PanelPreset = 'p2p_iptv' | 'iptv_only';
 
 export function SharedPanelsManager() {
   const { user } = useAuth();
-  const { decryptSingle } = useCrypto();
+  const navigate = useNavigate();
+  const { decryptSingle, encryptCredentials } = useCrypto();
   const [panels, setPanels] = useState<CreditPanel[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -97,25 +104,24 @@ export function SharedPanelsManager() {
   const [sharedCredentials, setSharedCredentials] = useState({ login: '', password: '' });
   const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
   const [selectedExistingClientId, setSelectedExistingClientId] = useState<string>('');
-  const [addMode, setAddMode] = useState<'new' | 'existing'>('existing');
   const [selectedSlotType, setSelectedSlotType] = useState<'p2p' | 'iptv'>('iptv');
   const [clientSearch, setClientSearch] = useState('');
   const [sellerName, setSellerName] = useState<string>('');
+  const [servers, setServers] = useState<ServerInfo[]>([]);
+  const [showFullCredits, setShowFullCredits] = useState(false);
   
   const [formData, setFormData] = useState({ 
     name: '', 
     preset: 'p2p_iptv' as PanelPreset,
     p2p_slots: 1,
     iptv_slots: 2,
+    server_id: '',
+    login: '',
+    password: '',
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [clientFormData, setClientFormData] = useState({
-    name: '',
-    phone: '',
-    expiration_date: '',
-  });
 
-  // Fetch seller name
+  // Fetch seller name and servers
   useEffect(() => {
     if (user) {
       supabase
@@ -125,6 +131,16 @@ export function SharedPanelsManager() {
         .single()
         .then(({ data }) => {
           if (data?.full_name) setSellerName(data.full_name);
+        });
+      
+      supabase
+        .from('servers')
+        .select('id, name')
+        .eq('seller_id', user.id)
+        .eq('is_active', true)
+        .order('name')
+        .then(({ data }) => {
+          if (data) setServers(data);
         });
     }
   }, [user]);
@@ -272,6 +288,9 @@ export function SharedPanelsManager() {
       preset,
       p2p_slots: panel.p2p_slots,
       iptv_slots: panel.iptv_slots,
+      server_id: '',
+      login: '',
+      password: '',
     });
     setDialogOpen(true);
   };
@@ -294,7 +313,7 @@ export function SharedPanelsManager() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', preset: 'p2p_iptv', p2p_slots: 1, iptv_slots: 2 });
+    setFormData({ name: '', preset: 'p2p_iptv', p2p_slots: 1, iptv_slots: 2, server_id: '', login: '', password: '' });
     setEditingPanel(null);
   };
 
@@ -320,7 +339,6 @@ export function SharedPanelsManager() {
 
   const openAddClientDialog = async (panel: CreditPanel) => {
     setSelectedPanel(panel);
-    setAddMode('existing');
     setSelectedExistingClientId('');
     setClientSearch('');
     
@@ -350,42 +368,8 @@ export function SharedPanelsManager() {
       setSharedCredentials({ login: '', password: '' });
     }
     
-    setClientFormData({
-      name: '',
-      phone: '',
-      expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    });
-    
     await fetchExistingClients();
     setAddClientDialogOpen(true);
-  };
-
-  const handleAddClient = async () => {
-    if (!user || !selectedPanel) return;
-
-    if (!clientFormData.name.trim()) {
-      toast.error('Nome do cliente é obrigatório');
-      return;
-    }
-
-    const { error } = await supabase.from('clients').insert({
-      seller_id: user.id,
-      name: clientFormData.name,
-      phone: clientFormData.phone || null,
-      expiration_date: clientFormData.expiration_date,
-      shared_panel_id: selectedPanel.id,
-      shared_slot_type: selectedSlotType,
-      login: sharedCredentials.login || null,
-      password: sharedCredentials.password || null,
-    });
-
-    if (error) {
-      console.error('Error adding client:', error);
-      toast.error('Erro ao adicionar cliente');
-    } else {
-      toast.success(`Cliente ${selectedSlotType.toUpperCase()} adicionado!`);
-      await handleAfterAddClient();
-    }
   };
 
   const handleLinkExistingClient = async () => {
@@ -457,11 +441,6 @@ export function SharedPanelsManager() {
         }
       }
       
-      setClientFormData({
-        name: '',
-        phone: '',
-        expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      });
       setSelectedExistingClientId('');
       await fetchExistingClients();
       
@@ -481,6 +460,10 @@ export function SharedPanelsManager() {
     }
   };
 
+  const navigateToClient = (clientId: string) => {
+    navigate(`/clients?highlight=${clientId}`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -495,15 +478,24 @@ export function SharedPanelsManager() {
     return availP2P > 0 || availIPTV > 0;
   });
 
+  const fullPanels = panels.filter(p => {
+    const availP2P = p.p2p_slots - (p.filled_p2p || 0);
+    const availIPTV = p.iptv_slots - (p.filled_iptv || 0);
+    return availP2P <= 0 && availIPTV <= 0;
+  });
+
   const totalAvailableSlots = panelsWithAvailableSlots.reduce((acc, p) => {
     const availP2P = p.p2p_slots - (p.filled_p2p || 0);
     const availIPTV = p.iptv_slots - (p.filled_iptv || 0);
     return acc + availP2P + availIPTV;
   }, 0);
 
+  // Display panels based on showFullCredits toggle
+  const displayPanels = showFullCredits ? panels : panelsWithAvailableSlots;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold">Créditos Compartilhados</h2>
           <p className="text-sm text-muted-foreground">
@@ -517,9 +509,9 @@ export function SharedPanelsManager() {
       </div>
 
       {totalAvailableSlots > 0 && (
-        <div className="flex flex-wrap gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
-          <div className="flex-1">
+        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-amber-500">Vagas Disponíveis</p>
             <p className="text-xs text-amber-400">
               {panelsWithAvailableSlots.length} crédito(s) com vagas para preencher
@@ -528,18 +520,44 @@ export function SharedPanelsManager() {
         </div>
       )}
 
-      {panels.length === 0 ? (
+      {/* Toggle to show/hide full credits */}
+      {fullPanels.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowFullCredits(!showFullCredits)}
+          className="text-xs"
+        >
+          {showFullCredits ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+              Ocultar completos ({fullPanels.length})
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5 mr-1.5" />
+              Mostrar completos ({fullPanels.length})
+            </>
+          )}
+        </Button>
+      )}
+
+      {displayPanels.length === 0 ? (
         <div className="text-center py-8">
           <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-          <p className="text-muted-foreground text-sm">Nenhum crédito compartilhado</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={openNewDialog}>
-            <Plus className="w-4 h-4 mr-2" />
-            Criar crédito
-          </Button>
+          <p className="text-muted-foreground text-sm">
+            {panels.length === 0 ? 'Nenhum crédito compartilhado' : 'Todos os créditos estão completos'}
+          </p>
+          {panels.length === 0 && (
+            <Button variant="outline" size="sm" className="mt-3" onClick={openNewDialog}>
+              <Plus className="w-4 h-4 mr-2" />
+              Criar crédito
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {panels.map((panel) => {
+          {displayPanels.map((panel) => {
             const availP2P = panel.p2p_slots - (panel.filled_p2p || 0);
             const availIPTV = panel.iptv_slots - (panel.filled_iptv || 0);
             const isFull = availP2P <= 0 && availIPTV <= 0;
@@ -547,60 +565,60 @@ export function SharedPanelsManager() {
             return (
               <Card 
                 key={panel.id} 
-                className="card-gradient border-amber-500/30 ring-1 ring-amber-500/20"
+                className={`border ${isFull ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30'}`}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-base">{panel.name}</CardTitle>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+                <CardHeader className="pb-2 px-3 pt-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-sm font-medium truncate">{panel.name}</CardTitle>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
                         {panel.p2p_slots > 0 && (
                           <Badge 
                             variant="secondary" 
-                            className={availP2P > 0 
+                            className={`text-[10px] px-1.5 py-0 ${availP2P > 0 
                               ? "bg-blue-500/20 text-blue-500" 
                               : "bg-green-500/20 text-green-500"
-                            }
+                            }`}
                           >
-                            <Radio className="w-3 h-3 mr-1" />
-                            P2P: {panel.filled_p2p || 0}/{panel.p2p_slots}
+                            <Radio className="w-2.5 h-2.5 mr-0.5" />
+                            P2P {panel.filled_p2p || 0}/{panel.p2p_slots}
                           </Badge>
                         )}
                         <Badge 
                           variant="secondary" 
-                          className={availIPTV > 0 
+                          className={`text-[10px] px-1.5 py-0 ${availIPTV > 0 
                             ? "bg-purple-500/20 text-purple-500" 
                             : "bg-green-500/20 text-green-500"
-                          }
+                          }`}
                         >
-                          <Tv className="w-3 h-3 mr-1" />
-                          IPTV: {panel.filled_iptv || 0}/{panel.iptv_slots}
+                          <Tv className="w-2.5 h-2.5 mr-0.5" />
+                          IPTV {panel.filled_iptv || 0}/{panel.iptv_slots}
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(panel)}>
-                        <Edit className="w-3.5 h-3.5" />
+                    <div className="flex gap-0.5 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(panel)}>
+                        <Edit className="w-3 h-3" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => setDeleteId(panel.id)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 space-y-3">
+                <CardContent className="pt-0 pb-3 px-3 space-y-2">
                   {/* Show shared credentials for easy copy */}
                   {panel.shared_login && (
-                    <div className="p-2 bg-muted/50 rounded-md text-xs space-y-1.5">
+                    <div className="p-2 bg-muted/50 rounded text-xs space-y-1">
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-muted-foreground">Login:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-medium">{panel.shared_login}</span>
+                        <span className="text-muted-foreground text-[10px]">Login:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-[11px] font-medium truncate max-w-[120px]">{panel.shared_login}</span>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -613,18 +631,18 @@ export function SharedPanelsManager() {
                             }}
                           >
                             {copiedId === `${panel.id}-login` ? (
-                              <Check className="w-3 h-3 text-green-500" />
+                              <Check className="w-2.5 h-2.5 text-green-500" />
                             ) : (
-                              <Copy className="w-3 h-3" />
+                              <Copy className="w-2.5 h-2.5" />
                             )}
                           </Button>
                         </div>
                       </div>
                       {panel.shared_password && (
                         <div className="flex justify-between items-center gap-2">
-                          <span className="text-muted-foreground">Senha:</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono font-medium">{panel.shared_password}</span>
+                          <span className="text-muted-foreground text-[10px]">Senha:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-[11px] font-medium truncate max-w-[120px]">{panel.shared_password}</span>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -637,9 +655,9 @@ export function SharedPanelsManager() {
                               }}
                             >
                               {copiedId === `${panel.id}-password` ? (
-                                <Check className="w-3 h-3 text-green-500" />
+                                <Check className="w-2.5 h-2.5 text-green-500" />
                               ) : (
-                                <Copy className="w-3 h-3" />
+                                <Copy className="w-2.5 h-2.5" />
                               )}
                             </Button>
                           </div>
@@ -648,7 +666,7 @@ export function SharedPanelsManager() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full mt-1 h-7 text-xs"
+                        className="w-full mt-1 h-6 text-[10px]"
                         onClick={() => {
                           const text = `Login: ${panel.shared_login}${panel.shared_password ? `\nSenha: ${panel.shared_password}` : ''}`;
                           navigator.clipboard.writeText(text);
@@ -658,9 +676,9 @@ export function SharedPanelsManager() {
                         }}
                       >
                         {copiedId === `${panel.id}-all` ? (
-                          <Check className="w-3 h-3 mr-1.5 text-green-500" />
+                          <Check className="w-2.5 h-2.5 mr-1 text-green-500" />
                         ) : (
-                          <Copy className="w-3 h-3 mr-1.5" />
+                          <Copy className="w-2.5 h-2.5 mr-1" />
                         )}
                         Copiar tudo
                       </Button>
@@ -670,28 +688,33 @@ export function SharedPanelsManager() {
                   {/* Show linked clients with action menu */}
                   {panel.clients && panel.clients.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Clientes vinculados:</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">Clientes:</p>
                       <div className="flex flex-wrap gap-1">
                         {panel.clients.map(client => (
                           <DropdownMenu key={client.id}>
                             <DropdownMenuTrigger asChild>
                               <Badge 
                                 variant="outline" 
-                                className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                                className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${
                                   client.shared_slot_type === 'p2p' 
                                     ? 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10' 
                                     : 'border-purple-500/30 text-purple-500 hover:bg-purple-500/10'
                                 }`}
                               >
                                 {client.shared_slot_type === 'p2p' ? (
-                                  <Radio className="w-2.5 h-2.5 mr-1" />
+                                  <Radio className="w-2 h-2 mr-0.5" />
                                 ) : (
-                                  <Tv className="w-2.5 h-2.5 mr-1" />
+                                  <Tv className="w-2 h-2 mr-0.5" />
                                 )}
                                 {client.name}
                               </Badge>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuContent align="start" className="w-44">
+                              <DropdownMenuItem onClick={() => navigateToClient(client.id)}>
+                                <Users className="w-4 h-4 mr-2" />
+                                Ver cliente
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => {
                                   if (!client.phone) {
@@ -779,28 +802,26 @@ export function SharedPanelsManager() {
                     </div>
                   )}
 
-                  <div className="text-sm text-muted-foreground">
-                    {isFull ? (
-                      <span className="text-green-500 font-medium">Completo</span>
-                    ) : (
-                      <>
-                        Falta:{' '}
-                        {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
-                        {availP2P > 0 && availIPTV > 0 && ' e '}
-                        {availIPTV > 0 && <span className="text-purple-500 font-medium">{availIPTV} IPTV</span>}
-                      </>
-                    )}
-                  </div>
+                  {!isFull && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Falta:{' '}
+                      {availP2P > 0 && <span className="text-blue-500 font-medium">{availP2P} P2P</span>}
+                      {availP2P > 0 && availIPTV > 0 && ' e '}
+                      {availIPTV > 0 && <span className="text-purple-500 font-medium">{availIPTV} IPTV</span>}
+                    </div>
+                  )}
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-amber-500/30 hover:bg-amber-500/10"
-                    onClick={() => openAddClientDialog(panel)}
-                  >
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Adicionar Cliente
-                  </Button>
+                  {!isFull && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs border-amber-500/30 hover:bg-amber-500/10"
+                      onClick={() => openAddClientDialog(panel)}
+                    >
+                      <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                      Vincular Cliente
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -837,14 +858,14 @@ export function SharedPanelsManager() {
                 <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
                   <RadioGroupItem value="p2p_iptv" id="p2p_iptv" />
                   <Label htmlFor="p2p_iptv" className="flex-1 cursor-pointer">
-                    <div className="font-medium">1 P2P + 2 IPTV</div>
+                    <div className="font-medium text-sm">1 P2P + 2 IPTV</div>
                     <div className="text-xs text-muted-foreground">Painel completo</div>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
                   <RadioGroupItem value="iptv_only" id="iptv_only" />
                   <Label htmlFor="iptv_only" className="flex-1 cursor-pointer">
-                    <div className="font-medium">Apenas 2 IPTV</div>
+                    <div className="font-medium text-sm">Apenas 2 IPTV</div>
                     <div className="text-xs text-muted-foreground">Sem vaga P2P</div>
                   </Label>
                 </div>
@@ -888,35 +909,43 @@ export function SharedPanelsManager() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Client to Panel Dialog */}
+      {/* Add Client to Panel Dialog - Only existing clients */}
       <Dialog open={addClientDialogOpen} onOpenChange={setAddClientDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              Adicionar Cliente - {selectedPanel?.name}
+            <DialogTitle className="text-base">
+              Vincular Cliente - {selectedPanel?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2">
             {panelClients.length > 0 && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">Clientes neste crédito:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
+              <div className="p-2 bg-muted rounded-lg">
+                <p className="text-xs font-medium mb-1.5">Clientes neste crédito:</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5">
                   {panelClients.map(client => (
-                    <li key={client.id} className="flex items-center gap-2">
+                    <li key={client.id} className="flex items-center gap-1.5">
                       {client.shared_slot_type === 'p2p' ? (
-                        <Radio className="w-3 h-3 text-blue-500" />
+                        <Radio className="w-2.5 h-2.5 text-blue-500" />
                       ) : (
-                        <Tv className="w-3 h-3 text-purple-500" />
+                        <Tv className="w-2.5 h-2.5 text-purple-500" />
                       )}
-                      {client.name}
-                      <span className="text-xs opacity-70">
+                      <button 
+                        onClick={() => {
+                          setAddClientDialogOpen(false);
+                          navigateToClient(client.id);
+                        }}
+                        className="hover:underline text-left"
+                      >
+                        {client.name}
+                      </button>
+                      <span className="text-[10px] opacity-70">
                         ({client.shared_slot_type?.toUpperCase()})
                       </span>
                     </li>
                   ))}
                 </ul>
                 {sharedCredentials.login && (
-                  <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                  <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
                     Login: <span className="font-medium">{sharedCredentials.login}</span>
                   </p>
                 )}
@@ -925,199 +954,109 @@ export function SharedPanelsManager() {
 
             {/* Slot Type Selection */}
             {selectedPanel && (
-              <div className="space-y-2">
-                <Label>Tipo de Vaga</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo de Vaga</Label>
                 <div className="flex gap-2">
                   {selectedPanel.p2p_slots > 0 && (
                     <Button
                       type="button"
                       variant={selectedSlotType === 'p2p' ? 'default' : 'outline'}
                       size="sm"
-                      className={selectedSlotType === 'p2p' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                      className={`h-7 text-xs ${selectedSlotType === 'p2p' ? 'bg-blue-500 hover:bg-blue-600' : ''}`}
                       onClick={() => setSelectedSlotType('p2p')}
                       disabled={(selectedPanel.filled_p2p || 0) >= selectedPanel.p2p_slots}
                     >
-                      <Radio className="w-3.5 h-3.5 mr-1.5" />
-                      P2P ({selectedPanel.p2p_slots - (selectedPanel.filled_p2p || 0)} vaga)
+                      <Radio className="w-3 h-3 mr-1" />
+                      P2P ({selectedPanel.p2p_slots - (selectedPanel.filled_p2p || 0)})
                     </Button>
                   )}
                   <Button
                     type="button"
                     variant={selectedSlotType === 'iptv' ? 'default' : 'outline'}
                     size="sm"
-                    className={selectedSlotType === 'iptv' ? 'bg-purple-500 hover:bg-purple-600' : ''}
+                    className={`h-7 text-xs ${selectedSlotType === 'iptv' ? 'bg-purple-500 hover:bg-purple-600' : ''}`}
                     onClick={() => setSelectedSlotType('iptv')}
                     disabled={(selectedPanel.filled_iptv || 0) >= selectedPanel.iptv_slots}
                   >
-                    <Tv className="w-3.5 h-3.5 mr-1.5" />
-                    IPTV ({selectedPanel.iptv_slots - (selectedPanel.filled_iptv || 0)} vaga{selectedPanel.iptv_slots - (selectedPanel.filled_iptv || 0) !== 1 ? 's' : ''})
+                    <Tv className="w-3 h-3 mr-1" />
+                    IPTV ({selectedPanel.iptv_slots - (selectedPanel.filled_iptv || 0)})
                   </Button>
                 </div>
               </div>
             )}
             
-            <div className="flex gap-2 border-b pb-2">
-              <Button
-                type="button"
-                variant={addMode === 'existing' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAddMode('existing')}
-              >
-                <Link className="w-3.5 h-3.5 mr-1.5" />
-                Cliente Existente
-              </Button>
-              <Button
-                type="button"
-                variant={addMode === 'new' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAddMode('new')}
-              >
-                <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                Novo Cliente
-              </Button>
-            </div>
-              
-            {addMode === 'existing' ? (
-              <div className="space-y-3">
-                {existingClients.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground text-sm">
-                    Nenhum cliente disponível para vincular
+            {/* Client Selection */}
+            <div className="space-y-2">
+              {existingClients.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  Nenhum cliente disponível para vincular
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar cliente..."
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                    />
                   </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Buscar cliente</Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Buscar por nome ou login..."
-                          value={clientSearch}
-                          onChange={(e) => setClientSearch(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Selecione um cliente</Label>
-                      <ScrollArea className="h-[180px] border rounded-md p-2">
-                        <div className="space-y-1">
-                          {existingClients
-                            .filter(client => {
-                              const searchLower = clientSearch.toLowerCase();
-                              return client.name.toLowerCase().includes(searchLower) ||
-                                     (client.login?.toLowerCase().includes(searchLower));
-                            })
-                            .map(client => (
-                              <div
-                                key={client.id}
-                                className={`p-2 rounded-md cursor-pointer transition-colors ${
-                                  selectedExistingClientId === client.id
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'hover:bg-muted'
-                                }`}
-                                onClick={() => setSelectedExistingClientId(client.id)}
-                              >
-                                <div className="font-medium text-sm">{client.name}</div>
-                                {client.login && (
-                                  <div className={`text-xs ${selectedExistingClientId === client.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                    Login: {client.login}
-                                  </div>
-                                )}
+                  <ScrollArea className="h-[150px] border rounded-md p-1.5">
+                    <div className="space-y-0.5">
+                      {existingClients
+                        .filter(client => {
+                          const searchLower = clientSearch.toLowerCase();
+                          return client.name.toLowerCase().includes(searchLower) ||
+                                 (client.login?.toLowerCase().includes(searchLower));
+                        })
+                        .map(client => (
+                          <div
+                            key={client.id}
+                            className={`p-2 rounded cursor-pointer transition-colors ${
+                              selectedExistingClientId === client.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            }`}
+                            onClick={() => setSelectedExistingClientId(client.id)}
+                          >
+                            <div className="font-medium text-xs">{client.name}</div>
+                            {client.login && (
+                              <div className={`text-[10px] ${selectedExistingClientId === client.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                Login: {client.login}
                               </div>
-                            ))}
-                          {existingClients.filter(client => {
-                            const searchLower = clientSearch.toLowerCase();
-                            return client.name.toLowerCase().includes(searchLower) ||
-                                   (client.login?.toLowerCase().includes(searchLower));
-                          }).length === 0 && (
-                            <div className="text-center py-4 text-muted-foreground text-sm">
-                              Nenhum cliente encontrado
-                            </div>
-                          )}
+                            )}
+                          </div>
+                        ))}
+                      {existingClients.filter(client => {
+                        const searchLower = clientSearch.toLowerCase();
+                        return client.name.toLowerCase().includes(searchLower) ||
+                               (client.login?.toLowerCase().includes(searchLower));
+                      }).length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground text-xs">
+                          Nenhum cliente encontrado
                         </div>
-                      </ScrollArea>
+                      )}
                     </div>
-                    
-                    {panelClients.length === 0 && selectedExistingClientId && (
-                      <p className="text-xs text-amber-500 bg-amber-500/10 p-2 rounded">
-                        O login/senha deste cliente será compartilhado com os próximos
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="client-name">Nome do Cliente *</Label>
-                  <Input
-                    id="client-name"
-                    value={clientFormData.name}
-                    onChange={(e) => setClientFormData({ ...clientFormData, name: e.target.value })}
-                    placeholder="Nome do cliente"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="client-phone">Telefone</Label>
-                  <Input
-                    id="client-phone"
-                    value={clientFormData.phone}
-                    onChange={(e) => setClientFormData({ ...clientFormData, phone: e.target.value })}
-                    placeholder="(00) 00000-0000"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="client-expiration">Data de Vencimento *</Label>
-                  <Input
-                    id="client-expiration"
-                    type="date"
-                    value={clientFormData.expiration_date}
-                    onChange={(e) => setClientFormData({ ...clientFormData, expiration_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="shared-login">Login</Label>
-                    <Input
-                      id="shared-login"
-                      value={sharedCredentials.login}
-                      onChange={(e) => setSharedCredentials({ ...sharedCredentials, login: e.target.value })}
-                      placeholder="Login"
-                      disabled={panelClients.length > 0}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="shared-password">Senha</Label>
-                    <Input
-                      id="shared-password"
-                      value={sharedCredentials.password}
-                      onChange={(e) => setSharedCredentials({ ...sharedCredentials, password: e.target.value })}
-                      placeholder="Senha"
-                      disabled={panelClients.length > 0}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+                  </ScrollArea>
+                  
+                  {panelClients.length === 0 && selectedExistingClientId && (
+                    <p className="text-[10px] text-amber-500 bg-amber-500/10 p-1.5 rounded">
+                      O login/senha deste cliente será compartilhado com os próximos
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddClientDialogOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => setAddClientDialogOpen(false)}>
               Cancelar
             </Button>
-            {addMode === 'existing' ? (
-              <Button onClick={handleLinkExistingClient} disabled={!selectedExistingClientId}>
-                <Link className="w-4 h-4 mr-2" />
-                Vincular
-              </Button>
-            ) : (
-              <Button onClick={handleAddClient}>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Adicionar
-              </Button>
-            )}
+            <Button size="sm" onClick={handleLinkExistingClient} disabled={!selectedExistingClientId}>
+              <Link className="w-3.5 h-3.5 mr-1.5" />
+              Vincular
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
