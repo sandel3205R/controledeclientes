@@ -36,7 +36,7 @@ interface SellerProfile {
 const sellerSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
-  full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  full_name: z.string().min(2, 'Nome/Empresa é obrigatório'),
   whatsapp: z.string().optional().or(z.literal('')),
   plan_type: z.enum(['trial', 'active']),
 });
@@ -1126,11 +1126,12 @@ SANDEL`
             </DialogHeader>
             <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="full_name">Nome completo *</Label>
-                <Input id="full_name" {...createForm.register('full_name')} placeholder="Nome do vendedor" />
+                <Label htmlFor="full_name">Nome / Empresa *</Label>
+                <Input id="full_name" {...createForm.register('full_name')} placeholder="Ex: João Silva ou SanPlay" />
                 {createForm.formState.errors.full_name && (
                   <p className="text-xs text-destructive">{createForm.formState.errors.full_name.message}</p>
                 )}
+                <p className="text-xs text-muted-foreground">Este nome aparecerá nas mensagens de WhatsApp para os clientes</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail *</Label>
@@ -1223,11 +1224,12 @@ SANDEL`
             </DialogHeader>
             <form onSubmit={updateForm.handleSubmit(onUpdateSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_full_name">Nome completo *</Label>
-                <Input id="edit_full_name" {...updateForm.register('full_name')} placeholder="Nome do vendedor" />
+                <Label htmlFor="edit_full_name">Nome / Empresa *</Label>
+                <Input id="edit_full_name" {...updateForm.register('full_name')} placeholder="Ex: João Silva ou SanPlay" />
                 {updateForm.formState.errors.full_name && (
                   <p className="text-xs text-destructive">{updateForm.formState.errors.full_name.message}</p>
                 )}
+                <p className="text-xs text-muted-foreground">Este nome aparecerá nas mensagens de WhatsApp para os clientes</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_whatsapp">WhatsApp</Label>

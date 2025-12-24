@@ -52,6 +52,7 @@ const availableVariables = [
   { var: '{usuario}', desc: 'Usuário/Login' },
   { var: '{senha}', desc: 'Senha' },
   { var: '{preco}', desc: 'Preço do plano' },
+  { var: '{empresa}', desc: 'Seu nome/empresa' },
 ];
 
 export default function WhatsAppTemplatesManager() {

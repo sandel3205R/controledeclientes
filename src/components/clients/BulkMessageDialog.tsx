@@ -49,6 +49,7 @@ interface BulkMessageDialogProps {
   onOpenChange: (open: boolean) => void;
   clients: Client[];
   templates: WhatsAppTemplate[];
+  sellerName: string;
 }
 
 type MessageType = 'billing' | 'reminder' | 'renewal' | 'welcome' | 'unpaid';
@@ -58,6 +59,7 @@ export default function BulkMessageDialog({
   onOpenChange,
   clients,
   templates,
+  sellerName,
 }: BulkMessageDialogProps) {
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [messageType, setMessageType] = useState<MessageType>('reminder');
@@ -118,6 +120,7 @@ export default function BulkMessageDialog({
     const expirationDate = new Date(client.expiration_date);
     const formattedDate = format(expirationDate, 'dd/MM/yyyy');
     const formattedDateFull = format(expirationDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+    const brandName = sellerName || 'Nossa equipe';
     return message
       .replace(/{nome}/g, client.name)
       .replace(/{plano}/g, client.plan_name || 'seu plano')
@@ -127,7 +130,8 @@ export default function BulkMessageDialog({
       .replace(/{dispositivo}/g, client.device || 'N/A')
       .replace(/{usuario}/g, client.login || 'N/A')
       .replace(/{senha}/g, client.password || 'N/A')
-      .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A');
+      .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A')
+      .replace(/{empresa}/g, brandName);
   };
 
   const getDefaultMessage = (type: MessageType, client: Client) => {
@@ -135,13 +139,14 @@ export default function BulkMessageDialog({
     const planName = client.plan_name || 'seu plano';
     const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
     const price = client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A';
+    const brandName = sellerName || 'Nossa equipe';
 
     const messages = {
-      billing: `Olá ${client.name}! 👋\n\n*SanPlay* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *SanPlay*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-      renewal: `Olá ${client.name}! ✅\n\n*SanPlay* informa: Seu plano *${planName}* foi renovado com sucesso!\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-      reminder: `Olá ${client.name}! ⏰\n\n*SanPlay* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *SanPlay* - Sua melhor experiência!`,
-      unpaid: `Olá ${client.name}! 👋\n\nNotamos que seu pagamento do plano *${planName}* (*${price}*) ainda está pendente.\n\n⚠️ *Atenção:* Se o pagamento não for realizado até o vencimento, será necessário pagar *2 meses* no próximo mês.\n\n📅 Vencimento: *${formattedExpDate}*\n\nPor favor, regularize sua situação para evitar a interrupção do serviço.\n\nQualquer dúvida, estamos à disposição! 🙏\n\n🎬 *SanPlay*`,
+      billing: `Olá ${client.name}! 👋\n\n*${brandName}* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+      welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n📱 Dispositivo: ${client.device || 'N/A'}\n👤 Usuário: ${client.login || 'N/A'}\n🔑 Senha: ${client.password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+      renewal: `Olá ${client.name}! ✅\n\n*${brandName}* informa: Seu plano *${planName}* foi renovado com sucesso!\n\n📅 Nova data de vencimento: *${format(addDays(new Date(), 30), 'dd/MM/yyyy')}*\n\nAgradecemos pela confiança!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+      reminder: `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+      unpaid: `Olá ${client.name}! 👋\n\nNotamos que seu pagamento do plano *${planName}* (*${price}*) ainda está pendente.\n\n⚠️ *Atenção:* Se o pagamento não for realizado até o vencimento, será necessário pagar *2 meses* no próximo mês.\n\n📅 Vencimento: *${formattedExpDate}*\n\nPor favor, regularize sua situação para evitar a interrupção do serviço.\n\nQualquer dúvida, estamos à disposição! 🙏\n\n🎬 *${brandName}*`,
     };
     return messages[type];
   };
