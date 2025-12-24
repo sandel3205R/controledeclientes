@@ -874,6 +874,7 @@ export default function Clients() {
           onOpenChange={setBulkMessageOpen}
           clients={clients}
           templates={templates}
+          sellerName={sellerName}
         />
 
         {/* Bulk Import Dialog */}
