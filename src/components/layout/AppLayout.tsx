@@ -28,7 +28,16 @@ import {
   Ticket,
   Gift,
   Users2,
+  Share2,
+  Copy,
+  Check,
 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import logoImg from '@/assets/logo.jpg';
 
@@ -44,7 +53,37 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { availableSlots } = useSharedPanels();
+
+  const appUrl = window.location.origin;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(appUrl);
+      setCopied(true);
+      toast.success('Link copiado!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error('Erro ao copiar link');
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Controle de Clientes',
+          text: 'Acesse o painel de controle de clientes',
+          url: appUrl,
+        });
+      } catch (err) {
+        // User cancelled or error
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
 
   const isAdmin = role === 'admin';
   
@@ -211,6 +250,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="end">
+                  <div className="space-y-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-sm"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Compartilhar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-sm"
+                      onClick={handleCopyLink}
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 mr-2 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      {copied ? 'Copiado!' : 'Copiar link'}
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <PushNotificationToggle />
               <ForceUpdateButton variant="minimal" showLabel={false} />
               <ThemeSwitcher />
