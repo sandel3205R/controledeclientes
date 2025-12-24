@@ -100,6 +100,7 @@ export function SharedPanelsManager() {
   const [addMode, setAddMode] = useState<'new' | 'existing'>('existing');
   const [selectedSlotType, setSelectedSlotType] = useState<'p2p' | 'iptv'>('iptv');
   const [clientSearch, setClientSearch] = useState('');
+  const [sellerName, setSellerName] = useState<string>('');
   
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -113,6 +114,20 @@ export function SharedPanelsManager() {
     phone: '',
     expiration_date: '',
   });
+
+  // Fetch seller name
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) setSellerName(data.full_name);
+        });
+    }
+  }, [user]);
 
   const fetchPanels = useCallback(async () => {
     if (!user) return;
@@ -699,7 +714,8 @@ export function SharedPanelsManager() {
                                     return;
                                   }
                                   const phone = client.phone.replace(/\D/g, '');
-                                  const msg = `Olá ${client.name}! ⏰\n\nLembrete: Seu plano está próximo do vencimento. Renove para não perder o acesso!`;
+                                  const brandName = sellerName || 'Nossa equipe';
+                                  const msg = `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano está próximo do vencimento. Renove para não perder o acesso!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
                                   window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                                 }}
                                 disabled={!client.phone}
@@ -714,7 +730,8 @@ export function SharedPanelsManager() {
                                     return;
                                   }
                                   const phone = client.phone.replace(/\D/g, '');
-                                  const msg = `Olá ${client.name}! 🎉\n\nBem-vindo(a)!\n\nSeus dados de acesso:\n👤 Login: ${panel.shared_login || 'N/A'}\n🔑 Senha: ${panel.shared_password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!`;
+                                  const brandName = sellerName || 'Nossa equipe';
+                                  const msg = `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeus dados de acesso:\n👤 Login: ${panel.shared_login || 'N/A'}\n🔑 Senha: ${panel.shared_password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`;
                                   window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                                 }}
                                 disabled={!client.phone}

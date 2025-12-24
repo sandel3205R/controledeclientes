@@ -39,7 +39,33 @@ export default function Settings() {
   const [allowFirstAdminSignup, setAllowFirstAdminSignup] = useState(false);
   const [loadingAdminSetting, setLoadingAdminSetting] = useState(true);
   const [savingAdminSetting, setSavingAdminSetting] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const isAdmin = role === 'admin';
+
+  // Load user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (data?.full_name) {
+          setFullName(data.full_name);
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    
+    loadProfile();
+  }, [user]);
 
   // Load first admin signup setting
   useEffect(() => {
@@ -283,15 +309,19 @@ export default function Settings() {
                 <Input id="email" value={user?.email || ''} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="full_name">Nome completo</Label>
+                <Label htmlFor="full_name">Nome / Empresa *</Label>
                 <Input
                   id="full_name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Seu nome completo"
+                  placeholder="Seu nome ou nome da empresa"
+                  disabled={loadingProfile}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Este nome aparecerá nas mensagens de WhatsApp para os clientes
+                </p>
               </div>
-              <Button type="submit" variant="gradient" disabled={savingProfile}>
+              <Button type="submit" variant="gradient" disabled={savingProfile || loadingProfile}>
                 <Save className="w-4 h-4 mr-2" />
                 {savingProfile ? 'Salvando...' : 'Salvar alterações'}
               </Button>
