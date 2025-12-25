@@ -696,6 +696,59 @@
     --sidebar-border: 280 40% 22%;
     --sidebar-ring: 280 85% 60%;
   }
+
+  /* Clients Control Theme - Professional Business */
+  [data-theme="clients-control"] {
+    --background: 222 47% 9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 40% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 40% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 222 30% 18%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 30% 22%;
+    --input: 222 30% 15%;
+    --ring: 217 91% 60%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 9%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(160 84% 39%));
+    --gradient-card: linear-gradient(145deg, hsl(222 40% 15%), hsl(222 47% 9%));
+    --gradient-glow: linear-gradient(135deg, hsl(217 91% 60% / 0.3), hsl(160 84% 39% / 0.3));
+    
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.35);
+    --shadow-glow-secondary: 0 0 40px hsl(160 84% 39% / 0.3);
+
+    --sidebar-background: 222 47% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 30% 16%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 30% 20%;
+    --sidebar-ring: 217 91% 60%;
+  }
 }
 
 @layer base {
