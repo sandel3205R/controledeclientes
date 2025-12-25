@@ -366,44 +366,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           .insert([clientData]);
         if (error) throw error;
         toast.success('Cliente criado com sucesso!');
-        
-        // Reset form to creation mode after successful insert
-        setSelectedDevices([]);
-        setCustomDevice('');
-        setSelectedServers([]);
-        setIsPaid(true);
-        setAnnualMonthlyRenewal(false);
-        setSelectedPanelId(null);
-        reset({
-          name: '',
-          phone: '',
-          email: '',
-          device: '',
-          login: '',
-          password: '',
-          login2: '',
-          password2: '',
-          login3: '',
-          password3: '',
-          login4: '',
-          password4: '',
-          login5: '',
-          password5: '',
-          expiration_date: '',
-          plan_name: '',
-          plan_price: '',
-          app_name: '',
-          mac_address: '',
-          server_name: '',
-          server_id: '',
-          is_paid: true,
-        });
-        
-        // Refresh client list
-        onSuccess();
-        return; // Keep dialog open for new registration
       }
 
+      // Refresh client list and close dialog
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
