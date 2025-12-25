@@ -159,30 +159,34 @@ export default function ClientAppDialog({
   useEffect(() => {
     const loadExistingApp = async () => {
       if (mode === 'edit' && existingApp && clientId) {
-        const decrypted = await decryptCredentials({
-          login: existingApp.email,
-          password: existingApp.password,
-        });
+        try {
+          const decrypted = await decryptCredentials({
+            login: existingApp.email,
+            password: existingApp.password,
+          });
 
-        const isPredefined = PREDEFINED_APP_TYPES.some(a => a.id === existingApp.app_type);
-        const predefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === existingApp.app_type);
+          const isPredefined = PREDEFINED_APP_TYPES.some(a => a.id === existingApp.app_type);
+          const predefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === existingApp.app_type);
 
-        reset({
-          client_name: clientName || '',
-          client_phone: '',
-          app_type: isPredefined ? existingApp.app_type : 'custom',
-          custom_app_name: isPredefined ? '' : existingApp.app_type,
-          credential_type: predefinedApp?.usesEmail !== false ? 'email' : 'mac',
-          email: decrypted.login || '',
-          password: decrypted.password || '',
-          mac_address: existingApp.mac_address || '',
-          device_id: existingApp.device_id || '',
-          app_price: existingApp.app_price?.toString() || '',
-          expiration_date: existingApp.expiration_date,
-          notes: existingApp.notes || '',
-        });
-        setAddMode('existing');
-        setSelectedExistingClientId(clientId);
+          reset({
+            client_name: clientName || '',
+            client_phone: '',
+            app_type: isPredefined ? existingApp.app_type : 'custom',
+            custom_app_name: isPredefined ? '' : existingApp.app_type,
+            credential_type: predefinedApp?.usesEmail !== false ? 'email' : 'mac',
+            email: decrypted.login || '',
+            password: decrypted.password || '',
+            mac_address: existingApp.mac_address || '',
+            device_id: existingApp.device_id || '',
+            app_price: existingApp.app_price?.toString() || '',
+            expiration_date: existingApp.expiration_date,
+            notes: existingApp.notes || '',
+          });
+          setAddMode('existing');
+          setSelectedExistingClientId(clientId);
+        } catch (err) {
+          console.error('Error decrypting credentials:', err);
+        }
       } else {
         reset({
           client_name: '',
@@ -208,7 +212,7 @@ export default function ClientAppDialog({
       loadExistingApp();
       fetchExistingClients();
     }
-  }, [existingApp, open, reset, decryptCredentials, mode, clientId, clientName]);
+  }, [open, mode, existingApp?.id, clientId]);
 
   const onSubmit = async (data: AppForm) => {
     setLoading(true);
