@@ -2,12 +2,12 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury' | 'aurora-violet' | 'citrus-light';
+export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury' | 'aurora-violet' | 'citrus-light' | 'christmas' | 'newyear' | 'carnival';
 
 interface ThemeContextType {
   theme: ThemeType;
   setTheme: (theme: ThemeType) => void;
-  themes: { id: ThemeType; name: string; colors: string[] }[];
+  themes: { id: ThemeType; name: string; colors: string[]; seasonal?: boolean }[];
   isAdmin: boolean;
 }
 
@@ -63,6 +63,24 @@ const themes = [
     id: 'citrus-light' as ThemeType, 
     name: 'Citrus Claro', 
     colors: ['#F97316', '#FBBF24', '#FFFBEB'] 
+  },
+  { 
+    id: 'christmas' as ThemeType, 
+    name: '🎄 Natal', 
+    colors: ['#DC2626', '#16A34A', '#FBBF24'],
+    seasonal: true
+  },
+  { 
+    id: 'newyear' as ThemeType, 
+    name: '🎆 Ano Novo', 
+    colors: ['#FBBF24', '#1E3A8A', '#0F172A'],
+    seasonal: true
+  },
+  { 
+    id: 'carnival' as ThemeType, 
+    name: '🎭 Carnaval', 
+    colors: ['#A855F7', '#FBBF24', '#EC4899'],
+    seasonal: true
   },
 ];
 
