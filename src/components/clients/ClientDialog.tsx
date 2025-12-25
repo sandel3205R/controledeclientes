@@ -63,6 +63,7 @@ const clientSchema = z.object({
   server_name: z.string().optional(),
   server_id: z.string().optional(),
   is_paid: z.boolean().optional(),
+  screens: z.string().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
@@ -99,6 +100,7 @@ interface ClientDialogProps {
     server_name: string | null;
     server_id?: string | null;
     is_paid?: boolean | null;
+    screens?: number | null;
   } | null;
   onSuccess: () => void;
 }
@@ -220,6 +222,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_name: client.server_name || '',
         server_id: client.server_id || '',
         is_paid: client.is_paid !== false,
+        screens: client.screens?.toString() || '1',
       });
     } else {
       setSelectedDevices([]);
@@ -251,6 +254,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_name: '',
         server_id: '',
         is_paid: true,
+        screens: '1',
       });
     }
   }, [client, reset]);
@@ -351,6 +355,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         is_paid: isPaid,
         is_annual_paid: annualMonthlyRenewal,
         shared_panel_id: selectedPanelId,
+        screens: data.screens ? parseInt(data.screens) : 1,
       };
 
       if (client) {
@@ -414,7 +419,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="plan_name">Plano</Label>
               <Input id="plan_name" {...register('plan_name')} placeholder="Nome do plano" />
@@ -427,6 +432,17 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                 step="0.01" 
                 {...register('plan_price')} 
                 placeholder="0,00" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="screens">Telas</Label>
+              <Input 
+                id="screens" 
+                type="number" 
+                min="1"
+                max="10"
+                {...register('screens')} 
+                placeholder="1" 
               />
             </div>
           </div>

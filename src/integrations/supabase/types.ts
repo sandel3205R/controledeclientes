@@ -127,6 +127,7 @@ export type Database = {
           plan_price: number | null
           referral_code: string | null
           referred_by: string | null
+          screens: number | null
           seller_id: string
           server_id: string | null
           server_ids: string[] | null
@@ -164,6 +165,7 @@ export type Database = {
           plan_price?: number | null
           referral_code?: string | null
           referred_by?: string | null
+          screens?: number | null
           seller_id: string
           server_id?: string | null
           server_ids?: string[] | null
@@ -201,6 +203,7 @@ export type Database = {
           plan_price?: number | null
           referral_code?: string | null
           referred_by?: string | null
+          screens?: number | null
           seller_id?: string
           server_id?: string | null
           server_ids?: string[] | null
