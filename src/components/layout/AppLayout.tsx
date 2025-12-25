@@ -32,6 +32,7 @@ import {
   Share2,
   Copy,
   Check,
+  Receipt,
 } from 'lucide-react';
 import {
   Popover,
@@ -113,6 +114,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Meus Clientes', path: '/clients' },
     { icon: Tv, label: 'Servidores', path: '/servers' },
+    { icon: Receipt, label: 'Contas a Pagar', path: '/bills' },
     { icon: Ticket, label: 'Cupons', path: '/coupons' },
     { icon: Gift, label: 'Indicações', path: '/referrals' },
     { icon: MessageSquare, label: 'Templates', path: '/templates' },

@@ -65,6 +65,51 @@ export type Database = {
         }
         Relationships: []
       }
+      bills_to_pay: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          is_paid: boolean | null
+          notes: string | null
+          paid_at: string | null
+          recipient_name: string
+          recipient_whatsapp: string | null
+          seller_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          recipient_name: string
+          recipient_whatsapp?: string | null
+          seller_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          recipient_name?: string
+          recipient_whatsapp?: string | null
+          seller_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_apps: {
         Row: {
           activation_date: string
