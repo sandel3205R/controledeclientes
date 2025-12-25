@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addYears, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Mail, Lock, Wifi, Hash, Cloud, Tv, Plus, User, Phone } from 'lucide-react';
+import { CalendarIcon, Mail, Lock, Wifi, Hash, Tv, Plus, User, Phone } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -34,20 +34,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCrypto } from '@/hooks/useCrypto';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const PREDEFINED_APP_TYPES = [
-  { id: 'clouddy', label: 'Clouddy', icon: Cloud, usesEmail: true },
-  { id: 'ibo_pro', label: 'IBO PRO', icon: Tv, usesEmail: false },
-  { id: 'ibo_player', label: 'IBO PLAYER', icon: Tv, usesEmail: false },
-];
-
 const appSchema = z.object({
-  // Client fields
   client_name: z.string().min(1, 'Nome do cliente é obrigatório'),
   client_phone: z.string().optional(),
-  // App fields
   app_type: z.string().min(1, 'Tipo de aplicativo é obrigatório'),
-  custom_app_name: z.string().optional(),
-  credential_type: z.enum(['email', 'mac']),
   email: z.string().optional(),
   password: z.string().optional(),
   mac_address: z.string().optional(),
@@ -55,12 +45,7 @@ const appSchema = z.object({
   app_price: z.string().optional(),
   expiration_date: z.string().min(1, 'Data de vencimento é obrigatória'),
   notes: z.string().optional(),
-}).refine((data) => {
-  if (data.app_type === 'custom' && !data.custom_app_name) {
-    return false;
-  }
-  return true;
-}, { message: 'Nome do aplicativo é obrigatório', path: ['custom_app_name'] });
+});
 
 type AppForm = z.infer<typeof appSchema>;
 
@@ -68,6 +53,12 @@ interface ExistingClient {
   id: string;
   name: string;
   phone: string | null;
+}
+
+interface AppType {
+  id: string;
+  name: string;
+  uses_email: boolean;
 }
 
 interface ClientAppDialogProps {
@@ -88,6 +79,7 @@ interface ClientAppDialogProps {
   } | null;
   onSuccess: () => void;
   mode?: 'new' | 'existing' | 'edit';
+  appTypes: AppType[];
 }
 
 export default function ClientAppDialog({
@@ -98,6 +90,7 @@ export default function ClientAppDialog({
   existingApp,
   onSuccess,
   mode = 'new',
+  appTypes,
 }: ClientAppDialogProps) {
   const [loading, setLoading] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
@@ -117,24 +110,19 @@ export default function ClientAppDialog({
   } = useForm<AppForm>({
     resolver: zodResolver(appSchema),
     defaultValues: {
-      app_type: 'clouddy',
-      credential_type: 'email',
+      app_type: appTypes[0]?.name || '',
       expiration_date: format(addYears(new Date(), 1), 'yyyy-MM-dd'),
     },
   });
 
   const selectedAppType = watch('app_type');
-  const selectedPredefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === selectedAppType);
-  const isCustomApp = selectedAppType === 'custom';
-  const credentialType = watch('credential_type');
-  const usesEmail = isCustomApp ? credentialType === 'email' : (selectedPredefinedApp?.usesEmail ?? true);
+  const selectedAppTypeInfo = appTypes.find(a => a.name === selectedAppType);
+  const usesEmail = selectedAppTypeInfo?.uses_email ?? true;
 
-  // Fetch existing clients without apps
   const fetchExistingClients = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get clients that already have apps
     const { data: existingAppClientIds } = await supabase
       .from('client_apps')
       .select('client_id')
@@ -165,15 +153,12 @@ export default function ClientAppDialog({
             password: existingApp.password,
           });
 
-          const isPredefined = PREDEFINED_APP_TYPES.some(a => a.id === existingApp.app_type);
-          const predefinedApp = PREDEFINED_APP_TYPES.find(a => a.id === existingApp.app_type);
+          const appTypeInfo = appTypes.find(a => a.name === existingApp.app_type);
 
           reset({
             client_name: clientName || '',
             client_phone: '',
-            app_type: isPredefined ? existingApp.app_type : 'custom',
-            custom_app_name: isPredefined ? '' : existingApp.app_type,
-            credential_type: predefinedApp?.usesEmail !== false ? 'email' : 'mac',
+            app_type: existingApp.app_type,
             email: decrypted.login || '',
             password: decrypted.password || '',
             mac_address: existingApp.mac_address || '',
@@ -191,9 +176,7 @@ export default function ClientAppDialog({
         reset({
           client_name: '',
           client_phone: '',
-          app_type: 'clouddy',
-          custom_app_name: '',
-          credential_type: 'email',
+          app_type: appTypes[0]?.name || '',
           email: '',
           password: '',
           mac_address: '',
@@ -212,15 +195,13 @@ export default function ClientAppDialog({
       loadExistingApp();
       fetchExistingClients();
     }
-  }, [open, mode, existingApp?.id, clientId]);
+  }, [open, mode, existingApp?.id, clientId, appTypes]);
 
   const onSubmit = async (data: AppForm) => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-
-      const finalAppType = data.app_type === 'custom' ? data.custom_app_name : data.app_type;
 
       let encryptedEmail: string | null = null;
       let encryptedPassword: string | null = null;
@@ -236,7 +217,6 @@ export default function ClientAppDialog({
 
       let targetClientId = clientId;
 
-      // If mode is new and addMode is new, create a new client first
       if (mode === 'new' && addMode === 'new') {
         if (!data.client_name.trim()) {
           toast.error('Nome do cliente é obrigatório');
@@ -278,7 +258,7 @@ export default function ClientAppDialog({
       const appData = {
         client_id: targetClientId,
         seller_id: user.id,
-        app_type: finalAppType,
+        app_type: data.app_type,
         email: encryptedEmail,
         password: encryptedPassword,
         mac_address: !usesEmail ? (data.mac_address || null) : null,
@@ -445,79 +425,39 @@ export default function ClientAppDialog({
 
           {/* App Type */}
           <div className="space-y-2">
-            <Label>Tipo de Aplicativo *</Label>
-            <Select
-              value={selectedAppType}
-              onValueChange={(value) => {
-                setValue('app_type', value);
-                const predefined = PREDEFINED_APP_TYPES.find(a => a.id === value);
-                if (predefined) {
-                  setValue('credential_type', predefined.usesEmail ? 'email' : 'mac');
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o aplicativo" />
-              </SelectTrigger>
-              <SelectContent>
-                {PREDEFINED_APP_TYPES.map((app) => {
-                  const Icon = app.icon;
-                  return (
-                    <SelectItem key={app.id} value={app.id}>
+            <Label>Aplicativo *</Label>
+            {appTypes.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm border rounded-lg">
+                Nenhum tipo de aplicativo cadastrado
+              </div>
+            ) : (
+              <Select
+                value={selectedAppType}
+                onValueChange={(value) => setValue('app_type', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o aplicativo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {appTypes.map((app) => (
+                    <SelectItem key={app.id} value={app.name}>
                       <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {app.label}
+                        <Tv className="h-4 w-4" />
+                        {app.name}
                       </div>
                     </SelectItem>
-                  );
-                })}
-                <SelectItem value="custom">
-                  <div className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Outro (personalizado)
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-
-          {isCustomApp && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="custom_app_name">Nome do Aplicativo *</Label>
-                <Input
-                  id="custom_app_name"
-                  {...register('custom_app_name')}
-                  placeholder="Digite o nome do aplicativo"
-                />
-                {errors.custom_app_name && (
-                  <p className="text-xs text-destructive">{errors.custom_app_name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de Credencial</Label>
-                <Select
-                  value={credentialType}
-                  onValueChange={(value) => setValue('credential_type', value as 'email' | 'mac')}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">Email + Senha</SelectItem>
-                    <SelectItem value="mac">MAC + ID</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
 
           {/* Credentials */}
           {usesEmail ? (
             <div className="space-y-3 p-3 rounded-lg border border-blue-500/30 bg-blue-500/5">
               <div className="flex items-center gap-2 text-blue-500 text-sm font-medium">
-                <Cloud className="h-4 w-4" />
-                Credenciais
+                <Mail className="h-4 w-4" />
+                Credenciais (Email/Senha)
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -549,8 +489,8 @@ export default function ClientAppDialog({
           ) : (
             <div className="space-y-3 p-3 rounded-lg border border-purple-500/30 bg-purple-500/5">
               <div className="flex items-center gap-2 text-purple-500 text-sm font-medium">
-                <Tv className="h-4 w-4" />
-                Credenciais
+                <Wifi className="h-4 w-4" />
+                Credenciais (MAC/ID)
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -560,7 +500,7 @@ export default function ClientAppDialog({
                   <Input
                     id="mac_address"
                     {...register('mac_address')}
-                    placeholder="XX:XX:XX:XX:XX:XX"
+                    placeholder="00:00:00:00:00:00"
                     className="h-8 text-sm"
                   />
                 </div>
@@ -579,82 +519,65 @@ export default function ClientAppDialog({
             </div>
           )}
 
-          {/* Price */}
-          <div className="space-y-2">
-            <Label htmlFor="app_price">Valor (R$)</Label>
-            <Input
-              id="app_price"
-              type="number"
-              step="0.01"
-              {...register('app_price')}
-              placeholder="0,00"
-              className="h-8"
-            />
-          </div>
-
-          {/* Expiration Date */}
-          <div className="space-y-2">
-            <Label>Vencimento *</Label>
-            <Popover
-              onOpenChange={(isOpen) => {
-                if (isOpen) {
-                  const currentValue = watch('expiration_date');
-                  if (currentValue) {
-                    setCalendarMonth(new Date(currentValue + 'T12:00:00'));
-                  } else {
-                    setCalendarMonth(new Date());
-                  }
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal h-8',
-                    !watch('expiration_date') && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {watch('expiration_date')
-                    ? format(new Date(watch('expiration_date') + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
-                    : 'Selecione uma data'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="flex gap-1 p-2 border-b flex-wrap">
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(1)}>
-                    +1 mês
+          {/* Expiration & Price */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Vencimento *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal h-8 text-sm',
+                      !watch('expiration_date') && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {watch('expiration_date')
+                      ? format(new Date(watch('expiration_date')), 'dd/MM/yyyy')
+                      : 'Selecionar'}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(6)}>
-                    +6 meses
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(12)}>
-                    +1 ano
-                  </Button>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={
-                    watch('expiration_date')
-                      ? new Date(watch('expiration_date') + 'T12:00:00')
-                      : undefined
-                  }
-                  onSelect={(date) => {
-                    if (date) {
-                      setValue('expiration_date', format(date, 'yyyy-MM-dd'));
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={watch('expiration_date') ? new Date(watch('expiration_date')) : undefined}
+                    onSelect={(date) =>
+                      date && setValue('expiration_date', format(date, 'yyyy-MM-dd'))
                     }
-                  }}
-                  month={calendarMonth}
-                  onMonthChange={setCalendarMonth}
-                  locale={ptBR}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            {errors.expiration_date && (
-              <p className="text-xs text-destructive">{errors.expiration_date.message}</p>
-            )}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
+                    locale={ptBR}
+                    initialFocus
+                  />
+                  <div className="flex gap-1 p-2 border-t flex-wrap">
+                    {[1, 3, 6, 12].map((m) => (
+                      <Button
+                        key={m}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-6"
+                        onClick={() => handleQuickAdd(m)}
+                      >
+                        +{m}m
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="app_price">Preço (R$)</Label>
+              <Input
+                id="app_price"
+                type="number"
+                step="0.01"
+                {...register('app_price')}
+                placeholder="0,00"
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
 
           {/* Notes */}
@@ -663,17 +586,17 @@ export default function ClientAppDialog({
             <Textarea
               id="notes"
               {...register('notes')}
-              placeholder="Anotações..."
-              rows={2}
+              placeholder="Anotações sobre o aplicativo..."
+              className="min-h-[60px] text-sm"
             />
           </div>
 
-          {/* Actions */}
+          {/* Submit */}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || appTypes.length === 0}>
               {loading ? 'Salvando...' : mode === 'edit' ? 'Atualizar' : 'Cadastrar'}
             </Button>
           </div>
