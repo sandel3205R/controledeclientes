@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
+import ThemeBackground from '@/components/ThemeBackground';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
 import { PushNotificationToggle } from '@/components/PushNotificationToggle';
@@ -126,7 +127,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex relative">
+      {/* Seasonal Theme Background */}
+      <ThemeBackground />
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
