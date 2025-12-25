@@ -458,11 +458,12 @@ export function ClientAppsManager() {
           setDialogOpen(open);
           if (!open) {
             setEditingApp(null);
+            setDialogMode('new');
           }
         }}
-        clientId={editingApp?.client_id}
-        clientName={editingApp?.client_name}
-        existingApp={editingApp}
+        clientId={dialogMode === 'edit' ? editingApp?.client_id : undefined}
+        clientName={dialogMode === 'edit' ? editingApp?.client_name : undefined}
+        existingApp={dialogMode === 'edit' ? editingApp : null}
         onSuccess={fetchApps}
         mode={dialogMode}
       />
