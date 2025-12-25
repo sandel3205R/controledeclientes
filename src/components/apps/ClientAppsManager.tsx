@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
-  Cloud,
   Tv,
   Plus,
   Search,
@@ -22,6 +21,7 @@ import {
   AlertCircle,
   Phone,
   MessageCircle,
+  Settings,
 } from 'lucide-react';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -44,7 +44,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import ClientAppDialog from './ClientAppDialog';
+import { AppTypesManager } from './AppTypesManager';
 import { useCrypto } from '@/hooks/useCrypto';
 
 interface ClientApp {
@@ -62,16 +69,17 @@ interface ClientApp {
   client_phone: string | null;
 }
 
-const APP_LABELS: Record<string, { label: string; icon: typeof Cloud; color: string }> = {
-  clouddy: { label: 'Clouddy', icon: Cloud, color: 'blue' },
-  ibo_pro: { label: 'IBO PRO', icon: Tv, color: 'purple' },
-  ibo_player: { label: 'IBO PLAYER', icon: Tv, color: 'pink' },
-};
+interface AppType {
+  id: string;
+  name: string;
+  uses_email: boolean;
+}
 
 export function ClientAppsManager() {
   const { user } = useAuth();
   const { decryptSingle } = useCrypto();
   const [apps, setApps] = useState<ClientApp[]>([]);
+  const [appTypes, setAppTypes] = useState<AppType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,6 +89,7 @@ export function ClientAppsManager() {
   const [decryptedApps, setDecryptedApps] = useState<Record<string, { email: string | null; password: string | null }>>({});
   const [dialogMode, setDialogMode] = useState<'new' | 'edit'>('new');
   const [sellerName, setSellerName] = useState<string>('');
+  const [manageTypesOpen, setManageTypesOpen] = useState(false);
 
   // Fetch seller name
   useEffect(() => {
@@ -96,11 +105,24 @@ export function ClientAppsManager() {
     }
   }, [user]);
 
+  const fetchAppTypes = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('app_types')
+      .select('*')
+      .eq('seller_id', user.id)
+      .order('name');
+    setAppTypes(data || []);
+  };
+
   const fetchApps = async () => {
     if (!user) return;
     setLoading(true);
 
     try {
+      // Fetch app types first
+      await fetchAppTypes();
+
       const { data: appsData, error } = await supabase
         .from('client_apps')
         .select('*')
@@ -132,10 +154,12 @@ export function ClientAppsManager() {
         client_phone: clientsMap[app.client_id]?.phone || null,
       }));
 
-      // Decrypt credentials
+      // Decrypt credentials for apps that use email
       const decrypted: Record<string, { email: string | null; password: string | null }> = {};
       for (const app of appsWithClients) {
-        if (app.app_type === 'clouddy') {
+        const appType = appTypes.find(t => t.name === app.app_type);
+        const usesEmail = appType?.uses_email ?? true;
+        if (usesEmail && (app.email || app.password)) {
           const email = await decryptSingle(app.email);
           const password = await decryptSingle(app.password);
           decrypted[app.id] = { email, password };
@@ -154,6 +178,14 @@ export function ClientAppsManager() {
   useEffect(() => {
     fetchApps();
   }, [user]);
+
+  const getAppTypeInfo = (appTypeName: string) => {
+    const appType = appTypes.find(t => t.name === appTypeName);
+    return {
+      label: appTypeName,
+      usesEmail: appType?.uses_email ?? true,
+    };
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -189,14 +221,14 @@ export function ClientAppsManager() {
     if (!app.client_phone) return;
     const phone = app.client_phone.replace(/\D/g, '');
     const formattedDate = format(new Date(app.expiration_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-    const appInfo = APP_LABELS[app.app_type] || { label: app.app_type };
+    const appInfo = getAppTypeInfo(app.app_type);
     const brandName = sellerName || 'Nossa equipe';
     
     let message = '';
     if (type === 'reminder') {
       message = `Olá ${app.client_name}! 👋\n\nLembramos que seu aplicativo *${appInfo.label}* vence em *${formattedDate}*.\n\nDeseja renovar? Entre em contato!\n\n🎬 *${brandName}*`;
     } else if (type === 'credentials') {
-      if (app.app_type === 'clouddy') {
+      if (appInfo.usesEmail) {
         const creds = decryptedApps[app.id];
         message = `Olá ${app.client_name}! 🎉\n\nSeus dados do *${appInfo.label}*:\n\n📧 Email: ${creds?.email || 'N/A'}\n🔑 Senha: ${creds?.password || 'N/A'}\n\n📅 Válido até: *${formattedDate}*\n\n🎬 *${brandName}*`;
       } else {
@@ -214,10 +246,9 @@ export function ClientAppsManager() {
   const filteredApps = apps.filter((app) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
-    const appLabel = APP_LABELS[app.app_type]?.label || app.app_type;
     return (
       app.client_name.toLowerCase().includes(searchLower) ||
-      appLabel.toLowerCase().includes(searchLower)
+      app.app_type.toLowerCase().includes(searchLower)
     );
   });
 
@@ -231,6 +262,11 @@ export function ClientAppsManager() {
     setEditingApp(app);
     setDialogMode('edit');
     setDialogOpen(true);
+  };
+
+  const handleManageTypesClose = () => {
+    setManageTypesOpen(false);
+    fetchAppTypes();
   };
 
   if (loading) {
@@ -259,30 +295,50 @@ export function ClientAppsManager() {
               className="pl-8 h-8 w-40 text-sm"
             />
           </div>
-          <Button size="sm" onClick={handleOpenNewDialog} className="h-8">
+          <Button size="sm" variant="outline" onClick={() => setManageTypesOpen(true)} className="h-8">
+            <Settings className="h-3.5 w-3.5 mr-1" />
+            Gerenciar Apps
+          </Button>
+          <Button size="sm" onClick={handleOpenNewDialog} className="h-8" disabled={appTypes.length === 0}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Novo
           </Button>
         </div>
       </div>
 
+      {/* No App Types Warning */}
+      {appTypes.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-6 text-center">
+            <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm font-medium">Nenhum aplicativo cadastrado</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Primeiro cadastre os tipos de aplicativos que você vende
+            </p>
+            <Button size="sm" className="mt-3" onClick={() => setManageTypesOpen(true)}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Cadastrar Aplicativos
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Apps Grid */}
-      {filteredApps.length === 0 ? (
+      {appTypes.length > 0 && filteredApps.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            <Cloud className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Nenhum aplicativo cadastrado</p>
+            <Tv className="w-10 h-10 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Nenhum cliente com aplicativo</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={handleOpenNewDialog}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Adicionar primeiro
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : appTypes.length > 0 && (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filteredApps.map((app) => {
-            const appInfo = APP_LABELS[app.app_type] || { label: app.app_type, icon: Tv, color: 'gray' };
-            const Icon = appInfo.icon;
+            const appInfo = getAppTypeInfo(app.app_type);
             const status = getStatus(app.expiration_date);
             const creds = decryptedApps[app.id];
 
@@ -294,15 +350,9 @@ export function ClientAppsManager() {
                       <CardTitle className="text-sm truncate">{app.client_name}</CardTitle>
                       <div className="flex items-center gap-1.5 mt-1">
                         <Badge
-                          className={cn(
-                            'text-[10px] px-1.5 py-0 gap-0.5',
-                            appInfo.color === 'blue' && 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-                            appInfo.color === 'purple' && 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-                            appInfo.color === 'pink' && 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-                            !appInfo.color && 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                          )}
+                          className="text-[10px] px-1.5 py-0 gap-0.5 bg-primary/20 text-primary border-primary/30"
                         >
-                          <Icon className="h-2.5 w-2.5" />
+                          <Tv className="h-2.5 w-2.5" />
                           {appInfo.label}
                         </Badge>
                         <Badge className={cn('text-[10px] px-1.5 py-0', status.class)}>
@@ -352,7 +402,7 @@ export function ClientAppsManager() {
                 </CardHeader>
                 <CardContent className="space-y-2 px-3 pb-3">
                   {/* Credentials */}
-                  {app.app_type === 'clouddy' || APP_LABELS[app.app_type]?.color === 'blue' ? (
+                  {appInfo.usesEmail ? (
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-1.5">
                         <Mail className="h-3 w-3 text-blue-400 flex-shrink-0" />
@@ -439,7 +489,7 @@ export function ClientAppsManager() {
                       {format(new Date(app.expiration_date), 'dd/MM/yyyy')}
                     </div>
                     {app.app_price && (
-                      <span className="text-primary font-medium">
+                      <span className="text-green-500 font-medium">
                         R$ {app.app_price.toFixed(2)}
                       </span>
                     )}
@@ -451,7 +501,25 @@ export function ClientAppsManager() {
         </div>
       )}
 
-      {/* Dialog */}
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Aplicativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este aplicativo do cliente? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Client App Dialog */}
       <ClientAppDialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -466,25 +534,18 @@ export function ClientAppsManager() {
         existingApp={dialogMode === 'edit' ? editingApp : null}
         onSuccess={fetchApps}
         mode={dialogMode}
+        appTypes={appTypes}
       />
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir aplicativo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O aplicativo será removido permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Manage App Types Dialog */}
+      <Dialog open={manageTypesOpen} onOpenChange={handleManageTypesClose}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Aplicativos</DialogTitle>
+          </DialogHeader>
+          <AppTypesManager />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      app_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          seller_id: string
+          updated_at: string
+          uses_email: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          seller_id: string
+          updated_at?: string
+          uses_email?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          seller_id?: string
+          updated_at?: string
+          uses_email?: boolean
+        }
+        Relationships: []
+      }
       client_apps: {
         Row: {
           activation_date: string
