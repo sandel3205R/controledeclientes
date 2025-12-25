@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury' | 'aurora-violet' | 'citrus-light' | 'christmas' | 'newyear' | 'carnival';
+export type ThemeType = 'netflix' | 'neon-blue' | 'emerald' | 'purple-galaxy' | 'sunset-orange' | 'cyberpunk' | 'ocean-deep' | 'gold-luxury' | 'aurora-violet' | 'citrus-light' | 'christmas' | 'newyear' | 'carnival' | 'clients-control';
 
 interface ThemeContextType {
   theme: ThemeType;
@@ -80,6 +80,12 @@ const themes = [
     id: 'carnival' as ThemeType, 
     name: '🎭 Carnaval', 
     colors: ['#A855F7', '#FBBF24', '#EC4899'],
+    seasonal: true
+  },
+  { 
+    id: 'clients-control' as ThemeType, 
+    name: '👥 Clientes Control', 
+    colors: ['#3B82F6', '#10B981', '#1E293B'],
     seasonal: true
   },
 ];

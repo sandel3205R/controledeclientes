@@ -2,11 +2,13 @@ import { useTheme } from '@/hooks/useTheme';
 import christmasBg from '@/assets/theme-christmas-bg.jpg';
 import newyearBg from '@/assets/theme-newyear-bg.jpg';
 import carnivalBg from '@/assets/theme-carnival-bg.jpg';
+import clientsControlBg from '@/assets/theme-clients-control-bg.jpg';
 
 const seasonalBackgrounds: Record<string, string> = {
   christmas: christmasBg,
   newyear: newyearBg,
   carnival: carnivalBg,
+  'clients-control': clientsControlBg,
 };
 
 export default function ThemeBackground() {
