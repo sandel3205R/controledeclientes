@@ -1,27 +1,131 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import webpush from "https://esm.sh/web-push@3.6.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface PushSubscriptionRow {
-  user_id: string;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
+// Convert base64url to Uint8Array
+function base64UrlToUint8Array(base64Url: string): Uint8Array {
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const binary = atob(base64 + padding);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
-function toWebPushSubscription(row: PushSubscriptionRow) {
-  return {
-    endpoint: row.endpoint,
-    keys: {
-      p256dh: row.p256dh,
-      auth: row.auth,
-    },
+// Convert Uint8Array to base64url
+function uint8ArrayToBase64Url(arr: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < arr.length; i++) {
+    binary += String.fromCharCode(arr[i]);
+  }
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+// Generate VAPID JWT token using ES256
+async function generateVapidJwt(
+  audience: string,
+  subject: string,
+  vapidPrivateKey: string,
+  vapidPublicKey: string
+): Promise<string> {
+  const header = { alg: "ES256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: audience,
+    exp: now + 12 * 60 * 60, // 12 hours
+    sub: subject,
   };
+
+  const headerB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  const unsignedToken = `${headerB64}.${payloadB64}`;
+
+  // Import the private key for signing (P-256 / prime256v1)
+  const privateKeyBytes = base64UrlToUint8Array(vapidPrivateKey);
+  
+  // Create JWK from raw private key bytes
+  const privateKeyJwk = {
+    kty: "EC",
+    crv: "P-256",
+    d: vapidPrivateKey,
+    x: vapidPublicKey.substring(0, 43), // First 32 bytes (base64url encoded)
+    y: vapidPublicKey.substring(43), // Last 32 bytes
+  };
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "jwk",
+    privateKeyJwk,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"]
+  );
+
+  // Sign the token
+  const signatureArrayBuffer = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const signatureB64 = uint8ArrayToBase64Url(new Uint8Array(signatureArrayBuffer));
+  
+  return `${unsignedToken}.${signatureB64}`;
+}
+
+// Send push notification using fetch
+async function sendPushNotification(
+  endpoint: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  vapidSubject: string
+): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+  try {
+    const url = new URL(endpoint);
+    const audience = `${url.protocol}//${url.host}`;
+
+    console.log("[push] Generating JWT for audience:", audience);
+
+    // Generate VAPID authorization header
+    const jwt = await generateVapidJwt(audience, vapidSubject, vapidPrivateKey, vapidPublicKey);
+    const vapidHeader = `vapid t=${jwt}, k=${vapidPublicKey}`;
+
+    console.log("[push] Sending to:", endpoint.substring(0, 60) + "...");
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": vapidHeader,
+        "TTL": "86400",
+        "Urgency": "high",
+      },
+    });
+
+    console.log("[push] Response status:", response.status);
+
+    if (response.ok || response.status === 201) {
+      return { success: true, statusCode: response.status };
+    }
+
+    const errorText = await response.text();
+    console.error(`[push] Failed with status ${response.status}:`, errorText);
+    
+    return { 
+      success: false, 
+      statusCode: response.status, 
+      error: `HTTP ${response.status}: ${errorText}` 
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[push] Exception:", errorMessage);
+    return { success: false, error: errorMessage };
+  }
 }
 
 serve(async (req) => {
@@ -35,6 +139,9 @@ serve(async (req) => {
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")!;
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")!;
 
+    console.log("[test-push] Starting...");
+    console.log("[test-push] VAPID keys configured:", !!vapidPublicKey && !!vapidPrivateKey);
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -46,10 +153,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       console.error("[test-push] Auth error:", authError);
@@ -59,18 +163,19 @@ serve(async (req) => {
       });
     }
 
-    // Configure VAPID (web-push will handle encryption + required headers)
-    const vapidSubject = `mailto:admin@${new URL(supabaseUrl).hostname}`;
-    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
-
-    console.log(`[test-push] Sending test notification to user: ${user.id}`);
+    console.log(`[test-push] User authenticated: ${user.id}`);
 
     const { data: subscriptions, error: subsError } = await supabase
       .from("push_subscriptions")
       .select("user_id, endpoint, p256dh, auth")
       .eq("user_id", user.id);
 
-    if (subsError) throw subsError;
+    if (subsError) {
+      console.error("[test-push] Subscription fetch error:", subsError);
+      throw subsError;
+    }
+
+    console.log(`[test-push] Found ${subscriptions?.length || 0} subscriptions`);
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(
@@ -80,104 +185,44 @@ serve(async (req) => {
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        }
       );
     }
 
-    // Pick the closest client to expire for a realistic test payload
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split("T")[0];
-
-    const { data: closestClient, error: clientError } = await supabase
-      .from("clients")
-      .select("id, name, expiration_date, plan_price")
-      .eq("seller_id", user.id)
-      .gte("expiration_date", todayStr)
-      .order("expiration_date", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (clientError) {
-      console.error("[test-push] Error fetching closest client:", clientError);
-    }
-
-    let daysRemaining = 999;
-    let clientName: string | null = null;
-    let clientId: string | null = null;
-    let amount = 0;
-
-    if (closestClient) {
-      clientName = closestClient.name;
-      clientId = closestClient.id;
-      amount = Number(closestClient.plan_price ?? 0);
-
-      const exp = new Date(`${closestClient.expiration_date}T00:00:00`);
-      exp.setHours(0, 0, 0, 0);
-      daysRemaining = Math.max(0, Math.round((exp.getTime() - today.getTime()) / 86400000));
-    }
-
-    const body = closestClient
-      ? (daysRemaining === 0
-        ? `Cliente ${clientName} vence hoje${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`
-        : daysRemaining === 1
-        ? `Cliente ${clientName} vence amanhã${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`
-        : `Cliente ${clientName} vence em ${daysRemaining} dias${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`)
-      : `Teste de notificação enviado às ${new Date().toLocaleTimeString("pt-BR")}`;
-
-    const payload = JSON.stringify({
-      title: "⚠️ Vencimento Próximo",
-      body,
-      icon: "/logo.jpg",
-      badge: "/pwa-192x192.png",
-      url: "/clients",
-      tag: `test-expiration-${daysRemaining}`,
-      daysRemaining,
-      totalAmount: amount,
-      clients: closestClient
-        ? [{ id: clientId, name: clientName, phone: null, price: amount }]
-        : [],
-      test: true,
-    });
+    const vapidSubject = `mailto:admin@${new URL(supabaseUrl).hostname}`;
     const results: Array<{ success: boolean; error?: string }> = [];
 
-    for (const subRow of subscriptions as PushSubscriptionRow[]) {
-      try {
-        await webpush.sendNotification(toWebPushSubscription(subRow) as any, payload, {
-          TTL: 60 * 60 * 24,
-          urgency: "high",
-        } as any);
+    for (const subRow of subscriptions) {
+      console.log("[test-push] Processing subscription...");
+      
+      const result = await sendPushNotification(
+        subRow.endpoint,
+        vapidPublicKey,
+        vapidPrivateKey,
+        vapidSubject
+      );
 
-        console.log("[test-push] Sent OK:", subRow.endpoint);
-        results.push({ success: true });
-      } catch (err: any) {
-        const errorMessage = err?.message ? String(err.message) : String(err);
-        const statusCode = err?.statusCode;
+      results.push(result);
 
-        console.error("[test-push] Push error:", { statusCode, errorMessage });
-        results.push({ success: false, error: errorMessage });
-
-        if (statusCode === 410 || statusCode === 404 || errorMessage.includes("410") ||
-          errorMessage.includes("404") || errorMessage.includes("expired")) {
-          console.log("[test-push] Removing invalid subscription:", subRow.endpoint);
-          await supabase.from("push_subscriptions").delete().eq("endpoint", subRow.endpoint);
-        }
+      if (!result.success && (result.statusCode === 410 || result.statusCode === 404)) {
+        console.log("[test-push] Removing invalid subscription");
+        await supabase.from("push_subscriptions").delete().eq("endpoint", subRow.endpoint);
       }
     }
 
     const successCount = results.filter((r) => r.success).length;
+    console.log(`[test-push] Results: ${successCount}/${results.length} successful`);
 
     if (successCount === 0) {
       return new Response(
         JSON.stringify({
-          error:
-            "Falha ao enviar notificação. Tente desativar e ativar novamente as notificações.",
+          error: "Falha ao enviar notificação. Tente desativar e ativar novamente as notificações.",
           results,
         }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        }
       );
     }
 
@@ -186,17 +231,8 @@ serve(async (req) => {
         message: "Notificação de teste enviada!",
         success: true,
         results,
-        daysRemaining,
-        client: closestClient
-          ? {
-              id: clientId,
-              name: clientName,
-              expiration_date: closestClient.expiration_date,
-              plan_price: amount,
-            }
-          : null,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
