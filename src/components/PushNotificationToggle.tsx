@@ -1,4 +1,5 @@
-import { Bell, BellOff, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, BellOff, Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNotificationBadge } from '@/hooks/useNotificationBadge';
@@ -17,14 +18,47 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function PushNotificationToggle() {
   const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications();
   const { count, expiringToday, expiringTomorrow, expiringIn3Days, totalAmount, isLoading: badgeLoading } = useNotificationBadge();
   const navigate = useNavigate();
+  const [isTesting, setIsTesting] = useState(false);
 
   const handleEnableNotifications = async () => {
     await subscribe();
+  };
+
+  const handleTestNotification = async () => {
+    setIsTesting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('test-push-notification', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        console.error('Test push error:', error);
+        toast.error(data?.error || 'Erro ao enviar notificação de teste');
+        return;
+      }
+
+      toast.success('Notificação de teste enviada!');
+    } catch (err) {
+      console.error('Test push error:', err);
+      toast.error('Erro ao enviar notificação de teste');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   if (!isSupported) {
@@ -117,14 +151,36 @@ export function PushNotificationToggle() {
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
             <h4 className="font-semibold">Alertas de Vencimento</h4>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => unsubscribe()}
-              className="text-xs text-muted-foreground"
-            >
-              Desativar
-            </Button>
+            <div className="flex gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleTestNotification}
+                    disabled={isTesting}
+                  >
+                    {isTesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Enviar notificação de teste</p>
+                </TooltipContent>
+              </Tooltip>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => unsubscribe()}
+                className="text-xs text-muted-foreground"
+              >
+                Desativar
+              </Button>
+            </div>
           </div>
           {count > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
