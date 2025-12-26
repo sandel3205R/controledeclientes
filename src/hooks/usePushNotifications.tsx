@@ -11,60 +11,64 @@ export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
+  // Register service worker on mount
   useEffect(() => {
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-    setIsSupported(supported);
+    const init = async () => {
+      const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+      setIsSupported(supported);
+      
+      if (supported) {
+        setPermission(Notification.permission);
+        
+        try {
+          // Always register/get the service worker on load
+          const reg = await navigator.serviceWorker.register('/sw-push.js', {
+            scope: '/'
+          });
+          await navigator.serviceWorker.ready;
+          setRegistration(reg);
+        } catch (error) {
+          console.error('Error registering service worker:', error);
+        }
+      }
+      
+      setIsLoading(false);
+    };
     
-    if (supported) {
-      setPermission(Notification.permission);
-    }
-    
-    setIsLoading(false);
+    init();
   }, []);
 
-  const checkSubscription = useCallback(async () => {
-    if (!user || !isSupported) return;
+  // Check subscription status when user or registration changes
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (!user || !registration) return;
 
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      
-      if (subscription) {
-        // Check if subscription exists in database
-        const { data } = await supabase
-          .from('push_subscriptions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('endpoint', subscription.endpoint)
-          .single();
+      try {
+        const subscription = await registration.pushManager.getSubscription();
         
-        setIsSubscribed(!!data);
-      } else {
+        if (subscription) {
+          // Check if subscription exists in database
+          const { data } = await supabase
+            .from('push_subscriptions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('endpoint', subscription.endpoint)
+            .maybeSingle();
+          
+          setIsSubscribed(!!data);
+        } else {
+          setIsSubscribed(false);
+        }
+      } catch (error) {
+        console.error('Error checking subscription:', error);
         setIsSubscribed(false);
       }
-    } catch (error) {
-      console.error('Error checking subscription:', error);
-      setIsSubscribed(false);
-    }
-  }, [user, isSupported]);
-
-  useEffect(() => {
+    };
+    
     checkSubscription();
-  }, [checkSubscription]);
-
-  const registerServiceWorker = async () => {
-    if (!('serviceWorker' in navigator)) {
-      throw new Error('Service Worker not supported');
-    }
-
-    const registration = await navigator.serviceWorker.register('/sw-push.js', {
-      scope: '/'
-    });
-
-    await navigator.serviceWorker.ready;
-    return registration;
-  };
+  }, [user, registration]);
 
   const subscribe = async () => {
     if (!user) {
@@ -89,12 +93,19 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Register service worker
-      const registration = await registerServiceWorker();
+      // Use existing registration or register new one
+      let reg = registration;
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('/sw-push.js', {
+          scope: '/'
+        });
+        await navigator.serviceWorker.ready;
+        setRegistration(reg);
+      }
 
       // Subscribe to push
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      const subscription = await registration.pushManager.subscribe({
+      const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: applicationServerKey.buffer as ArrayBuffer
       });
