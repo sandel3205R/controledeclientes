@@ -115,11 +115,11 @@ export function usePushSubscription() {
       }
 
       const vapidPublicKey = await getVapidPublicKey();
-      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey) as unknown as Uint8Array<ArrayBuffer>;
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
+        // Chrome/Safari expect Uint8Array (BufferSource). Passing ArrayBuffer may fail on some browsers.
+        applicationServerKey,
       });
 
       const subscriptionJson = subscription.toJSON();
