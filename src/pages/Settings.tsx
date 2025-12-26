@@ -12,6 +12,7 @@ import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle } from 'lu
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationSettingsCard } from '@/modules/notifications/NotificationSettingsCard';
+import { PushDiagnosticPanel } from '@/modules/notifications/PushDiagnosticPanel';
 import { MyPlanCard } from '@/components/settings/MyPlanCard';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -188,6 +189,9 @@ export default function Settings() {
 
         {/* Notification Settings */}
         <NotificationSettingsCard />
+
+        {/* Push Diagnostic Panel */}
+        <PushDiagnosticPanel />
 
         {/* My Plan - Sellers Only */}
         {!isAdmin && <MyPlanCard />}
