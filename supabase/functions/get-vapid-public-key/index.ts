@@ -6,6 +6,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function normalizeKeyString(key: string): string {
+  return key.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function sanitizeBase64Like(key: string): string {
+  return normalizeKeyString(key)
+    .replace(/\s+/g, "")
+    .replace(/[^A-Za-z0-9\-_+\/=]/g, "");
+}
+
+function isPem(key: string): boolean {
+  return /-----BEGIN [^-]+-----/.test(normalizeKeyString(key));
+}
+
+function pemToBytes(pem: string): ArrayBuffer {
+  const sanitized = normalizeKeyString(pem)
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  const binary = atob(sanitized);
+  const buffer = new ArrayBuffer(binary.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  return buffer;
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -35,15 +69,35 @@ serve(async (req) => {
       });
     }
 
-    const publicKey = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-    if (!publicKey) {
+    const publicKeyRaw = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+    if (!publicKeyRaw) {
       return new Response(JSON.stringify({ error: "VAPID_PUBLIC_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ publicKey }), {
+    // The browser requires the VAPID public key as base64url-encoded raw (uncompressed) P-256 point.
+    let publicKeyForBrowser: string;
+
+    if (isPem(publicKeyRaw)) {
+      const spki = pemToBytes(publicKeyRaw);
+      const key = await crypto.subtle.importKey(
+        "spki",
+        spki,
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        [],
+      );
+      const raw = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+      publicKeyForBrowser = bytesToBase64Url(raw);
+    } else {
+      // Accept base64 or base64url (with extra characters) and normalize to base64url
+      const cleaned = sanitizeBase64Like(publicKeyRaw);
+      publicKeyForBrowser = cleaned.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    }
+
+    return new Response(JSON.stringify({ publicKey: publicKeyForBrowser }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

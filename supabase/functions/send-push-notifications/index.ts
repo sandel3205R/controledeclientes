@@ -29,16 +29,22 @@ interface NotificationPreference {
   days_before: number[];
 }
 
-function sanitizeKeyString(key: string): string {
-  return key.replace(/\s+/g, "").trim();
+function normalizeKeyString(key: string): string {
+  return key.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function sanitizeBase64Like(key: string): string {
+  return normalizeKeyString(key)
+    .replace(/\s+/g, "")
+    .replace(/[^A-Za-z0-9\-_+\/=]/g, "");
 }
 
 function isPem(key: string): boolean {
-  return /-----BEGIN [^-]+-----/.test(key);
+  return /-----BEGIN [^-]+-----/.test(normalizeKeyString(key));
 }
 
 function pemToBytes(pem: string): ArrayBuffer {
-  const sanitized = pem
+  const sanitized = normalizeKeyString(pem)
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")
     .replace(/\s+/g, "")
@@ -56,7 +62,7 @@ function pemToBytes(pem: string): ArrayBuffer {
 }
 
 function base64UrlToBytes(input: string): Uint8Array {
-  const s = sanitizeKeyString(input);
+  const s = sanitizeBase64Like(input);
   const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
 
