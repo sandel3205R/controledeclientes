@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "https://esm.sh/web-push@3.6.7";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PushSubscription {
+interface PushSubscriptionRow {
   user_id: string;
   endpoint: string;
   p256dh: string;
@@ -28,6 +29,16 @@ interface NotificationPreference {
   days_before: number[];
 }
 
+function toWebPushSubscription(row: PushSubscriptionRow) {
+  return {
+    endpoint: row.endpoint,
+    keys: {
+      p256dh: row.p256dh,
+      auth: row.auth,
+    },
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,6 +53,10 @@ serve(async (req) => {
     console.log('[send-push] Starting push notification process...');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Configure VAPID (web-push will handle encryption + required headers)
+    const vapidSubject = `mailto:admin@${new URL(supabaseUrl).hostname}`;
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
     // Get all notification preferences
     const { data: allPreferences, error: prefsError } = await supabase
@@ -59,19 +74,19 @@ serve(async (req) => {
     const userPreferences = new Map<string, number[]>();
     if (allPreferences) {
       for (const pref of allPreferences as NotificationPreference[]) {
-        userPreferences.set(pref.user_id, pref.days_before || [1, 3, 7]);
+        userPreferences.set(pref.user_id, (pref.days_before as unknown as number[]) || [1, 3, 7]);
       }
     }
 
     // Get unique days to check from all preferences (include 0 for today)
     const allDaysToCheck = new Set<number>([0, 1, 3, 7]);
-    userPreferences.forEach(days => days.forEach(d => allDaysToCheck.add(d)));
+    userPreferences.forEach((days) => days.forEach((d) => allDaysToCheck.add(d)));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const clientsByDay: Record<number, Client[]> = {};
-    
+
     for (const daysAhead of allDaysToCheck) {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() + daysAhead);
@@ -102,36 +117,36 @@ serve(async (req) => {
     }
 
     // Group notifications by seller and urgency
-    const notificationsBySeller: Record<string, { 
-      clients: Client[], 
-      days: number[],
-      totalAmount: number,
-      mostUrgent: number 
+    const notificationsBySeller: Record<string, {
+      clients: Client[];
+      days: number[];
+      totalAmount: number;
+      mostUrgent: number;
     }> = {};
 
     for (const [daysStr, clients] of Object.entries(clientsByDay)) {
       const days = parseInt(daysStr);
-      
+
       for (const client of clients) {
         const sellerPrefs = userPreferences.get(client.seller_id) || [1, 3, 7];
-        
+
         // Include day 0 (today) always, or if seller wants notifications for this day
         if (days === 0 || sellerPrefs.includes(days)) {
           if (!notificationsBySeller[client.seller_id]) {
-            notificationsBySeller[client.seller_id] = { 
-              clients: [], 
-              days: [], 
+            notificationsBySeller[client.seller_id] = {
+              clients: [],
+              days: [],
               totalAmount: 0,
-              mostUrgent: 999
+              mostUrgent: 999,
             };
           }
           notificationsBySeller[client.seller_id].clients.push(client);
           notificationsBySeller[client.seller_id].totalAmount += client.plan_price || 0;
-          
+
           if (!notificationsBySeller[client.seller_id].days.includes(days)) {
             notificationsBySeller[client.seller_id].days.push(days);
           }
-          
+
           if (days < notificationsBySeller[client.seller_id].mostUrgent) {
             notificationsBySeller[client.seller_id].mostUrgent = days;
           }
@@ -151,12 +166,10 @@ serve(async (req) => {
 
     const { data: subscriptions, error: subsError } = await supabase
       .from('push_subscriptions')
-      .select('*')
+      .select('user_id, endpoint, p256dh, auth')
       .in('user_id', sellerIds);
 
-    if (subsError) {
-      throw subsError;
-    }
+    if (subsError) throw subsError;
 
     if (!subscriptions || subscriptions.length === 0) {
       console.log('[send-push] No push subscriptions found for sellers');
@@ -168,16 +181,15 @@ serve(async (req) => {
 
     console.log(`[send-push] Sending to ${subscriptions.length} subscriptions`);
 
-    // Send notifications
-    const results = [];
-    for (const subscription of subscriptions as PushSubscription[]) {
+    const results: Array<{ userId: string; success: boolean; error?: string }> = [];
+
+    for (const subscription of subscriptions as PushSubscriptionRow[]) {
       const sellerData = notificationsBySeller[subscription.user_id];
       if (!sellerData) continue;
 
       const clientCount = sellerData.clients.length;
       const mostUrgent = sellerData.mostUrgent;
-      
-      // Build title based on urgency
+
       let title = '⚠️ Vencimento Próximo';
       if (mostUrgent === 0) {
         title = '🔴 Vencido Hoje!';
@@ -187,7 +199,6 @@ serve(async (req) => {
         title = `⚠️ Vencimento em ${mostUrgent} dias`;
       }
 
-      // Build body
       let body = '';
       if (clientCount === 1) {
         const client = sellerData.clients[0];
@@ -201,7 +212,7 @@ serve(async (req) => {
           body += ` - R$ ${sellerData.totalAmount.toFixed(2).replace('.', ',')}`;
         }
       }
-      
+
       const payload = JSON.stringify({
         title,
         body,
@@ -211,31 +222,30 @@ serve(async (req) => {
         tag: `expiration-${mostUrgent}`,
         daysRemaining: mostUrgent,
         totalAmount: sellerData.totalAmount,
-        clients: sellerData.clients.map(c => ({
+        clients: sellerData.clients.map((c) => ({
           id: c.id,
           name: c.name,
           phone: c.phone,
-          price: c.plan_price
-        }))
+          price: c.plan_price,
+        })),
       });
 
       try {
-        const response = await sendWebPush(
-          subscription,
-          payload,
-          vapidPublicKey,
-          vapidPrivateKey,
-          supabaseUrl
-        );
-        console.log(`[send-push] Sent to ${subscription.user_id}: ${response.status}`);
+        await webpush.sendNotification(toWebPushSubscription(subscription) as any, payload, {
+          TTL: 60 * 60 * 24,
+          urgency: 'high',
+        } as any);
+
+        console.log(`[send-push] Sent to ${subscription.user_id}`);
         results.push({ userId: subscription.user_id, success: true });
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error('[send-push] Error sending push to', subscription.user_id, errorMessage);
+      } catch (err: any) {
+        const errorMessage = err?.message ? String(err.message) : String(err);
+        const statusCode = err?.statusCode;
+
+        console.error('[send-push] Error sending push to', subscription.user_id, { statusCode, errorMessage });
         results.push({ userId: subscription.user_id, success: false, error: errorMessage });
-        
-        // Remove invalid subscription (410 Gone or 404 Not Found)
-        if (errorMessage.includes('410') || errorMessage.includes('404') || errorMessage.includes('expired')) {
+
+        if (statusCode === 410 || statusCode === 404 || errorMessage.includes('410') || errorMessage.includes('404') || errorMessage.includes('expired')) {
           console.log(`[send-push] Removing invalid subscription for ${subscription.user_id}`);
           await supabase
             .from('push_subscriptions')
@@ -245,13 +255,13 @@ serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r) => r.success).length;
     console.log(`[send-push] Completed: ${successCount}/${results.length} successful`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         message: `Sent notifications to ${successCount} users`,
-        results 
+        results,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -264,108 +274,3 @@ serve(async (req) => {
     );
   }
 });
-
-async function sendWebPush(
-  subscription: PushSubscription,
-  payload: string,
-  vapidPublicKey: string,
-  vapidPrivateKey: string,
-  audience: string
-): Promise<Response> {
-  // Create VAPID JWT
-  const jwt = await createVapidJwt(
-    new URL(subscription.endpoint).origin,
-    vapidPrivateKey,
-    audience
-  );
-
-  // For now, send unencrypted payload (basic push)
-  // In production, you'd want to implement proper Web Push encryption
-  const response = await fetch(subscription.endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-      'Content-Type': 'application/json',
-      'TTL': '86400',
-      'Urgency': 'high'
-    },
-    body: payload
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Push failed: ${response.status} ${text}`);
-  }
-
-  return response;
-}
-
-async function createVapidJwt(
-  audience: string,
-  privateKey: string,
-  supabaseUrl: string
-): Promise<string> {
-  const header = { alg: 'ES256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    aud: audience,
-    exp: now + 12 * 60 * 60, // 12 hours
-    sub: `mailto:admin@${new URL(supabaseUrl).hostname}`
-  };
-
-  const headerB64 = btoa(JSON.stringify(header))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-  const claimsB64 = btoa(JSON.stringify(claims))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-  
-  const unsignedToken = `${headerB64}.${claimsB64}`;
-  
-  try {
-    // Import private key and sign
-    const keyData = base64UrlToArrayBuffer(privateKey);
-    const key = await crypto.subtle.importKey(
-      'pkcs8',
-      keyData,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['sign']
-    );
-    
-    const signature = await crypto.subtle.sign(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      key,
-      new TextEncoder().encode(unsignedToken)
-    );
-    
-    const signatureB64 = arrayBufferToBase64Url(signature);
-    return `${unsignedToken}.${signatureB64}`;
-  } catch (e) {
-    console.error('[send-push] JWT signing error:', e);
-    // Return unsigned token as fallback (some push services accept this)
-    return unsignedToken;
-  }
-}
-
-function base64UrlToArrayBuffer(base64: string): ArrayBuffer {
-  const padding = '='.repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
