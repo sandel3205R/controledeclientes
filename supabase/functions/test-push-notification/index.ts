@@ -84,17 +84,61 @@ serve(async (req) => {
       );
     }
 
-    const now = new Date();
+    // Pick the closest client to expire for a realistic test payload
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split("T")[0];
+
+    const { data: closestClient, error: clientError } = await supabase
+      .from("clients")
+      .select("id, name, expiration_date, plan_price")
+      .eq("seller_id", user.id)
+      .gte("expiration_date", todayStr)
+      .order("expiration_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (clientError) {
+      console.error("[test-push] Error fetching closest client:", clientError);
+    }
+
+    let daysRemaining = 999;
+    let clientName: string | null = null;
+    let clientId: string | null = null;
+    let amount = 0;
+
+    if (closestClient) {
+      clientName = closestClient.name;
+      clientId = closestClient.id;
+      amount = Number(closestClient.plan_price ?? 0);
+
+      const exp = new Date(`${closestClient.expiration_date}T00:00:00`);
+      exp.setHours(0, 0, 0, 0);
+      daysRemaining = Math.max(0, Math.round((exp.getTime() - today.getTime()) / 86400000));
+    }
+
+    const body = closestClient
+      ? (daysRemaining === 0
+        ? `Cliente ${clientName} vence hoje${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`
+        : daysRemaining === 1
+        ? `Cliente ${clientName} vence amanhã${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`
+        : `Cliente ${clientName} vence em ${daysRemaining} dias${amount ? ` - R$ ${amount.toFixed(2).replace('.', ',')}` : ''}`)
+      : `Teste de notificação enviado às ${new Date().toLocaleTimeString("pt-BR")}`;
+
     const payload = JSON.stringify({
-      title: "🔔 Teste de Notificação",
-      body: `Notificações funcionando! ${now.toLocaleTimeString("pt-BR")}`,
+      title: "⚠️ Vencimento Próximo",
+      body,
       icon: "/logo.jpg",
       badge: "/pwa-192x192.png",
-      url: "/dashboard",
-      tag: "test-notification",
+      url: "/clients",
+      tag: `test-expiration-${daysRemaining}`,
+      daysRemaining,
+      totalAmount: amount,
+      clients: closestClient
+        ? [{ id: clientId, name: clientName, phone: null, price: amount }]
+        : [],
       test: true,
     });
-
     const results: Array<{ success: boolean; error?: string }> = [];
 
     for (const subRow of subscriptions as PushSubscriptionRow[]) {
@@ -138,7 +182,20 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: "Notificação de teste enviada!", success: true, results }),
+      JSON.stringify({
+        message: "Notificação de teste enviada!",
+        success: true,
+        results,
+        daysRemaining,
+        client: closestClient
+          ? {
+              id: clientId,
+              name: clientName,
+              expiration_date: closestClient.expiration_date,
+              plan_price: amount,
+            }
+          : null,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
