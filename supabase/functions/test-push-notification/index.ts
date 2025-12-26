@@ -19,20 +19,93 @@ function sanitizeKeyString(key: string): string {
   return key.replace(/\s+/g, "").trim();
 }
 
+function isPem(key: string): boolean {
+  return /-----BEGIN [^-]+-----/.test(key);
+}
+
+function pemToBytes(pem: string): Uint8Array {
+  const sanitized = pem
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  try {
+    const binary = atob(sanitized);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    throw new Error("Falha ao decodificar chave PEM (base64 inválido)");
+  }
+}
+
 function base64UrlToBytes(input: string): Uint8Array {
   const s = sanitizeKeyString(input);
   const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(base64 + padding);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+
+  try {
+    const binary = atob(base64 + padding);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    throw new Error("Falha ao decodificar base64/base64url");
+  }
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function jwkFromPkcs8Pem(pem: string): Promise<Required<Pick<JsonWebKey, "x" | "y" | "d">>> {
+  const pkcs8 = pemToBytes(pem);
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pkcs8,
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign"],
+  );
+
+  const jwk = (await crypto.subtle.exportKey("jwk", key)) as JsonWebKey;
+  if (!jwk.x || !jwk.y || !jwk.d) {
+    throw new Error("Chave privada PEM inválida (faltando x/y/d)");
+  }
+  return { x: jwk.x, y: jwk.y, d: jwk.d };
+}
+
+async function jwkFromSpkiPem(pem: string): Promise<Required<Pick<JsonWebKey, "x" | "y">>> {
+  const spki = pemToBytes(pem);
+  const key = await crypto.subtle.importKey(
+    "spki",
+    spki,
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    [],
+  );
+
+  const jwk = (await crypto.subtle.exportKey("jwk", key)) as JsonWebKey;
+  if (!jwk.x || !jwk.y) {
+    throw new Error("Chave pública PEM inválida (faltando x/y)");
+  }
+  return { x: jwk.x, y: jwk.y };
+}
+
+function xyFromUncompressedPublicKey(pubRaw: Uint8Array): { x: string; y: string } {
+  // Uncompressed EC point (65 bytes, 0x04 | X32 | Y32)
+  if (pubRaw.length !== 65 || pubRaw[0] !== 0x04) {
+    console.error("[test-push] Unexpected VAPID public key raw length:", pubRaw.length);
+    throw new Error("Invalid VAPID_PUBLIC_KEY format");
+  }
+
+  return {
+    x: bytesToBase64Url(pubRaw.slice(1, 33)),
+    y: bytesToBase64Url(pubRaw.slice(33, 65)),
+  };
 }
 
 function toWebPushSubscription(row: PushSubscriptionRow): webpush.PushSubscription {
@@ -53,24 +126,35 @@ async function createApplicationServer(supabaseUrl: string) {
     throw new Error("VAPID keys are not configured");
   }
 
-  // VAPID public key from browser is the uncompressed EC point (65 bytes, 0x04 | X32 | Y32)
-  // VAPID private key is 32 bytes.
-  const pubRaw = base64UrlToBytes(vapidPublicKey);
-  const privRaw = base64UrlToBytes(vapidPrivateKey);
+  let x: string;
+  let y: string;
+  let d: string;
 
-  if (pubRaw.length !== 65 || pubRaw[0] !== 0x04) {
-    console.error("[test-push] Unexpected VAPID public key raw length:", pubRaw.length);
-    throw new Error("Invalid VAPID_PUBLIC_KEY format");
+  // Prefer PEM for private key if present (common format)
+  if (isPem(vapidPrivateKey)) {
+    const jwk = await jwkFromPkcs8Pem(vapidPrivateKey);
+    x = jwk.x;
+    y = jwk.y;
+    d = jwk.d;
+  } else {
+    const privRaw = base64UrlToBytes(vapidPrivateKey);
+    if (privRaw.length !== 32) {
+      console.error("[test-push] Unexpected VAPID private key raw length:", privRaw.length);
+      throw new Error("Invalid VAPID_PRIVATE_KEY format");
+    }
+    d = bytesToBase64Url(privRaw);
+
+    if (isPem(vapidPublicKey)) {
+      const pubJwk = await jwkFromSpkiPem(vapidPublicKey);
+      x = pubJwk.x;
+      y = pubJwk.y;
+    } else {
+      const pubRaw = base64UrlToBytes(vapidPublicKey);
+      const xy = xyFromUncompressedPublicKey(pubRaw);
+      x = xy.x;
+      y = xy.y;
+    }
   }
-
-  if (privRaw.length !== 32) {
-    console.error("[test-push] Unexpected VAPID private key raw length:", privRaw.length);
-    throw new Error("Invalid VAPID_PRIVATE_KEY format");
-  }
-
-  const x = bytesToBase64Url(pubRaw.slice(1, 33));
-  const y = bytesToBase64Url(pubRaw.slice(33, 65));
-  const d = bytesToBase64Url(privRaw);
 
   const exportedVapidKeys: webpush.ExportedVapidKeys = {
     publicKey: {
@@ -91,7 +175,6 @@ async function createApplicationServer(supabaseUrl: string) {
   };
 
   const vapidKeys = await webpush.importVapidKeys(exportedVapidKeys);
-
   const contactInformation = `mailto:admin@${new URL(supabaseUrl).hostname}`;
 
   return await webpush.ApplicationServer.new({

@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { NotificationSettings as NotificationSettingsComponent } from '@/components/notifications/NotificationSettings';
+import { NotificationSettingsCard } from '@/modules/notifications/NotificationSettingsCard';
 import { MyPlanCard } from '@/components/settings/MyPlanCard';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -187,7 +187,7 @@ export default function Settings() {
         </div>
 
         {/* Notification Settings */}
-        <NotificationSettingsComponent />
+        <NotificationSettingsCard />
 
         {/* My Plan - Sellers Only */}
         {!isAdmin && <MyPlanCard />}
