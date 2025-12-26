@@ -12,6 +12,7 @@ import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle } from 'lu
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationSettings as NotificationSettingsComponent } from '@/components/notifications/NotificationSettings';
+import { MyPlanCard } from '@/components/settings/MyPlanCard';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -187,6 +188,9 @@ export default function Settings() {
 
         {/* Notification Settings */}
         <NotificationSettingsComponent />
+
+        {/* My Plan - Sellers Only */}
+        {!isAdmin && <MyPlanCard />}
 
         {/* First Admin Signup - Admin Only */}
         {isAdmin && (
