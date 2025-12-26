@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, BellOff, Loader2, Send } from "lucide-react";
+import { Bell, BellOff, Loader2, Send, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePushSubscription } from "@/modules/notifications/usePushSubscription";
 import { useNotificationBadge } from "@/hooks/useNotificationBadge";
@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function PushNotificationsBell() {
-  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushSubscription();
+  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe, lastError } = usePushSubscription();
   const { count, expiringToday, expiringTomorrow, expiringIn3Days, totalAmount } = useNotificationBadge();
   const navigate = useNavigate();
   const [isTesting, setIsTesting] = useState(false);
@@ -32,21 +32,25 @@ export function PushNotificationsBell() {
         return;
       }
 
+      console.log("[Bell] Sending test notification...");
       const { data, error } = await supabase.functions.invoke("test-push-notification", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
 
+      console.log("[Bell] Response:", { data, error });
+
       if (error) {
         const serverMsg = (data as any)?.error;
+        console.error("[Bell] Error:", serverMsg || error.message);
         toast.error(serverMsg || error.message || "Erro ao enviar notificação de teste");
         return;
       }
 
       toast.success((data as any)?.message || "Notificação de teste enviada!");
     } catch (err) {
-      console.error("Test push error:", err);
+      console.error("[Bell] Test push error:", err);
       toast.error(err instanceof Error ? err.message : "Erro ao enviar notificação de teste");
     } finally {
       setIsTesting(false);

@@ -1,18 +1,19 @@
-// Service Worker for Push Notifications with Actions
-const SW_VERSION = '2.0.0';
+// Service Worker for Push Notifications
+// Version 3.0.0 - Fixed for correct scope and push handling
+const SW_VERSION = '3.0.0';
 
 self.addEventListener('install', function(event) {
-  console.log('[SW] Installing version:', SW_VERSION);
+  console.log('[SW Push] Installing version:', SW_VERSION);
   self.skipWaiting();
 });
 
 self.addEventListener('activate', function(event) {
-  console.log('[SW] Activating version:', SW_VERSION);
-  event.waitUntil(clients.claim());
+  console.log('[SW Push] Activating version:', SW_VERSION);
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('push', function(event) {
-  console.log('[SW] Push received:', event);
+  console.log('[SW Push] Push event received!');
   
   let data = {
     title: '⚠️ Vencimento Próximo',
@@ -23,15 +24,22 @@ self.addEventListener('push', function(event) {
     tag: 'expiration-alert',
     clients: [],
     daysRemaining: 0,
-    totalAmount: 0
+    totalAmount: 0,
+    test: false
   };
 
   if (event.data) {
     try {
       const parsed = event.data.json();
       data = { ...data, ...parsed };
+      console.log('[SW Push] Parsed data:', data);
     } catch (e) {
-      console.error('[SW] Error parsing push data:', e);
+      console.error('[SW Push] Error parsing push data:', e);
+      try {
+        data.body = event.data.text();
+      } catch (e2) {
+        console.error('[SW Push] Error getting text:', e2);
+      }
     }
   }
 
@@ -39,7 +47,10 @@ self.addEventListener('push', function(event) {
   let title = data.title;
   let urgency = 'normal';
   
-  if (data.daysRemaining === 0) {
+  if (data.test) {
+    title = '🧪 Teste de Notificação';
+    urgency = 'test';
+  } else if (data.daysRemaining === 0) {
     title = '🔴 Vencido Hoje!';
     urgency = 'critical';
   } else if (data.daysRemaining === 1) {
@@ -50,14 +61,8 @@ self.addEventListener('push', function(event) {
     urgency = 'medium';
   }
 
-  // Build body with client details
-  let body = data.body;
-  if (data.totalAmount > 0) {
-    body += ` - R$ ${data.totalAmount.toFixed(2).replace('.', ',')}`;
-  }
-
   const options = {
-    body: body,
+    body: data.body,
     icon: data.icon || '/logo.jpg',
     badge: data.badge || '/pwa-192x192.png',
     vibrate: urgency === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100],
@@ -73,42 +78,41 @@ self.addEventListener('push', function(event) {
     actions: [
       { 
         action: 'view', 
-        title: '👁️ Ver Detalhes',
-        icon: '/pwa-192x192.png'
+        title: '👁️ Ver Detalhes'
       },
       { 
         action: 'dismiss', 
-        title: '❌ Dispensar',
-        icon: '/pwa-192x192.png'
+        title: '❌ Fechar'
       }
     ]
   };
 
-  // Add sound for critical notifications (via vibration pattern)
-  if (urgency === 'critical') {
-    options.silent = false;
-  }
+  console.log('[SW Push] Showing notification:', title, options);
 
   event.waitUntil(
     self.registration.showNotification(title, options)
       .then(() => {
+        console.log('[SW Push] Notification shown successfully!');
         // Update badge count
         if ('setAppBadge' in navigator) {
           const count = data.clients?.length || 1;
-          navigator.setAppBadge(count).catch(console.error);
+          navigator.setAppBadge(count).catch(err => console.log('[SW Push] Badge error:', err));
         }
+      })
+      .catch(err => {
+        console.error('[SW Push] Failed to show notification:', err);
       })
   );
 });
 
 self.addEventListener('notificationclick', function(event) {
-  console.log('[SW] Notification clicked:', event.action);
+  console.log('[SW Push] Notification clicked:', event.action);
   
   event.notification.close();
 
   // Clear badge on interaction
   if ('clearAppBadge' in navigator) {
-    navigator.clearAppBadge().catch(console.error);
+    navigator.clearAppBadge().catch(() => {});
   }
 
   if (event.action === 'dismiss') {
@@ -119,7 +123,7 @@ self.addEventListener('notificationclick', function(event) {
   const fullUrl = new URL(urlToOpen, self.location.origin).href;
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       // Check if there's already a window open
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
@@ -127,27 +131,28 @@ self.addEventListener('notificationclick', function(event) {
         }
       }
       // Open a new window if none exists
-      if (clients.openWindow) {
-        return clients.openWindow(fullUrl);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(fullUrl);
       }
     })
   );
 });
 
-// Handle notification close
 self.addEventListener('notificationclose', function(event) {
-  console.log('[SW] Notification closed');
+  console.log('[SW Push] Notification closed');
 });
 
-// Periodic background sync for checking expirations (when supported)
-self.addEventListener('periodicsync', function(event) {
-  if (event.tag === 'check-expirations') {
-    console.log('[SW] Periodic sync: check-expirations');
-    event.waitUntil(checkExpirations());
+// Message handler for diagnostics
+self.addEventListener('message', function(event) {
+  console.log('[SW Push] Message received:', event.data);
+  
+  if (event.data && event.data.type === 'PING') {
+    event.ports[0].postMessage({ type: 'PONG', version: SW_VERSION });
+  }
+  
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: SW_VERSION });
   }
 });
 
-async function checkExpirations() {
-  // This would typically call the edge function to check expirations
-  console.log('[SW] Checking expirations in background...');
-}
+console.log('[SW Push] Service Worker loaded, version:', SW_VERSION);
