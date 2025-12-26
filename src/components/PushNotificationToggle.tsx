@@ -52,7 +52,10 @@ export function PushNotificationToggle() {
         return;
       }
 
-      toast.success('Notificação de teste enviada!');
+      const info = data?.client?.name
+        ? `Teste enviado: ${data.client.name} (${data.daysRemaining} dia${data.daysRemaining === 1 ? '' : 's'})`
+        : 'Notificação de teste enviada!';
+      toast.success(info);
     } catch (err) {
       console.error('Test push error:', err);
       toast.error('Erro ao enviar notificação de teste');
