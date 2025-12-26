@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import webpush from "https://esm.sh/web-push@3.6.7";
+import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface PushSubscriptionRow {
@@ -29,7 +29,27 @@ interface NotificationPreference {
   days_before: number[];
 }
 
-function toWebPushSubscription(row: PushSubscriptionRow) {
+function sanitizeKeyString(key: string): string {
+  return key.replace(/\s+/g, "").trim();
+}
+
+function base64UrlToBytes(input: string): Uint8Array {
+  const s = sanitizeKeyString(input);
+  const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(base64 + padding);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function toWebPushSubscription(row: PushSubscriptionRow): webpush.PushSubscription {
   return {
     endpoint: row.endpoint,
     keys: {
@@ -39,41 +59,87 @@ function toWebPushSubscription(row: PushSubscriptionRow) {
   };
 }
 
+async function createApplicationServer(supabaseUrl: string) {
+  const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+  const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    throw new Error("VAPID keys are not configured");
+  }
+
+  const pubRaw = base64UrlToBytes(vapidPublicKey);
+  const privRaw = base64UrlToBytes(vapidPrivateKey);
+
+  if (pubRaw.length !== 65 || pubRaw[0] !== 0x04) {
+    console.error("[send-push] Unexpected VAPID public key raw length:", pubRaw.length);
+    throw new Error("Invalid VAPID_PUBLIC_KEY format");
+  }
+
+  if (privRaw.length !== 32) {
+    console.error("[send-push] Unexpected VAPID private key raw length:", privRaw.length);
+    throw new Error("Invalid VAPID_PRIVATE_KEY format");
+  }
+
+  const x = bytesToBase64Url(pubRaw.slice(1, 33));
+  const y = bytesToBase64Url(pubRaw.slice(33, 65));
+  const d = bytesToBase64Url(privRaw);
+
+  const exportedVapidKeys: webpush.ExportedVapidKeys = {
+    publicKey: {
+      kty: "EC",
+      crv: "P-256",
+      x,
+      y,
+      ext: true,
+    },
+    privateKey: {
+      kty: "EC",
+      crv: "P-256",
+      x,
+      y,
+      d,
+      ext: true,
+    },
+  };
+
+  const vapidKeys = await webpush.importVapidKeys(exportedVapidKeys);
+
+  const contactInformation = `mailto:admin@${new URL(supabaseUrl).hostname}`;
+
+  return await webpush.ApplicationServer.new({
+    contactInformation,
+    vapidKeys,
+  });
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')!;
-    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    console.log('[send-push] Starting push notification process...');
+    console.log("[send-push] Starting push notification process...");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Configure VAPID (web-push will handle encryption + required headers)
-    const vapidSubject = `mailto:admin@${new URL(supabaseUrl).hostname}`;
-    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    const appServer = await createApplicationServer(supabaseUrl);
 
     // Get all notification preferences
     const { data: allPreferences, error: prefsError } = await supabase
-      .from('notification_preferences')
-      .select('*')
-      .eq('is_enabled', true);
+      .from("notification_preferences")
+      .select("*")
+      .eq("is_enabled", true);
 
     if (prefsError) {
-      console.error('[send-push] Error fetching preferences:', prefsError);
+      console.error("[send-push] Error fetching preferences:", prefsError);
     }
-
-    console.log(`[send-push] Found ${allPreferences?.length || 0} enabled preferences`);
 
     // Create a map of user preferences (default to [1, 3, 7] if no preference set)
     const userPreferences = new Map<string, number[]>();
     if (allPreferences) {
-      for (const pref of allPreferences as NotificationPreference[]) {
+      for (const pref of allPreferences as unknown as NotificationPreference[]) {
         userPreferences.set(pref.user_id, (pref.days_before as unknown as number[]) || [1, 3, 7]);
       }
     }
@@ -90,12 +156,12 @@ serve(async (req) => {
     for (const daysAhead of allDaysToCheck) {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() + daysAhead);
-      const targetDateStr = targetDate.toISOString().split('T')[0];
+      const targetDateStr = targetDate.toISOString().split("T")[0];
 
       const { data: expiringClients, error: clientsError } = await supabase
-        .from('clients')
-        .select('id, name, phone, expiration_date, seller_id, plan_price')
-        .eq('expiration_date', targetDateStr);
+        .from("clients")
+        .select("id, name, phone, expiration_date, seller_id, plan_price")
+        .eq("expiration_date", targetDateStr);
 
       if (clientsError) {
         console.error(`[send-push] Error fetching clients for day ${daysAhead}:`, clientsError);
@@ -103,16 +169,15 @@ serve(async (req) => {
       }
 
       if (expiringClients && expiringClients.length > 0) {
-        clientsByDay[daysAhead] = expiringClients;
-        console.log(`[send-push] Found ${expiringClients.length} clients expiring in ${daysAhead} days`);
+        clientsByDay[daysAhead] = expiringClients as unknown as Client[];
       }
     }
 
     if (Object.keys(clientsByDay).length === 0) {
-      console.log('[send-push] No expiring clients found');
+      console.log("[send-push] No expiring clients found");
       return new Response(
-        JSON.stringify({ message: 'No expiring clients found for any configured period' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ message: "No expiring clients found for any configured period" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -154,34 +219,31 @@ serve(async (req) => {
       }
     }
 
-    // Get push subscriptions for sellers with notifications
     const sellerIds = Object.keys(notificationsBySeller);
     if (sellerIds.length === 0) {
-      console.log('[send-push] No sellers match notification preferences');
       return new Response(
-        JSON.stringify({ message: 'No sellers match notification preferences' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ message: "No sellers match notification preferences" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const { data: subscriptions, error: subsError } = await supabase
-      .from('push_subscriptions')
-      .select('user_id, endpoint, p256dh, auth')
-      .in('user_id', sellerIds);
+      .from("push_subscriptions")
+      .select("user_id, endpoint, p256dh, auth")
+      .in("user_id", sellerIds);
 
     if (subsError) throw subsError;
 
     if (!subscriptions || subscriptions.length === 0) {
-      console.log('[send-push] No push subscriptions found for sellers');
       return new Response(
-        JSON.stringify({ message: 'No push subscriptions found for sellers' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ message: "No push subscriptions found for sellers" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     console.log(`[send-push] Sending to ${subscriptions.length} subscriptions`);
 
-    const results: Array<{ userId: string; success: boolean; error?: string }> = [];
+    const results: Array<{ userId: string; success: boolean; status?: number; error?: string }> = [];
 
     for (const subscription of subscriptions as PushSubscriptionRow[]) {
       const sellerData = notificationsBySeller[subscription.user_id];
@@ -190,35 +252,35 @@ serve(async (req) => {
       const clientCount = sellerData.clients.length;
       const mostUrgent = sellerData.mostUrgent;
 
-      let title = '⚠️ Vencimento Próximo';
+      let title = "⚠️ Vencimento Próximo";
       if (mostUrgent === 0) {
-        title = '🔴 Vencido Hoje!';
+        title = "🔴 Vencido Hoje!";
       } else if (mostUrgent === 1) {
-        title = '🟠 Vencimento Amanhã!';
+        title = "🟠 Vencimento Amanhã!";
       } else if (mostUrgent <= 3) {
         title = `⚠️ Vencimento em ${mostUrgent} dias`;
       }
 
-      let body = '';
+      let body = "";
       if (clientCount === 1) {
         const client = sellerData.clients[0];
         body = `${client.name}`;
         if (client.plan_price) {
-          body += ` - R$ ${client.plan_price.toFixed(2).replace('.', ',')}`;
+          body += ` - R$ ${client.plan_price.toFixed(2).replace(".", ",")}`;
         }
       } else {
         body = `${clientCount} clientes vencendo`;
         if (sellerData.totalAmount > 0) {
-          body += ` - R$ ${sellerData.totalAmount.toFixed(2).replace('.', ',')}`;
+          body += ` - R$ ${sellerData.totalAmount.toFixed(2).replace(".", ",")}`;
         }
       }
 
       const payload = JSON.stringify({
         title,
         body,
-        icon: '/logo.jpg',
-        badge: '/pwa-192x192.png',
-        url: '/clients',
+        icon: "/logo.jpg",
+        badge: "/pwa-192x192.png",
+        url: "/clients",
         tag: `expiration-${mostUrgent}`,
         daysRemaining: mostUrgent,
         totalAmount: sellerData.totalAmount,
@@ -230,27 +292,31 @@ serve(async (req) => {
         })),
       });
 
+      const sub = appServer.subscribe(toWebPushSubscription(subscription));
+
       try {
-        await webpush.sendNotification(toWebPushSubscription(subscription) as any, payload, {
-          TTL: 60 * 60 * 24,
-          urgency: 'high',
-        } as any);
+        await sub.pushTextMessage(payload, {
+          ttl: 60 * 60 * 24,
+          urgency: webpush.Urgency.High,
+          topic: `expiration-${mostUrgent}`,
+        });
 
-        console.log(`[send-push] Sent to ${subscription.user_id}`);
         results.push({ userId: subscription.user_id, success: true });
-      } catch (err: any) {
-        const errorMessage = err?.message ? String(err.message) : String(err);
-        const statusCode = err?.statusCode;
+      } catch (err) {
+        if (err instanceof webpush.PushMessageError) {
+          const status = err.response?.status;
+          const errorText = await err.response?.text().catch(() => undefined);
+          console.error("[send-push] PushMessageError:", subscription.user_id, status, errorText);
 
-        console.error('[send-push] Error sending push to', subscription.user_id, { statusCode, errorMessage });
-        results.push({ userId: subscription.user_id, success: false, error: errorMessage });
+          if (err.isGone()) {
+            await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
+          }
 
-        if (statusCode === 410 || statusCode === 404 || errorMessage.includes('410') || errorMessage.includes('404') || errorMessage.includes('expired')) {
-          console.log(`[send-push] Removing invalid subscription for ${subscription.user_id}`);
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('endpoint', subscription.endpoint);
+          results.push({ userId: subscription.user_id, success: false, status, error: errorText ?? err.toString() });
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error("[send-push] Unknown push error:", subscription.user_id, msg);
+          results.push({ userId: subscription.user_id, success: false, error: msg });
         }
       }
     }
@@ -263,14 +329,14 @@ serve(async (req) => {
         message: `Sent notifications to ${successCount} users`,
         results,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('[send-push] Error:', errorMessage);
+    console.error("[send-push] Error:", errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
