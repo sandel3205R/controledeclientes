@@ -11,9 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Search, KeyRound } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Search, KeyRound, Layers } from 'lucide-react';
 
 import { TempPasswordDialog } from '@/components/sellers/TempPasswordDialog';
+import { SellerPlanManager } from '@/components/sellers/SellerPlanManager';
 
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
@@ -105,6 +106,7 @@ export default function Sellers() {
   const [expiredFilter, setExpiredFilter] = useState<'all' | '7' | '15' | '30'>('all');
   const [moveToTrashConfirm, setMoveToTrashConfirm] = useState<SellerWithStats | null>(null);
   const [tempPasswordSeller, setTempPasswordSeller] = useState<SellerWithStats | null>(null);
+  const [planManagerSeller, setPlanManagerSeller] = useState<SellerWithStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [daysFilter, setDaysFilter] = useState<'all' | '3' | '7' | '15' | '30'>('all');
 
@@ -775,8 +777,44 @@ SANDEL`
               <Users className="w-4 h-4" />
               <span>Clientes</span>
             </div>
-            <Badge variant="secondary">{seller.clientCount}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{seller.clientCount}</Badge>
+              {seller.planInfo && (
+                <Badge variant="outline" className="text-[10px]">
+                  {seller.planInfo.max_clients ? `/ ${seller.planInfo.max_clients}` : '∞'}
+                </Badge>
+              )}
+            </div>
           </div>
+          
+          {/* Seller Plan Info */}
+          {!isTrash && (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Layers className="w-4 h-4" />
+                <span>Plano Vendedor</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge 
+                  variant={seller.has_unlimited_clients ? 'default' : 'secondary'}
+                  className={seller.has_unlimited_clients ? 'bg-primary/20 text-primary' : ''}
+                >
+                  {seller.planInfo?.name || 'Teste'}
+                  {seller.has_unlimited_clients && ' ∞'}
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0"
+                  onClick={() => setPlanManagerSeller(seller)}
+                  title="Gerenciar Plano"
+                >
+                  <Settings2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
@@ -1518,6 +1556,18 @@ SANDEL`
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Seller Plan Manager */}
+        <SellerPlanManager
+          open={!!planManagerSeller}
+          onOpenChange={(open) => !open && setPlanManagerSeller(null)}
+          sellerId={planManagerSeller?.id || ''}
+          sellerName={planManagerSeller?.full_name || planManagerSeller?.email || ''}
+          currentPlanId={planManagerSeller?.seller_plan_id || null}
+          hasUnlimitedClients={planManagerSeller?.has_unlimited_clients || false}
+          clientCount={planManagerSeller?.clientCount || 0}
+          onSuccess={fetchSellers}
+        />
 
       </div>
     </AppLayout>
