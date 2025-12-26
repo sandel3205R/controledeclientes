@@ -37,7 +37,7 @@ function isPem(key: string): boolean {
   return /-----BEGIN [^-]+-----/.test(key);
 }
 
-function pemToBytes(pem: string): Uint8Array {
+function pemToBytes(pem: string): ArrayBuffer {
   const sanitized = pem
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")
@@ -46,9 +46,10 @@ function pemToBytes(pem: string): Uint8Array {
 
   try {
     const binary = atob(sanitized);
-    const out = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-    return out;
+    const buffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+    return buffer;
   } catch {
     throw new Error("Falha ao decodificar chave PEM (base64 inválido)");
   }
@@ -76,10 +77,10 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 }
 
 async function jwkFromPkcs8Pem(pem: string): Promise<Required<Pick<JsonWebKey, "x" | "y" | "d">>> {
-  const pkcs8 = pemToBytes(pem);
+  const pkcs8Buffer = pemToBytes(pem);
   const key = await crypto.subtle.importKey(
     "pkcs8",
-    pkcs8,
+    pkcs8Buffer,
     { name: "ECDSA", namedCurve: "P-256" },
     true,
     ["sign"],
@@ -93,10 +94,10 @@ async function jwkFromPkcs8Pem(pem: string): Promise<Required<Pick<JsonWebKey, "
 }
 
 async function jwkFromSpkiPem(pem: string): Promise<Required<Pick<JsonWebKey, "x" | "y">>> {
-  const spki = pemToBytes(pem);
+  const spkiBuffer = pemToBytes(pem);
   const key = await crypto.subtle.importKey(
     "spki",
-    spki,
+    spkiBuffer,
     { name: "ECDSA", namedCurve: "P-256" },
     true,
     [],

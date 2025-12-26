@@ -119,7 +119,7 @@ export function usePushSubscription() {
 
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey,
+        applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
       });
 
       const subscriptionJson = subscription.toJSON();
