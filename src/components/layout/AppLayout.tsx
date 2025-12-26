@@ -7,7 +7,7 @@ import ThemeSwitcher from '@/components/ThemeSwitcher';
 import ThemeBackground from '@/components/ThemeBackground';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
-import { PushNotificationToggle } from '@/components/PushNotificationToggle';
+import { PushNotificationsBell } from '@/modules/notifications/PushNotificationsBell';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSharedPanels } from '@/hooks/useSharedPanels';
 import { SharedPanelsBadge } from '@/components/shared-panels/SharedPanelsBadge';
@@ -288,7 +288,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   </div>
                 </PopoverContent>
               </Popover>
-              <PushNotificationToggle />
+              <PushNotificationsBell />
               <ForceUpdateButton variant="minimal" showLabel={false} />
               <ThemeSwitcher />
             </div>
