@@ -39,18 +39,11 @@ async function getVapidPublicKey(): Promise<string> {
   return publicKey;
 }
 
-function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-
-  return outputArray.buffer as ArrayBuffer;
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
 }
 
 export function usePushSubscription() {
@@ -229,14 +222,14 @@ export function usePushSubscription() {
       const vapidPublicKey = await getVapidPublicKey();
       console.log("[Push] Got VAPID key, length:", vapidPublicKey.length);
       
-      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-      console.log("[Push] Application server key bytes:", applicationServerKey.byteLength);
+      const vapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      console.log("[Push] Application server key bytes:", vapidKey.length);
 
       // Subscribe to push
       console.log("[Push] Subscribing to push manager...");
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey,
+        applicationServerKey: vapidKey.buffer as ArrayBuffer,
       });
       console.log("[Push] Subscribed successfully:", subscription.endpoint);
 
