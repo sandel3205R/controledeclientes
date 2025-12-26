@@ -23,11 +23,11 @@ export function usePushNotifications() {
         setPermission(Notification.permission);
         
         try {
-          // Always register/get the service worker on load
-          const reg = await navigator.serviceWorker.register('/sw-push.js', {
-            scope: '/'
+          // Register push-specific service worker in an isolated scope to avoid conflicts
+          // with the PWA service worker (vite-plugin-pwa).
+          const reg = await navigator.serviceWorker.register('/push/sw-push.js', {
+            scope: '/push/',
           });
-          await navigator.serviceWorker.ready;
           setRegistration(reg);
         } catch (error) {
           console.error('Error registering service worker:', error);
@@ -96,10 +96,9 @@ export function usePushNotifications() {
       // Use existing registration or register new one
       let reg = registration;
       if (!reg) {
-        reg = await navigator.serviceWorker.register('/sw-push.js', {
-          scope: '/'
+        reg = await navigator.serviceWorker.register('/push/sw-push.js', {
+          scope: '/push/',
         });
-        await navigator.serviceWorker.ready;
         setRegistration(reg);
       }
 
@@ -144,8 +143,8 @@ export function usePushNotifications() {
     try {
       setIsLoading(true);
 
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      const reg = registration ?? (await navigator.serviceWorker.getRegistration('/push/'));
+      const subscription = await reg?.pushManager.getSubscription();
 
       if (subscription) {
         // Remove from database
