@@ -175,6 +175,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   }, [open]);
 
   useEffect(() => {
+    if (!open) return; // Only reset when dialog opens
+    
     if (client) {
       // Parse device string to extract predefined devices and custom device
       const deviceString = client.device || '';
@@ -257,7 +259,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         screens: '1',
       });
     }
-  }, [client, reset]);
+  }, [open, client, reset]);
 
   const handleDeviceChange = (deviceId: string, checked: boolean) => {
     setSelectedDevices(prev => 
