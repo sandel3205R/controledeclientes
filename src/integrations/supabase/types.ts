@@ -479,10 +479,12 @@ export type Database = {
           email: string
           full_name: string | null
           has_pro_export: boolean | null
+          has_unlimited_clients: boolean | null
           id: string
           is_active: boolean | null
           is_permanent: boolean | null
           pro_export_expires_at: string | null
+          seller_plan_id: string | null
           subscription_expires_at: string | null
           temp_password_expires_at: string | null
           updated_at: string | null
@@ -495,10 +497,12 @@ export type Database = {
           email: string
           full_name?: string | null
           has_pro_export?: boolean | null
+          has_unlimited_clients?: boolean | null
           id: string
           is_active?: boolean | null
           is_permanent?: boolean | null
           pro_export_expires_at?: string | null
+          seller_plan_id?: string | null
           subscription_expires_at?: string | null
           temp_password_expires_at?: string | null
           updated_at?: string | null
@@ -511,16 +515,26 @@ export type Database = {
           email?: string
           full_name?: string | null
           has_pro_export?: boolean | null
+          has_unlimited_clients?: boolean | null
           id?: string
           is_active?: boolean | null
           is_permanent?: boolean | null
           pro_export_expires_at?: string | null
+          seller_plan_id?: string | null
           subscription_expires_at?: string | null
           temp_password_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_seller_plan_id_fkey"
+            columns: ["seller_plan_id"]
+            isOneToOne: false
+            referencedRelation: "seller_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -612,6 +626,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      seller_plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_best_value: boolean | null
+          max_clients: number | null
+          name: string
+          price_monthly: number
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_best_value?: boolean | null
+          max_clients?: number | null
+          name: string
+          price_monthly?: number
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_best_value?: boolean | null
+          max_clients?: number | null
+          name?: string
+          price_monthly?: number
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       servers: {
         Row: {
