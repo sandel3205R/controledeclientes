@@ -21,6 +21,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addDays, differenceInDays } from 'date-fns';
 
+interface SellerPlan {
+  id: string;
+  name: string;
+  slug: string;
+  max_clients: number | null;
+  price_monthly: number;
+  is_best_value: boolean;
+}
+
 interface SellerProfile {
   id: string;
   email: string;
@@ -31,6 +40,8 @@ interface SellerProfile {
   deleted_at: string | null;
   subscription_expires_at: string | null;
   is_permanent: boolean | null;
+  seller_plan_id: string | null;
+  has_unlimited_clients: boolean | null;
 }
 
 const sellerSchema = z.object({
@@ -51,6 +62,7 @@ type UpdateForm = z.infer<typeof updateSchema>;
 
 interface SellerWithStats extends SellerProfile {
   clientCount: number;
+  planInfo?: SellerPlan | null;
 }
 
 // Format phone number as +55 31 95555-5555
@@ -132,6 +144,14 @@ export default function Sellers() {
       setRetentionDays(parseInt(settingsData.value) || 30);
     }
 
+    // Fetch seller plans
+    const { data: plansData } = await supabase
+      .from('seller_plans')
+      .select('*')
+      .eq('is_active', true);
+
+    const plansMap = new Map((plansData || []).map(p => [p.id, p]));
+
     const { data: profiles, error } = await supabase
       .from('profiles')
       .select('*')
@@ -153,8 +173,9 @@ export default function Sellers() {
         return { 
           ...profile, 
           clientCount: count || 0,
-          is_active: profile.is_active ?? true 
-        };
+          is_active: profile.is_active ?? true,
+          planInfo: profile.seller_plan_id ? plansMap.get(profile.seller_plan_id) : null
+        } as SellerWithStats;
       })
     );
 
