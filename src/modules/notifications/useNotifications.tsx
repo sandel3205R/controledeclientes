@@ -38,22 +38,32 @@ export function useNotifications() {
     return supported;
   }, []);
 
-  // Registrar Service Worker
+  // Registrar Service Worker (usa o registration ativo/controlador quando existir)
   const registerServiceWorker = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     try {
-      console.log('[Notifications] Registrando Service Worker...');
-      
-      const registration = await navigator.serviceWorker.register('/sw-push.js', {
-        scope: '/'
-      });
-      
-      await navigator.serviceWorker.ready;
-      console.log('[Notifications] Service Worker registrado com sucesso');
-      
-      setState(prev => ({ ...prev, swRegistration: registration }));
-      return registration;
+      console.log('[Notifications] Garantindo Service Worker...');
+
+      const existing = await navigator.serviceWorker.getRegistration('/');
+      const existingUrl =
+        existing?.active?.scriptURL ??
+        existing?.waiting?.scriptURL ??
+        existing?.installing?.scriptURL ??
+        '';
+
+      // Se não houver SW ou ele não for o SW de push, registra/atualiza para o correto
+      if (!existing || !existingUrl.includes('/sw-push.js')) {
+        await navigator.serviceWorker.register('/sw-push.js', { scope: '/' });
+      }
+
+      // Sempre use o registration que está pronto/controlando a página
+      const readyRegistration = await navigator.serviceWorker.ready;
+
+      console.log('[Notifications] Service Worker pronto:', readyRegistration.scope);
+      setState(prev => ({ ...prev, swRegistration: readyRegistration }));
+
+      return readyRegistration;
     } catch (error) {
-      console.error('[Notifications] Erro ao registrar SW:', error);
+      console.error('[Notifications] Erro ao garantir SW:', error);
       setState(prev => ({ ...prev, error: 'Erro ao registrar Service Worker' }));
       return null;
     }
@@ -205,14 +215,17 @@ export function useNotifications() {
         .eq('user_id', user.id);
 
       // 2. Cancelar subscription do navegador
-      if (state.swRegistration) {
-        const subscription = await state.swRegistration.pushManager.getSubscription();
-        if (subscription) {
-          await subscription.unsubscribe();
-        }
+      const registration =
+        state.swRegistration ??
+        (await navigator.serviceWorker.getRegistration('/')) ??
+        (await navigator.serviceWorker.ready);
+
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
       }
 
-      setState(prev => ({ ...prev, isSubscribed: false, isLoading: false }));
+      setState(prev => ({ ...prev, isSubscribed: false, isLoading: false, swRegistration: registration }));
       toast.success('Notificações desativadas');
       return true;
 
