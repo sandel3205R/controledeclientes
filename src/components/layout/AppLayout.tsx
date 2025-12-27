@@ -28,11 +28,11 @@ import {
   Clock,
   Ticket,
   Gift,
-  Users2,
   Share2,
   Copy,
   Check,
   Receipt,
+  History,
 } from 'lucide-react';
 import {
   Popover,
@@ -118,6 +118,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: Ticket, label: 'Cupons', path: '/coupons' },
     { icon: Gift, label: 'Indicações', path: '/referrals' },
     { icon: MessageSquare, label: 'Templates', path: '/templates' },
+    { icon: History, label: 'Histórico Mensagens', path: '/messages' },
     { icon: Settings, label: 'Configurações', path: '/settings' },
   ];
 
