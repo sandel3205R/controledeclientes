@@ -22,6 +22,7 @@ import Install from "./pages/Install";
 import Servers from "./pages/Servers";
 import Backup from "./pages/Backup";
 import Bills from "./pages/Bills";
+import MessageHistory from "./pages/MessageHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -177,6 +178,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Backup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <MessageHistory />
           </ProtectedRoute>
         }
       />

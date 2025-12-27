@@ -411,6 +411,56 @@ export type Database = {
         }
         Relationships: []
       }
+      message_history: {
+        Row: {
+          client_id: string | null
+          client_name: string
+          client_phone: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_status: string
+          id: string
+          message_content: string
+          message_type: string
+          seller_id: string
+          sent_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name: string
+          client_phone?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: string
+          id?: string
+          message_content: string
+          message_type: string
+          seller_id: string
+          sent_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string
+          client_phone?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: string
+          id?: string
+          message_content?: string
+          message_type?: string
+          seller_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
