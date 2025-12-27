@@ -69,11 +69,41 @@ export function useNotifications() {
     }
   }, []);
 
-  // Verificar se já está inscrito
+  // Verificar se já está inscrito e sincronizar com o banco se necessário
   const checkSubscription = useCallback(async (registration: ServiceWorkerRegistration) => {
     try {
       const subscription = await registration.pushManager.getSubscription();
       const isSubscribed = !!subscription;
+      
+      console.log('[Notifications] Subscription existente no navegador:', isSubscribed);
+      
+      // Se há subscription no navegador E usuário logado, sincronizar com o banco
+      if (subscription && user) {
+        const subscriptionJSON = subscription.toJSON();
+        
+        // Verificar se já existe no banco
+        const { data: existingInDb } = await supabase
+          .from('push_subscriptions')
+          .select('id, endpoint')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        // Se não existe ou endpoint mudou, atualizar
+        if (!existingInDb || existingInDb.endpoint !== subscriptionJSON.endpoint) {
+          console.log('[Notifications] Sincronizando subscription com o banco...');
+          await supabase
+            .from('push_subscriptions')
+            .upsert({
+              user_id: user.id,
+              endpoint: subscriptionJSON.endpoint!,
+              p256dh: subscriptionJSON.keys!.p256dh,
+              auth: subscriptionJSON.keys!.auth,
+            }, {
+              onConflict: 'user_id'
+            });
+          console.log('[Notifications] Subscription sincronizada com sucesso');
+        }
+      }
       
       setState(prev => ({ ...prev, isSubscribed }));
       return isSubscribed;
@@ -81,7 +111,7 @@ export function useNotifications() {
       console.error('[Notifications] Erro ao verificar inscrição:', error);
       return false;
     }
-  }, []);
+  }, [user]);
 
   // Converter VAPID key para ArrayBuffer
   const urlBase64ToUint8Array = (base64String: string): ArrayBuffer => {
@@ -265,7 +295,7 @@ export function useNotifications() {
     }
   }, [user]);
 
-  // Inicialização
+  // Inicialização - roda quando o usuário muda também (login/logout)
   useEffect(() => {
     const init = async () => {
       if (!checkSupport()) {
@@ -282,7 +312,7 @@ export function useNotifications() {
     };
 
     init();
-  }, [checkSupport, registerServiceWorker, checkSubscription]);
+  }, [user, checkSupport, registerServiceWorker, checkSubscription]);
 
   return {
     ...state,
