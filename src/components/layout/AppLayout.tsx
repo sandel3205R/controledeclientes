@@ -2,12 +2,14 @@ import { ReactNode, useState } from 'react';
 import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePasswordUpdateCheck } from '@/hooks/usePasswordUpdateCheck';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import ThemeBackground from '@/components/ThemeBackground';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
+import { ForcePasswordUpdateDialog } from '@/components/auth/ForcePasswordUpdateDialog';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSharedPanels } from '@/hooks/useSharedPanels';
@@ -58,6 +60,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { availableSlots } = useSharedPanels();
+  const { needsPasswordUpdate, markPasswordUpdated } = usePasswordUpdateCheck();
 
   const appUrl = window.location.origin;
 
@@ -338,6 +341,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Subscription Expired Dialog */}
       <SubscriptionExpiredDialog />
+
+      {/* Force Password Update Dialog */}
+      <ForcePasswordUpdateDialog 
+        open={needsPasswordUpdate} 
+        onPasswordUpdated={markPasswordUpdated} 
+      />
 
       {/* Onboarding Tour for new sellers */}
       {!isAdmin && <OnboardingTour />}

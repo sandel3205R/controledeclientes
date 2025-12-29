@@ -193,11 +193,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    // Update profile with whatsapp after signup
-    if (!error && data.user && whatsapp) {
+    // Update profile with whatsapp and mark password as already strong (user just signed up with new requirements)
+    if (!error && data.user) {
+      const updateData: { whatsapp?: string; needs_password_update: boolean } = { 
+        needs_password_update: false 
+      };
+      if (whatsapp) {
+        updateData.whatsapp = whatsapp;
+      }
+      
       await supabase
         .from('profiles')
-        .update({ whatsapp })
+        .update(updateData)
         .eq('id', data.user.id);
     }
 
