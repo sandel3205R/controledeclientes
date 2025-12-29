@@ -97,7 +97,11 @@ export default function Sellers() {
   const [tempPasswordSeller, setTempPasswordSeller] = useState<SellerWithStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [daysFilter, setDaysFilter] = useState<'all' | '3' | '7' | '15' | '30'>('all');
-
+  
+  // Confirmation states for plan actions
+  const [makePermanentConfirm, setMakePermanentConfirm] = useState<SellerWithStats | null>(null);
+  const [removePermanentConfirm, setRemovePermanentConfirm] = useState<SellerWithStats | null>(null);
+  const [activatePlanConfirm, setActivatePlanConfirm] = useState<{ seller: SellerWithStats; days: number } | null>(null);
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
     defaultValues: {
@@ -816,7 +820,7 @@ SANDEL`
               variant="outline" 
               size="sm" 
               className="flex-1"
-              onClick={() => activatePlan(seller.id, 5)}
+              onClick={() => setActivatePlanConfirm({ seller, days: 5 })}
             >
               <Gift className="w-4 h-4 mr-1" />
               +5 dias
@@ -825,7 +829,7 @@ SANDEL`
               variant="gradient" 
               size="sm" 
               className="flex-1"
-              onClick={() => activatePlan(seller.id, 30)}
+              onClick={() => setActivatePlanConfirm({ seller, days: 30 })}
             >
               <CreditCard className="w-4 h-4 mr-1" />
               +30 dias
@@ -833,7 +837,7 @@ SANDEL`
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => makePermanent(seller.id)}
+              onClick={() => setMakePermanentConfirm(seller)}
               title="Tornar permanente"
             >
               <Crown className="w-4 h-4" />
@@ -848,7 +852,7 @@ SANDEL`
               variant="outline" 
               size="sm" 
               className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10"
-              onClick={() => removePermanent(seller.id)}
+              onClick={() => setRemovePermanentConfirm(seller)}
             >
               <Crown className="w-4 h-4 mr-1" />
               Remover Permanente
@@ -1546,6 +1550,113 @@ SANDEL`
                     Esvaziar Lixeira
                   </>
                 )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Make Permanent Confirmation */}
+        <AlertDialog open={!!makePermanentConfirm} onOpenChange={(open) => !open && setMakePermanentConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-primary" />
+                Tornar Permanente
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <p>
+                  Você realmente deseja tornar <strong>{makePermanentConfirm?.full_name || makePermanentConfirm?.email}</strong> um vendedor permanente?
+                </p>
+                <p className="mt-2 text-sm">
+                  Vendedores permanentes não possuem data de expiração e terão acesso vitalício ao sistema.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (makePermanentConfirm) {
+                    makePermanent(makePermanentConfirm.id);
+                    setMakePermanentConfirm(null);
+                  }
+                }}
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Sim, Tornar Permanente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Remove Permanent Confirmation */}
+        <AlertDialog open={!!removePermanentConfirm} onOpenChange={(open) => !open && setRemovePermanentConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-destructive" />
+                Remover Status Permanente
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <p>
+                  Você realmente deseja remover o status permanente de <strong>{removePermanentConfirm?.full_name || removePermanentConfirm?.email}</strong>?
+                </p>
+                <p className="mt-2 text-sm">
+                  O vendedor receberá um plano de 30 dias a partir de hoje.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (removePermanentConfirm) {
+                    removePermanent(removePermanentConfirm.id);
+                    setRemovePermanentConfirm(null);
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Sim, Remover Permanente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Activate Plan Confirmation */}
+        <AlertDialog open={!!activatePlanConfirm} onOpenChange={(open) => !open && setActivatePlanConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                {activatePlanConfirm?.days === 5 ? (
+                  <Gift className="w-5 h-5 text-primary" />
+                ) : (
+                  <CreditCard className="w-5 h-5 text-primary" />
+                )}
+                Adicionar {activatePlanConfirm?.days} Dias
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <p>
+                  Você realmente deseja adicionar <strong>{activatePlanConfirm?.days} dias</strong> ao plano de <strong>{activatePlanConfirm?.seller.full_name || activatePlanConfirm?.seller.email}</strong>?
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {activatePlanConfirm?.seller.subscription_expires_at 
+                    ? `Data de expiração atual: ${format(new Date(activatePlanConfirm.seller.subscription_expires_at), 'dd/MM/yyyy')}`
+                    : 'O vendedor não possui plano ativo.'}
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (activatePlanConfirm) {
+                    activatePlan(activatePlanConfirm.seller.id, activatePlanConfirm.days);
+                    setActivatePlanConfirm(null);
+                  }
+                }}
+              >
+                Sim, Adicionar {activatePlanConfirm?.days} Dias
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
