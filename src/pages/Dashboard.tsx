@@ -13,6 +13,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { ValueVisibilityProvider, useValueVisibility } from '@/hooks/useValueVisibility';
+import AdminMessagesManager from '@/components/admin/AdminMessagesManager';
+import AdminMessagesBanner from '@/components/admin/AdminMessagesBanner';
 
 interface SellerDashboardStats {
   totalClients: number;
@@ -602,6 +604,9 @@ ${ADMIN_NAME}`;
               </CardContent>
             </Card>
           )}
+
+          {/* Admin Messages Manager */}
+          <AdminMessagesManager />
         </div>
       </AppLayout>
     );
@@ -611,6 +616,9 @@ ${ADMIN_NAME}`;
   return (
     <AppLayout>
       <div className="space-y-6">
+        {/* Admin Messages Banner */}
+        <AdminMessagesBanner />
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold">Meu Dashboard</h1>
