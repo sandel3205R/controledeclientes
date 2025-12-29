@@ -138,19 +138,34 @@ export default function Bills() {
     return <Badge variant="secondary">{daysUntilDue} dias</Badge>;
   };
 
+  const formatDynamicDate = (dueDate: string): string => {
+    const due = new Date(dueDate);
+    const today = new Date();
+    const daysUntil = differenceInDays(due, today);
+    
+    if (daysUntil < 0) return `no dia ${format(due, "dd/MM/yyyy")}`;
+    if (daysUntil === 0) return "hoje";
+    if (daysUntil === 1) return "amanhã";
+    if (daysUntil <= 7) return `em ${daysUntil} dias`;
+    return `no dia ${format(due, "dd/MM/yyyy")}`;
+  };
+
   const handleWhatsAppClick = (whatsapp: string, bill: Bill) => {
     const phone = whatsapp.replace(/\D/g, "");
+    const dynamicDate = formatDynamicDate(bill.due_date);
+    const formattedValue = bill.amount.toFixed(2).replace(".", ",");
     const message = encodeURIComponent(
-      `Olá ${bill.recipient_name}! Gostaria de tratar sobre o pagamento de R$ ${bill.amount.toFixed(2).replace(".", ",")} referente a: ${bill.description}`
+      `Oi ${bill.recipient_name}! 😊\n\nPassando aqui pra lembrar que tenho um pagamento pendente com você no valor de *R$ ${formattedValue}* referente a *${bill.description}*.\n\nO vencimento é ${dynamicDate}.\n\nPodemos acertar? 🙏`
     );
     window.open(`https://wa.me/55${phone}?text=${message}`, "_blank");
   };
 
   const handleTelegramClick = (telegram: string, bill: Bill) => {
     const username = telegram.replace(/^@/, '');
-    const formattedDate = format(new Date(bill.due_date), "dd/MM/yyyy");
+    const dynamicDate = formatDynamicDate(bill.due_date);
+    const formattedValue = bill.amount.toFixed(2).replace(".", ",");
     const message = encodeURIComponent(
-      `Olá ${bill.recipient_name}, tenho que te pagar dia ${formattedDate} referente a: ${bill.description} - R$ ${bill.amount.toFixed(2).replace(".", ",")}`
+      `Oi ${bill.recipient_name}!\n\nPassando para lembrar do pagamento de R$ ${formattedValue} referente a "${bill.description}".\n\nO vencimento é ${dynamicDate}.\n\nVamos acertar?`
     );
     window.open(`https://t.me/${username}?text=${message}`, "_blank");
   };
