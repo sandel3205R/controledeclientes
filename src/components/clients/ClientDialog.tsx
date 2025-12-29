@@ -477,17 +477,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input 
-              id="email" 
-              type="email"
-              {...register('email')} 
-              placeholder="email@exemplo.com" 
-            />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="plan_name">Plano</Label>
