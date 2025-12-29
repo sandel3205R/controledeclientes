@@ -12,7 +12,6 @@ import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle, Graduatio
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationCard } from '@/modules/notifications/NotificationCard';
-import { MyPlanCard } from '@/components/settings/MyPlanCard';
 import AccountCategoriesManager from '@/components/categories/AccountCategoriesManager';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -191,9 +190,6 @@ export default function Settings() {
 
         {/* Notification Settings */}
         <NotificationCard />
-
-        {/* My Plan - Sellers Only */}
-        {!isAdmin && <MyPlanCard />}
 
         {/* Account Categories - Sellers Only */}
         {!isAdmin && <AccountCategoriesManager />}
