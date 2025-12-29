@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
@@ -152,9 +152,8 @@ export function ForcePasswordUpdateDialog({ open, onPasswordUpdated }: ForcePass
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="new-password">Nova Senha</Label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               placeholder="Digite sua nova senha"
               value={password}
               onChange={handlePasswordChange}
@@ -171,9 +170,8 @@ export function ForcePasswordUpdateDialog({ open, onPasswordUpdated }: ForcePass
 
           <div className="space-y-2">
             <Label htmlFor="confirm-new-password">Confirmar Nova Senha</Label>
-            <Input
+            <PasswordInput
               id="confirm-new-password"
-              type="password"
               placeholder="Confirme sua nova senha"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
