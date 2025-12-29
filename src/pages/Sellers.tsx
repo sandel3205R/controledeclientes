@@ -426,6 +426,24 @@ export default function Sellers() {
     }
   };
 
+  const removePermanent = async (sellerId: string) => {
+    try {
+      // Set 30 days from now as the new expiration
+      const newExpiration = addDays(new Date(), 30);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_permanent: false, subscription_expires_at: newExpiration.toISOString() })
+        .eq('id', sellerId);
+
+      if (error) throw error;
+
+      toast.success('Status permanente removido! Plano de 30 dias ativado.');
+      fetchSellers();
+    } catch (error: any) {
+      toast.error('Erro ao remover status permanente');
+    }
+  };
+
   const getSubscriptionStatus = (seller: SellerWithStats) => {
     if (seller.is_permanent) {
       return { label: 'Permanente', class: 'bg-primary/20 text-primary', icon: Crown };
@@ -819,6 +837,21 @@ SANDEL`
               title="Tornar permanente"
             >
               <Crown className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Remove Permanent Status */}
+        {!isTrash && seller.is_permanent && (
+          <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10"
+              onClick={() => removePermanent(seller.id)}
+            >
+              <Crown className="w-4 h-4 mr-1" />
+              Remover Permanente
             </Button>
           </div>
         )}
