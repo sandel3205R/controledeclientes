@@ -21,7 +21,8 @@ const authSchema = z.object({
     .min(8, 'Senha deve ter no mínimo 8 caracteres')
     .regex(/[a-z]/, 'Senha deve conter letra minúscula')
     .regex(/[A-Z]/, 'Senha deve conter letra maiúscula')
-    .regex(/[0-9]/, 'Senha deve conter número'),
+    .regex(/[0-9]/, 'Senha deve conter número')
+    .regex(/[^a-zA-Z0-9]/, 'Senha deve conter símbolo especial (!@#$%...)'),
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').optional(),
   whatsapp: z.string().min(10, 'WhatsApp é obrigatório para renovação').optional(),
 });
@@ -357,7 +358,7 @@ export default function Auth() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">
-                  Senha {!isLogin && <span className="text-muted-foreground text-xs">(mín. 8 caracteres)</span>}
+                  Senha <span className="text-muted-foreground text-xs">(mín. 8 caracteres + maiúscula + minúscula + número + símbolo)</span>
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

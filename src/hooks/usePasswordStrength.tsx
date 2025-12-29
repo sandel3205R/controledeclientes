@@ -28,18 +28,23 @@ const calculateStrength = (password: string): PasswordStrength => {
   if (password.length >= 12) score++;
   if (password.length < 8) feedback.push('Use pelo menos 8 caracteres');
 
-  // Complexity checks
-  if (/[a-z]/.test(password)) score += 0.5;
+  // Complexity checks - all are required
+  const hasLowercase = /[a-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSymbol = /[^a-zA-Z0-9]/.test(password);
+
+  if (hasLowercase) score += 0.5;
   else feedback.push('Adicione letras minúsculas');
 
-  if (/[A-Z]/.test(password)) score += 0.5;
+  if (hasUppercase) score += 0.5;
   else feedback.push('Adicione letras maiúsculas');
 
-  if (/[0-9]/.test(password)) score += 0.5;
+  if (hasNumber) score += 0.5;
   else feedback.push('Adicione números');
 
-  if (/[^a-zA-Z0-9]/.test(password)) score += 0.5;
-  else feedback.push('Adicione caracteres especiais (!@#$%...)');
+  if (hasSymbol) score += 0.5;
+  else feedback.push('Adicione símbolo especial (!@#$%...)');
 
   // Common patterns to avoid
   const commonPatterns = [
