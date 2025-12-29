@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MessageCircle, Send, Users, Clock, AlertTriangle, CheckCircle, DollarSign, AlertCircle } from 'lucide-react';
+import { MessageCircle, Send, Users, Clock, AlertTriangle, CheckCircle, DollarSign, AlertCircle, SkipForward, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -66,6 +66,9 @@ export default function BulkMessageDialog({
   const [daysFilter, setDaysFilter] = useState<string>('7');
   const [isSending, setIsSending] = useState(false);
   const [sentCount, setSentCount] = useState(0);
+  const [sendMode, setSendMode] = useState<'auto' | 'manual'>('manual');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isManualSending, setIsManualSending] = useState(false);
 
   const getClientStatus = (expDate: string) => {
     const date = new Date(expDate);
@@ -163,18 +166,30 @@ export default function BulkMessageDialog({
     return phone.replace(/\D/g, '');
   };
 
+  const getClientsToMessage = () => {
+    return filteredClients.filter((c) => selectedClients.has(c.id));
+  };
+
   const sendMessages = async () => {
-    const clientsToMessage = filteredClients.filter((c) => selectedClients.has(c.id));
+    const clientsToMessage = getClientsToMessage();
     
     if (clientsToMessage.length === 0) {
       toast.error('Selecione pelo menos um cliente');
       return;
     }
 
+    if (sendMode === 'manual') {
+      // Start manual sending mode
+      setIsManualSending(true);
+      setCurrentIndex(0);
+      setSentCount(0);
+      return;
+    }
+
+    // Auto mode - send all with delay
     setIsSending(true);
     setSentCount(0);
 
-    // Open WhatsApp for each client with a small delay
     for (let i = 0; i < clientsToMessage.length; i++) {
       const client = clientsToMessage[i];
       const message = getMessageForClient(client);
@@ -183,7 +198,6 @@ export default function BulkMessageDialog({
       window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
       setSentCount(i + 1);
       
-      // Small delay between opening tabs to avoid browser blocking
       if (i < clientsToMessage.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
@@ -193,6 +207,43 @@ export default function BulkMessageDialog({
     toast.success(`${clientsToMessage.length} mensagens enviadas!`);
     onOpenChange(false);
     setSelectedClients(new Set());
+  };
+
+  const sendCurrentMessage = () => {
+    const clientsToMessage = getClientsToMessage();
+    const client = clientsToMessage[currentIndex];
+    
+    if (!client) return;
+    
+    const message = getMessageForClient(client);
+    const phone = formatPhone(client.phone!);
+    
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    setSentCount(currentIndex + 1);
+  };
+
+  const goToNext = () => {
+    const clientsToMessage = getClientsToMessage();
+    if (currentIndex < clientsToMessage.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      // Finished all
+      toast.success(`${clientsToMessage.length} mensagens enviadas!`);
+      setIsManualSending(false);
+      setCurrentIndex(0);
+      setSentCount(0);
+      onOpenChange(false);
+      setSelectedClients(new Set());
+    }
+  };
+
+  const cancelManualSending = () => {
+    setIsManualSending(false);
+    setCurrentIndex(0);
+    setSentCount(0);
+    if (sentCount > 0) {
+      toast.info(`${sentCount} mensagens foram enviadas`);
+    }
   };
 
   const messageTypeLabels = {
@@ -274,6 +325,29 @@ export default function BulkMessageDialog({
                   <SelectItem value="15">Próximos 15 dias</SelectItem>
                   <SelectItem value="30">Próximos 30 dias</SelectItem>
                   <SelectItem value="expired">Já vencidos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 col-span-2">
+              <label className="text-sm font-medium">Modo de Envio</label>
+              <Select value={sendMode} onValueChange={(v) => setSendMode(v as 'auto' | 'manual')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">
+                    <span className="flex items-center gap-2">
+                      <Play className="w-4 h-4 text-blue-500" />
+                      Um por um (recomendado)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="auto">
+                    <span className="flex items-center gap-2">
+                      <SkipForward className="w-4 h-4 text-orange-500" />
+                      Automático (abre todas as abas)
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -380,34 +454,90 @@ export default function BulkMessageDialog({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <p className="text-xs text-muted-foreground">
-              {isSending && `Enviando ${sentCount}/${selectedClients.size}...`}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={sendMessages}
-                disabled={selectedClients.size === 0 || isSending}
-                className="min-w-[140px]"
-              >
-                {isSending ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Enviar ({selectedClients.size})
-                  </>
-                )}
-              </Button>
+          {/* Manual Sending Mode UI */}
+          {isManualSending && (
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                    {currentIndex + 1}
+                  </div>
+                  <div>
+                    <p className="font-medium">{getClientsToMessage()[currentIndex]?.name}</p>
+                    <p className="text-xs text-muted-foreground">{getClientsToMessage()[currentIndex]?.phone}</p>
+                  </div>
+                </div>
+                <Badge variant="outline">
+                  {currentIndex + 1} de {getClientsToMessage().length}
+                </Badge>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={cancelManualSending}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={sendCurrentMessage}
+                  className="flex-1"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Enviar Mensagem
+                </Button>
+                <Button 
+                  onClick={goToNext}
+                  variant={currentIndex < getClientsToMessage().length - 1 ? "secondary" : "default"}
+                  className="flex-1"
+                >
+                  {currentIndex < getClientsToMessage().length - 1 ? (
+                    <>
+                      <SkipForward className="w-4 h-4 mr-2" />
+                      Próximo
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Finalizar
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Actions */}
+          {!isManualSending && (
+            <div className="flex items-center justify-between pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                {isSending && `Enviando ${sentCount}/${selectedClients.size}...`}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={sendMessages}
+                  disabled={selectedClients.size === 0 || isSending}
+                  className="min-w-[140px]"
+                >
+                  {isSending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      {sendMode === 'manual' ? 'Iniciar Envio' : `Enviar (${selectedClients.size})`}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
