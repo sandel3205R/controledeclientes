@@ -4,9 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign, Users, Crown, Terminal, Radio } from 'lucide-react';
+import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign, Users, Crown, Terminal, Radio, Tag } from 'lucide-react';
 import { useSharedPanels, SharedPanel } from '@/hooks/useSharedPanels';
 import { useSellerPlan } from '@/hooks/useSellerPlan';
+import { useAccountCategories } from '@/hooks/useAccountCategories';
 import { UpgradeModal } from '@/components/sellers/UpgradeModal';
 import {
   Dialog,
@@ -148,6 +149,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { encryptCredentials } = useCrypto();
   const { panels, fetchPanels } = useSharedPanels();
+  const { allCategories } = useAccountCategories();
   const { currentPlan, allPlans, clientCount, canAddClient, remainingClients, hasUnlimitedClients, refresh: refreshPlan } = useSellerPlan();
 
   const {
@@ -519,23 +521,22 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               <Label>Tipo de Conta</Label>
               <Select value={selectedAccountType || 'none'} onValueChange={(v) => setSelectedAccountType(v === 'none' ? null : v)}>
                 <SelectTrigger className={cn(
-                  selectedAccountType === 'premium' && "border-yellow-500/50 text-yellow-500",
-                  selectedAccountType === 'ssh' && "border-green-500/50 text-green-500",
-                  selectedAccountType === 'iptv' && "border-purple-500/50 text-purple-500",
-                  selectedAccountType === 'p2p' && "border-blue-500/50 text-blue-500"
+                  selectedAccountType && "border-primary/50"
                 )}>
                   {selectedAccountType === 'premium' ? <Crown className="w-4 h-4 mr-2" /> : 
                    selectedAccountType === 'ssh' ? <Terminal className="w-4 h-4 mr-2" /> :
                    selectedAccountType === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> :
-                   selectedAccountType === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> : null}
+                   selectedAccountType === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> :
+                   selectedAccountType ? <Tag className="w-4 h-4 mr-2" /> : null}
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  <SelectItem value="premium">Contas Premium</SelectItem>
-                  <SelectItem value="ssh">SSH</SelectItem>
-                  <SelectItem value="iptv">IPTV</SelectItem>
-                  <SelectItem value="p2p">P2P</SelectItem>
+                  {allCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
