@@ -254,19 +254,39 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     toast.success(`${label} copiado!`);
   };
 
+  // Get dynamic expiration text based on days until expiration
+  const getDynamicExpirationText = () => {
+    if (daysUntilExpiration === 0) {
+      return 'hoje';
+    } else if (daysUntilExpiration === 1) {
+      return 'amanhã';
+    } else if (daysUntilExpiration > 0 && daysUntilExpiration <= 7) {
+      return `em ${daysUntilExpiration} dias`;
+    } else if (daysUntilExpiration < 0) {
+      return format(expirationDate, "dd/MM/yyyy");
+    } else {
+      return format(expirationDate, "dd/MM/yyyy");
+    }
+  };
+
   const replaceVariablesWithCredential = (message: string, login: string | null, password: string | null) => {
     const formattedDate = format(expirationDate, "dd/MM/yyyy");
     const formattedDateFull = format(expirationDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+    const dynamicExpiration = getDynamicExpirationText();
+    
     return message
       .replace(/{nome}/g, client.name)
       .replace(/{plano}/g, client.plan_name || 'seu plano')
       .replace(/{vencimento}/g, format(expirationDate, "dd 'de' MMMM", { locale: ptBR }))
+      .replace(/{vencimento_dinamico}/g, dynamicExpiration)
       .replace(/{data_vencimento}/g, formattedDate)
       .replace(/{data_vencimento_completa}/g, formattedDateFull)
       .replace(/{dispositivo}/g, client.device || 'N/A')
       .replace(/{usuario}/g, login || 'N/A')
       .replace(/{senha}/g, password || 'N/A')
-      .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A');
+      .replace(/{email}/g, client.email || 'N/A')
+      .replace(/{preco}/g, client.plan_price ? `R$ ${client.plan_price.toFixed(2)}` : 'N/A')
+      .replace(/{empresa}/g, sellerName || 'Nossa equipe');
   };
 
   const sendWhatsAppWithCredential = (type: 'billing' | 'welcome' | 'renewal' | 'reminder', login: string | null, password: string | null) => {

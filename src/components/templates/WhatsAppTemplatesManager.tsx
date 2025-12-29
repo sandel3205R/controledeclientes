@@ -16,7 +16,7 @@ interface WhatsAppTemplate {
   id: string;
   seller_id: string;
   name: string;
-  type: 'billing' | 'welcome' | 'renewal' | 'reminder' | 'unpaid' | 'custom';
+  type: 'billing' | 'welcome' | 'renewal' | 'reminder' | 'unpaid' | 'custom' | 'user_password' | 'email_password' | 'reminder_only';
   message: string;
   is_default: boolean;
   created_at: string;
@@ -28,6 +28,9 @@ const templateTypes = [
   { value: 'renewal', label: 'Renovação' },
   { value: 'reminder', label: 'Lembrete' },
   { value: 'unpaid', label: 'Inadimplente' },
+  { value: 'user_password', label: 'Usuário e Senha' },
+  { value: 'email_password', label: 'E-mail e Senha' },
+  { value: 'reminder_only', label: 'Apenas Lembrete' },
   { value: 'custom', label: 'Personalizado' },
 ];
 
@@ -44,13 +47,54 @@ Por favor, regularize sua situação para evitar a interrupção do serviço.
 
 Qualquer dúvida, estamos à disposição! 🙏`;
 
+// Default template for user + password clients
+const defaultUserPasswordMessage = `Olá querido(a) cliente *{nome}*,
+
+Seu plano vence em:
+
+*{vencimento_dinamico}*
+
+Usuário: *{usuario}*
+Senha: *{senha}*
+
+Evite o bloqueio automático do seu sinal
+
+É sempre um prazer te atender.`;
+
+// Default template for email + password clients
+const defaultEmailPasswordMessage = `Olá querido(a) cliente *{nome}*,
+
+Seu plano vence em:
+
+*{vencimento_dinamico}*
+
+E-mail: *{email}*
+Senha: *{senha}*
+
+Evite o bloqueio automático do seu sinal
+
+É sempre um prazer te atender.`;
+
+// Default template for reminder only (no credentials)
+const defaultReminderOnlyMessage = `Olá querido(a) cliente *{nome}*,
+
+Seu plano vence em:
+
+*{vencimento_dinamico}*
+
+Evite o bloqueio automático do seu sinal
+
+É sempre um prazer te atender.`;
+
 const availableVariables = [
   { var: '{nome}', desc: 'Nome do cliente' },
   { var: '{plano}', desc: 'Nome do plano' },
   { var: '{vencimento}', desc: 'Data de vencimento' },
+  { var: '{vencimento_dinamico}', desc: 'Vencimento dinâmico (7 dias, 3 dias, amanhã ou data)' },
   { var: '{dispositivo}', desc: 'Dispositivo' },
   { var: '{usuario}', desc: 'Usuário/Login' },
   { var: '{senha}', desc: 'Senha' },
+  { var: '{email}', desc: 'E-mail do cliente' },
   { var: '{preco}', desc: 'Preço do plano' },
   { var: '{empresa}', desc: 'Seu nome/empresa' },
 ];
