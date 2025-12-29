@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAccountCategories, DEFAULT_CATEGORIES } from '@/hooks/useAccountCategories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, MessageCircle, Star, Info } from 'lucide-react';
+import { Plus, Edit, Trash2, MessageCircle, Star, Info, Lightbulb, Crown, Terminal, Tv, Radio, Tag } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface WhatsAppTemplate {
   id: string;
@@ -20,6 +22,7 @@ interface WhatsAppTemplate {
   message: string;
   is_default: boolean;
   created_at: string;
+  category?: string; // Account category for the template
 }
 
 const templateTypes = [
@@ -34,10 +37,285 @@ const templateTypes = [
   { value: 'custom', label: 'Personalizado' },
 ];
 
+// Category icons mapping
+const categoryIcons: Record<string, any> = {
+  crown: Crown,
+  terminal: Terminal,
+  tv: Tv,
+  radio: Radio,
+  tag: Tag,
+};
+
+// Default messages for each category
+export const getDefaultCategoryMessage = (categoryId: string, type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+  // Premium accounts use email
+  if (categoryId === 'premium') {
+    const messages = {
+      billing: `Olá {nome}! 👋
+
+*{empresa}* informa: Seu plano *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Deseja renovar? Entre em contato para garantir sua experiência premium!
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+      welcome: `Olá {nome}! 🎉
+
+Seja bem-vindo(a) à *{empresa}*!
+
+Seu plano: *{plano}*
+📅 Vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Seus dados de acesso:
+📧 E-mail: *{email}*
+🔑 Senha: *{senha}*
+
+Qualquer dúvida, estamos à disposição!
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+      renewal: `Olá {nome}! ✅
+
+*{empresa}* informa: Seu plano *{plano}* foi renovado!
+
+📅 Novo vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Seus dados de acesso:
+📧 E-mail: *{email}*
+🔑 Senha: *{senha}*
+
+Agradecemos pela confiança!
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+      reminder: `Olá {nome}! ⏰
+
+*{empresa}* lembra: Seu plano *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Seus dados de acesso:
+📧 E-mail: *{email}*
+🔑 Senha: *{senha}*
+
+Evite a interrupção do serviço renovando antecipadamente!
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+    };
+    return messages[type];
+  }
+  
+  // SSH accounts - technical users
+  if (categoryId === 'ssh') {
+    const messages = {
+      billing: `Olá {nome}! 👋
+
+*{empresa}* informa: Sua conta SSH vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Renove para continuar com acesso total!
+
+💻 *{empresa}* - Conexão de qualidade!`,
+      welcome: `Olá {nome}! 🎉
+
+Bem-vindo(a) à *{empresa}*!
+
+📅 Vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados SSH:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+💻 *{empresa}* - Conexão de qualidade!`,
+      renewal: `Olá {nome}! ✅
+
+*{empresa}* informa: Sua conta SSH foi renovada!
+
+📅 Novo vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados SSH:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+💻 *{empresa}* - Conexão de qualidade!`,
+      reminder: `Olá {nome}! ⏰
+
+*{empresa}* lembra: Sua conta SSH vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Dados SSH:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+💻 *{empresa}* - Conexão de qualidade!`,
+    };
+    return messages[type];
+  }
+  
+  // IPTV accounts
+  if (categoryId === 'iptv') {
+    const messages = {
+      billing: `Olá {nome}! 👋
+
+*{empresa}* informa: Seu plano IPTV *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Renove e continue assistindo seus canais favoritos!
+
+📺 *{empresa}* - Entretenimento de qualidade!`,
+      welcome: `Olá {nome}! 🎉
+
+Seja bem-vindo(a) à *{empresa}*!
+
+Plano IPTV: *{plano}*
+📅 Vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📺 *{empresa}* - Entretenimento de qualidade!`,
+      renewal: `Olá {nome}! ✅
+
+*{empresa}* informa: Seu plano IPTV foi renovado!
+
+📅 Novo vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📺 *{empresa}* - Entretenimento de qualidade!`,
+      reminder: `Olá {nome}! ⏰
+
+*{empresa}* lembra: Seu plano IPTV vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📺 *{empresa}* - Entretenimento de qualidade!`,
+    };
+    return messages[type];
+  }
+  
+  // P2P accounts
+  if (categoryId === 'p2p') {
+    const messages = {
+      billing: `Olá {nome}! 👋
+
+*{empresa}* informa: Seu plano P2P *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Renove e continue conectado!
+
+📡 *{empresa}* - Sua conexão P2P!`,
+      welcome: `Olá {nome}! 🎉
+
+Seja bem-vindo(a) à *{empresa}*!
+
+Plano P2P: *{plano}*
+📅 Vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📡 *{empresa}* - Sua conexão P2P!`,
+      renewal: `Olá {nome}! ✅
+
+*{empresa}* informa: Seu plano P2P foi renovado!
+
+📅 Novo vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📡 *{empresa}* - Sua conexão P2P!`,
+      reminder: `Olá {nome}! ⏰
+
+*{empresa}* lembra: Seu plano P2P vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+📡 *{empresa}* - Sua conexão P2P!`,
+    };
+    return messages[type];
+  }
+  
+  // Default/Generic message for custom categories
+  const messages = {
+    billing: `Olá {nome}! 👋
+
+*{empresa}* informa: Seu plano *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Deseja renovar? Entre em contato!
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+    welcome: `Olá {nome}! 🎉
+
+Seja bem-vindo(a) à *{empresa}*!
+
+Plano: *{plano}*
+📅 Vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+    renewal: `Olá {nome}! ✅
+
+*{empresa}* informa: Seu plano *{plano}* foi renovado!
+
+📅 Novo vencimento: *{vencimento}*
+💰 Valor: *{preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+    reminder: `Olá {nome}! ⏰
+
+*{empresa}* lembra: Seu plano *{plano}* vence em *{vencimento_dinamico}*.
+
+💰 *Valor: {preco}*
+
+Dados de acesso:
+👤 Usuário: *{usuario}*
+🔑 Senha: *{senha}*
+
+🎬 *{empresa}* - Sua melhor experiência!`,
+  };
+  return messages[type];
+};
+
 // Default message for unpaid clients template
 const defaultUnpaidMessage = `Olá {nome}! 👋
 
-Notamos que seu pagamento do plano {plano} (R$ {preco}) ainda está pendente.
+Notamos que seu pagamento do plano {plano} (*{preco}*) ainda está pendente.
 
 ⚠️ *Atenção:* Se o pagamento não for realizado até o vencimento, será necessário pagar 2 meses no próximo mês.
 
@@ -54,6 +332,8 @@ Seu plano vence em:
 
 *{vencimento_dinamico}*
 
+💰 *Valor: {preco}*
+
 Usuário: *{usuario}*
 Senha: *{senha}*
 
@@ -68,6 +348,8 @@ Seu plano vence em:
 
 *{vencimento_dinamico}*
 
+💰 *Valor: {preco}*
+
 E-mail: *{email}*
 Senha: *{senha}*
 
@@ -81,6 +363,8 @@ const defaultReminderOnlyMessage = `Olá querido(a) cliente *{nome}*,
 Seu plano vence em:
 
 *{vencimento_dinamico}*
+
+💰 *Valor: {preco}*
 
 Evite o bloqueio automático do seu sinal
 
@@ -101,6 +385,7 @@ const availableVariables = [
 
 export default function WhatsAppTemplatesManager() {
   const { user } = useAuth();
+  const { allCategories } = useAccountCategories();
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -108,6 +393,8 @@ export default function WhatsAppTemplatesManager() {
   const [editingTemplate, setEditingTemplate] = useState<WhatsAppTemplate | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showDefaultTemplates, setShowDefaultTemplates] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -158,6 +445,25 @@ export default function WhatsAppTemplatesManager() {
         is_default: false,
       });
     }
+    setDialogOpen(true);
+  };
+
+  const handleCreateFromDefault = (categoryId: string, categoryName: string, type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+    const message = getDefaultCategoryMessage(categoryId, type);
+    const typeLabels = {
+      billing: 'Cobrança',
+      welcome: 'Boas-vindas',
+      renewal: 'Renovação',
+      reminder: 'Lembrete',
+    };
+    
+    setEditingTemplate(null);
+    setFormData({
+      name: `${categoryName} - ${typeLabels[type]}`,
+      type: type,
+      message: message,
+      is_default: false,
+    });
     setDialogOpen(true);
   };
 
@@ -272,6 +578,11 @@ export default function WhatsAppTemplatesManager() {
     return templateTypes.find(t => t.value === type)?.label || type;
   };
 
+  const getCategoryIcon = (iconName: string) => {
+    const IconComponent = categoryIcons[iconName] || Tag;
+    return <IconComponent className="w-4 h-4" />;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -293,6 +604,15 @@ export default function WhatsAppTemplatesManager() {
         </Button>
       </div>
 
+      {/* Info Alert */}
+      <Alert className="border-primary/20 bg-primary/5">
+        <Lightbulb className="h-4 w-4 text-primary" />
+        <AlertDescription className="text-sm">
+          <strong>Dica:</strong> Cada categoria de conta possui mensagens padrão. Você pode criar seus próprios templates personalizados ou usar os modelos padrão como base. 
+          A variável <code className="bg-muted px-1 rounded">{'{preco}'}</code> inclui o valor do plano nas mensagens de cobrança.
+        </AlertDescription>
+      </Alert>
+
       {/* Variables Info */}
       <Card className="bg-muted/50">
         <CardHeader className="pb-3">
@@ -312,79 +632,136 @@ export default function WhatsAppTemplatesManager() {
         </CardContent>
       </Card>
 
-      {/* Templates Grid */}
-      {templates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-4">Nenhum template criado</p>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="w-4 h-4 mr-2" />
-              Criar primeiro template
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates.map(template => (
-            <Card key={template.id} variant="gradient">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base truncate">{template.name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {getTypeLabel(template.type)}
-                      </Badge>
-                      {template.is_default && (
-                        <Badge className="text-xs bg-primary/20 text-primary">
-                          <Star className="w-3 h-3 mr-1" />
-                          Padrão
-                        </Badge>
-                      )}
-                    </div>
+      {/* Default Templates by Category */}
+      <Card>
+        <CardHeader className="cursor-pointer" onClick={() => setShowDefaultTemplates(!showDefaultTemplates)}>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Templates Padrão por Categoria
+              </CardTitle>
+              <CardDescription className="text-sm mt-1">
+                Modelos prontos para cada tipo de conta - clique para expandir
+              </CardDescription>
+            </div>
+            <Badge variant="outline">{allCategories.length} categorias</Badge>
+          </div>
+        </CardHeader>
+        {showDefaultTemplates && (
+          <CardContent className="pt-0">
+            <div className="space-y-4">
+              {allCategories.map(category => (
+                <div key={category.id} className="border rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    {getCategoryIcon(category.icon)}
+                    <span className="font-medium">{category.name}</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {(['billing', 'welcome', 'renewal', 'reminder'] as const).map(type => (
+                      <Button
+                        key={type}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => handleCreateFromDefault(category.id, category.name, type)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        {{
+                          billing: 'Cobrança',
+                          welcome: 'Boas-vindas',
+                          renewal: 'Renovação',
+                          reminder: 'Lembrete',
+                        }[type]}
+                      </Button>
+                    ))}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                  {template.message}
-                </p>
-                <div className="flex gap-2 pt-2 border-t border-border">
-                  {!template.is_default && (
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* My Templates */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Meus Templates</h3>
+        {templates.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground mb-2">Nenhum template criado</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Crie templates personalizados ou use os modelos padrão acima
+              </p>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Criar primeiro template
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {templates.map(template => (
+              <Card key={template.id} variant="gradient">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate">{template.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {getTypeLabel(template.type)}
+                        </Badge>
+                        {template.is_default && (
+                          <Badge className="text-xs bg-primary/20 text-primary">
+                            <Star className="w-3 h-3 mr-1" />
+                            Padrão
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                    {template.message}
+                  </p>
+                  <div className="flex gap-2 pt-2 border-t border-border">
+                    {!template.is_default && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSetDefault(template)}
+                        className="flex-1"
+                      >
+                        <Star className="w-4 h-4 mr-1" />
+                        Padrão
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSetDefault(template)}
-                      className="flex-1"
+                      onClick={() => handleOpenDialog(template)}
                     >
-                      <Star className="w-4 h-4 mr-1" />
-                      Padrão
+                      <Edit className="w-4 h-4" />
                     </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenDialog(template)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setTemplateToDelete(template.id);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setTemplateToDelete(template.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
