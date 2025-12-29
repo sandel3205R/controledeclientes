@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationCard } from '@/modules/notifications/NotificationCard';
 import AccountCategoriesManager from '@/components/categories/AccountCategoriesManager';
+import BannedUsersManager from '@/components/admin/BannedUsersManager';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
@@ -262,6 +263,9 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        {/* Banned Users Manager - Admin Only */}
+        {isAdmin && <BannedUsersManager />}
 
         {/* Theme Settings - Admin Only */}
         {isAdmin && (

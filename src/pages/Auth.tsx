@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { usePasswordStrength } from '@/hooks/usePasswordStrength';
+import { useLoginAttempts } from '@/hooks/useLoginAttempts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Mail, Lock, User, ArrowRight, Sparkles, Phone, LogOut, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, Phone, LogOut, ShieldCheck, Ban, AlertTriangle } from 'lucide-react';
 import { z } from 'zod';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
+import { Progress } from '@/components/ui/progress';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -59,8 +61,11 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [allowFirstAdmin, setAllowFirstAdmin] = useState(false);
   const [checkingFirstAdmin, setCheckingFirstAdmin] = useState(true);
+  const [isBanned, setIsBanned] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const { signIn, signUp } = useAuth();
   const { result: passwordCheck, checkPassword, resetCheck } = usePasswordStrength();
+  const { checkBanStatus, registerFailure, registerSuccess, isChecking } = useLoginAttempts();
   const navigate = useNavigate();
 
   // Check if first admin signup is allowed
@@ -99,6 +104,16 @@ export default function Auth() {
         const validation = loginSchema.safeParse({ email, password });
         if (!validation.success) {
           toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
+        // Check if user is banned before attempting login
+        const banStatus = await checkBanStatus(email);
+        if (banStatus?.banned) {
+          setIsBanned(true);
+          setRemainingAttempts(0);
+          toast.error('Conta bloqueada permanentemente devido a múltiplas tentativas de login falhas. Entre em contato com o administrador.');
           setLoading(false);
           return;
         }
@@ -141,12 +156,29 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast.error('E-mail ou senha incorretos');
+          // Register failed attempt
+          const failureResult = await registerFailure(email);
+          
+          if (failureResult?.banned) {
+            setIsBanned(true);
+            setRemainingAttempts(0);
+            toast.error('Conta bloqueada permanentemente! Você excedeu o limite de 10 tentativas de login.');
+          } else if (failureResult) {
+            setRemainingAttempts(failureResult.remainingAttempts);
+            
+            if (failureResult.remainingAttempts <= 3) {
+              toast.error(`E-mail ou senha incorretos. ATENÇÃO: Restam apenas ${failureResult.remainingAttempts} tentativa(s)!`);
+            } else {
+              toast.error(`E-mail ou senha incorretos. Restam ${failureResult.remainingAttempts} tentativas.`);
+            }
           } else {
-            toast.error(error.message);
+            toast.error('E-mail ou senha incorretos');
           }
         } else {
+          // Clear failed attempts on successful login
+          await registerSuccess(email);
+          setRemainingAttempts(null);
+          setIsBanned(false);
           toast.success('Login realizado com sucesso!');
           navigate('/dashboard');
         }
@@ -209,6 +241,32 @@ export default function Auth() {
         </div>
 
         {/* First Admin Signup Alert */}
+        {/* Banned User Alert */}
+        {isBanned && isLogin && (
+          <Alert className="mb-4 border-destructive bg-destructive/10">
+            <Ban className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-destructive">
+              <strong>Conta Bloqueada!</strong> Esta conta foi permanentemente bloqueada após 10 tentativas de login falhas. Entre em contato com o administrador para desbloquear.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Remaining Attempts Warning */}
+        {remainingAttempts !== null && remainingAttempts > 0 && remainingAttempts <= 5 && isLogin && !isBanned && (
+          <Alert className={`mb-4 ${remainingAttempts <= 3 ? 'border-destructive bg-destructive/10' : 'border-yellow-500 bg-yellow-500/10'}`}>
+            <AlertTriangle className={`h-4 w-4 ${remainingAttempts <= 3 ? 'text-destructive' : 'text-yellow-500'}`} />
+            <AlertDescription className={remainingAttempts <= 3 ? 'text-destructive' : 'text-yellow-600 dark:text-yellow-500'}>
+              <div className="space-y-2">
+                <span><strong>Atenção!</strong> Restam {remainingAttempts} tentativa(s) antes do bloqueio permanente.</span>
+                <Progress 
+                  value={(remainingAttempts / 10) * 100} 
+                  className={`h-2 ${remainingAttempts <= 3 ? '[&>div]:bg-destructive' : '[&>div]:bg-yellow-500'}`}
+                />
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {allowFirstAdmin && !isLogin && !checkingFirstAdmin && (
           <Alert className="mb-4 border-primary/50 bg-primary/10">
             <ShieldCheck className="h-4 w-4 text-primary" />
@@ -331,9 +389,9 @@ export default function Auth() {
                 variant="gradient"
                 size="lg"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || isBanned || isChecking}
               >
-                {loading ? (
+                {loading || isChecking ? (
                   <span className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 animate-spin" />
                     Processando...
