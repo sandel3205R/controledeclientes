@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,7 @@ interface Client {
   is_paid: boolean | null;
   shared_slot_type: string | null;
   shared_panel_id: string | null;
+  account_type: string | null;
 }
 
 interface ServerOption {
@@ -75,6 +76,7 @@ interface ServerOption {
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 type PaymentFilter = 'all' | 'paid' | 'unpaid';
 type SlotTypeFilter = 'all' | 'p2p' | 'iptv' | 'none';
+type AccountTypeFilter = 'all' | 'premium' | 'ssh' | 'iptv' | 'p2p' | 'none';
 type SortOption = 'name' | 'expiration' | 'price';
 
 interface WhatsAppTemplate {
@@ -108,6 +110,7 @@ export default function Clients() {
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const [slotTypeFilter, setSlotTypeFilter] = useState<SlotTypeFilter>('all');
+  const [accountTypeFilter, setAccountTypeFilter] = useState<AccountTypeFilter>('all');
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -261,12 +264,21 @@ export default function Clients() {
       }
     }
 
-    // Slot type filter (P2P/IPTV)
+    // Slot type filter (P2P/IPTV for shared panels)
     if (slotTypeFilter !== 'all') {
       if (slotTypeFilter === 'none') {
         result = result.filter((c) => !c.shared_slot_type);
       } else {
         result = result.filter((c) => c.shared_slot_type === slotTypeFilter);
+      }
+    }
+
+    // Account type filter (Premium, SSH, IPTV, P2P)
+    if (accountTypeFilter !== 'all') {
+      if (accountTypeFilter === 'none') {
+        result = result.filter((c) => !c.account_type);
+      } else {
+        result = result.filter((c) => c.account_type === accountTypeFilter);
       }
     }
 
@@ -312,7 +324,7 @@ export default function Clients() {
     });
 
     return result;
-  }, [clients, search, statusFilter, serverFilter, paymentFilter, slotTypeFilter, sortBy]);
+  }, [clients, search, statusFilter, serverFilter, paymentFilter, slotTypeFilter, accountTypeFilter, sortBy]);
 
   // Calculate unpaid clients stats
   const unpaidStats = useMemo(() => {
@@ -723,13 +735,37 @@ export default function Clients() {
               {slotTypeFilter === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> : 
                slotTypeFilter === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> : 
                <Users className="w-4 h-4 mr-2" />}
-              <SelectValue placeholder="Tipo" />
+              <SelectValue placeholder="Painel" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos Tipos</SelectItem>
+              <SelectItem value="all">Todos Painéis</SelectItem>
               <SelectItem value="p2p">P2P</SelectItem>
               <SelectItem value="iptv">IPTV</SelectItem>
               <SelectItem value="none">Sem Painel</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={accountTypeFilter} onValueChange={(v) => setAccountTypeFilter(v as AccountTypeFilter)}>
+            <SelectTrigger className={cn(
+              "w-full sm:w-40",
+              accountTypeFilter === 'premium' && "border-yellow-500/50 text-yellow-500",
+              accountTypeFilter === 'ssh' && "border-green-500/50 text-green-500",
+              accountTypeFilter === 'iptv' && "border-purple-500/50 text-purple-500",
+              accountTypeFilter === 'p2p' && "border-blue-500/50 text-blue-500"
+            )}>
+              {accountTypeFilter === 'premium' ? <Crown className="w-4 h-4 mr-2" /> : 
+               accountTypeFilter === 'ssh' ? <Terminal className="w-4 h-4 mr-2" /> :
+               accountTypeFilter === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> :
+               accountTypeFilter === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> :
+               <Filter className="w-4 h-4 mr-2" />}
+              <SelectValue placeholder="Tipo Conta" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Tipos</SelectItem>
+              <SelectItem value="premium">Premium</SelectItem>
+              <SelectItem value="ssh">SSH</SelectItem>
+              <SelectItem value="iptv">IPTV</SelectItem>
+              <SelectItem value="p2p">P2P</SelectItem>
+              <SelectItem value="none">Sem Tipo</SelectItem>
             </SelectContent>
           </Select>
         </div>
