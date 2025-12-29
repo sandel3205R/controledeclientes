@@ -98,9 +98,17 @@ export default function OnboardingTour() {
           {/* Content */}
           <div className="px-6 pb-4 text-center animate-fade-in">
             <h2 className="text-xl font-bold mb-3">{currentStepData.title}</h2>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
               {currentStepData.description}
             </p>
+            {/* Highlight important steps */}
+            {(currentStepData.id === 'step1-server') && (
+              <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                <p className="text-sm font-semibold text-destructive">
+                  ⚠️ ATENÇÃO: Este é o passo mais importante!
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Tip box */}
