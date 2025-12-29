@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePasswordStrength } from '@/hooks/usePasswordStrength';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +11,22 @@ import { toast } from 'sonner';
 import { Mail, Lock, User, ArrowRight, Sparkles, Phone, LogOut, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  password: z.string()
+    .min(8, 'Senha deve ter no mínimo 8 caracteres')
+    .regex(/[a-z]/, 'Senha deve conter letra minúscula')
+    .regex(/[A-Z]/, 'Senha deve conter letra maiúscula')
+    .regex(/[0-9]/, 'Senha deve conter número'),
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').optional(),
   whatsapp: z.string().min(10, 'WhatsApp é obrigatório para renovação').optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('E-mail inválido'),
+  password: z.string().min(1, 'Senha é obrigatória'),
 });
 
 // Format phone number as +55 31 95555-5555
@@ -49,6 +60,7 @@ export default function Auth() {
   const [allowFirstAdmin, setAllowFirstAdmin] = useState(false);
   const [checkingFirstAdmin, setCheckingFirstAdmin] = useState(true);
   const { signIn, signUp } = useAuth();
+  const { result: passwordCheck, checkPassword, resetCheck } = usePasswordStrength();
   const navigate = useNavigate();
 
   // Check if first admin signup is allowed
@@ -82,24 +94,48 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const validation = authSchema.safeParse({
-        email,
-        password,
-        fullName: isLogin ? undefined : fullName,
-        whatsapp: isLogin ? undefined : whatsapp,
-      });
+      // Use different validation for login vs signup
+      if (isLogin) {
+        const validation = loginSchema.safeParse({ email, password });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+      } else {
+        const validation = authSchema.safeParse({
+          email,
+          password,
+          fullName,
+          whatsapp,
+        });
 
-      // Additional validation for signup
-      if (!isLogin && (!whatsapp || whatsapp.replace(/\D/g, '').length < 10)) {
-        toast.error('WhatsApp é obrigatório para renovação do plano');
-        setLoading(false);
-        return;
-      }
+        // Additional validation for signup
+        if (!whatsapp || whatsapp.replace(/\D/g, '').length < 10) {
+          toast.error('WhatsApp é obrigatório para renovação do plano');
+          setLoading(false);
+          return;
+        }
 
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        setLoading(false);
-        return;
+        // Check if password is breached
+        if (passwordCheck.isBreached) {
+          toast.error('Esta senha foi encontrada em vazamentos de dados. Por favor, escolha outra senha.');
+          setLoading(false);
+          return;
+        }
+
+        // Check password strength
+        if (passwordCheck.strength.score < 2) {
+          toast.error('Senha muito fraca. Por favor, escolha uma senha mais forte.');
+          setLoading(false);
+          return;
+        }
+
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
       }
 
       if (isLogin) {
@@ -123,7 +159,7 @@ export default function Auth() {
             toast.error(error.message);
           }
         } else {
-          toast.success('🎉 Conta criada! Você ganhou 3 dias de teste grátis!', {
+          toast.success('🎉 Conta criada! Você ganhou 5 dias de teste grátis!', {
             duration: 5000,
           });
           navigate('/dashboard');
@@ -134,6 +170,25 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle password change for strength check
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    
+    if (!isLogin && newPassword.length >= 4) {
+      checkPassword(newPassword);
+    } else if (!isLogin) {
+      resetCheck();
+    }
+  };
+
+  // Reset password check when switching modes
+  const handleModeSwitch = () => {
+    setIsLogin(!isLogin);
+    setPassword('');
+    resetCheck();
   };
 
   return (
@@ -244,7 +299,7 @@ export default function Auth() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">
-                  Senha
+                  Senha {!isLogin && <span className="text-muted-foreground text-xs">(mín. 8 caracteres)</span>}
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -253,11 +308,22 @@ export default function Auth() {
                     type="password"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={handlePasswordChange}
                     className="pl-10"
                     required
                   />
                 </div>
+                
+                {/* Password Strength Meter - Only on signup */}
+                {!isLogin && (
+                  <PasswordStrengthMeter
+                    strength={passwordCheck.strength}
+                    isBreached={passwordCheck.isBreached}
+                    breachCount={passwordCheck.breachCount}
+                    isChecking={passwordCheck.isChecking}
+                    password={password}
+                  />
+                )}
               </div>
 
               <Button
@@ -284,7 +350,7 @@ export default function Auth() {
             <div className="mt-6 text-center space-y-3">
               <button
                 type="button"
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={handleModeSwitch}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
               >
                 {isLogin ? (
