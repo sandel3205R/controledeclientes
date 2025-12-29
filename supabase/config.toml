@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.send-push-notifications]
 verify_jwt = false
+
+[functions.check-login-attempt]
+verify_jwt = false
