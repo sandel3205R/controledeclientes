@@ -6,9 +6,7 @@ import { format, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Server, Tv, Smartphone, Monitor, DollarSign, Users, Crown, Terminal, Radio, Tag } from 'lucide-react';
 import { useSharedPanels, SharedPanel } from '@/hooks/useSharedPanels';
-import { useSellerPlan } from '@/hooks/useSellerPlan';
 import { useAccountCategories } from '@/hooks/useAccountCategories';
-import { UpgradeModal } from '@/components/sellers/UpgradeModal';
 import {
   Dialog,
   DialogContent,
@@ -146,11 +144,9 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   const [annualMonthlyRenewal, setAnnualMonthlyRenewal] = useState(false);
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [selectedAccountType, setSelectedAccountType] = useState<string | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { encryptCredentials } = useCrypto();
   const { panels, fetchPanels } = useSharedPanels();
   const { allCategories } = useAccountCategories();
-  const { currentPlan, allPlans, clientCount, canAddClient, remainingClients, hasUnlimitedClients, refresh: refreshPlan } = useSellerPlan();
 
   const {
     register,
@@ -317,12 +313,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   };
 
   const onSubmit = async (data: ClientForm) => {
-    // Check client limit for new clients only
-    if (!client && !canAddClient) {
-      setShowUpgradeModal(true);
-      return;
-    }
-
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -406,8 +396,6 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
           .insert([clientData]);
         if (error) throw error;
         toast.success('Cliente criado com sucesso!');
-        // Refresh plan data after adding a client
-        await refreshPlan();
       }
 
       // Refresh client list and close dialog
@@ -421,34 +409,11 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{client ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
-            {!client && currentPlan && (
-              <div className="flex items-center gap-2 pt-2">
-                <Badge variant="outline" className="gap-1">
-                  <Crown className="w-3 h-3" />
-                  {currentPlan.name}
-                </Badge>
-                {remainingClients !== null ? (
-                  <Badge 
-                    variant={remainingClients <= 5 ? 'destructive' : 'secondary'}
-                    className="gap-1"
-                  >
-                    <Users className="w-3 h-3" />
-                    {remainingClients} restantes
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="gap-1">
-                    <Users className="w-3 h-3" />
-                    Ilimitado
-                  </Badge>
-                )}
-              </div>
-            )}
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{client ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
+        </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-2">
             <div className="space-y-2">
@@ -878,14 +843,5 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         </form>
       </DialogContent>
     </Dialog>
-
-    <UpgradeModal
-      open={showUpgradeModal}
-      onOpenChange={setShowUpgradeModal}
-      currentPlan={currentPlan}
-      allPlans={allPlans}
-      clientCount={clientCount}
-    />
-  </>
   );
 }
