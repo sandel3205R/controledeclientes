@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Search, KeyRound } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Calendar, MessageCircle, RefreshCw, Bell, Mail, Trash2, RotateCcw, Archive, Crown, Clock, Gift, CreditCard, Settings2, Search, KeyRound, Minus } from 'lucide-react';
 
 import { TempPasswordDialog } from '@/components/sellers/TempPasswordDialog';
 
@@ -102,6 +102,8 @@ export default function Sellers() {
   const [makePermanentConfirm, setMakePermanentConfirm] = useState<SellerWithStats | null>(null);
   const [removePermanentConfirm, setRemovePermanentConfirm] = useState<SellerWithStats | null>(null);
   const [activatePlanConfirm, setActivatePlanConfirm] = useState<{ seller: SellerWithStats; days: number } | null>(null);
+  const [removeDaysDialog, setRemoveDaysDialog] = useState<SellerWithStats | null>(null);
+  const [daysToRemove, setDaysToRemove] = useState<string>('');
   const createForm = useForm<SellerForm>({
     resolver: zodResolver(sellerSchema),
     defaultValues: {
@@ -445,6 +447,34 @@ export default function Sellers() {
       fetchSellers();
     } catch (error: any) {
       toast.error('Erro ao remover status permanente');
+    }
+  };
+
+  const removeDays = async (sellerId: string, days: number) => {
+    try {
+      const allSellers = [...sellers, ...expiredSellers];
+      const seller = allSellers.find(s => s.id === sellerId);
+      
+      if (!seller?.subscription_expires_at) {
+        toast.error('Vendedor não possui plano ativo');
+        return;
+      }
+      
+      const currentExpiration = new Date(seller.subscription_expires_at);
+      const newExpiration = addDays(currentExpiration, -days);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_expires_at: newExpiration.toISOString() })
+        .eq('id', sellerId);
+
+      if (error) throw error;
+
+      toast.success(`${days} dias removidos com sucesso!`);
+      fetchSellers();
+    } catch (error: any) {
+      console.error('Erro ao remover dias:', error);
+      toast.error('Erro ao remover dias');
     }
   };
 
@@ -815,7 +845,7 @@ SANDEL`
 
         {/* Admin Plan Actions */}
         {!isTrash && !seller.is_permanent && (
-          <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
             <Button 
               variant="outline" 
               size="sm" 
@@ -842,6 +872,20 @@ SANDEL`
             >
               <Crown className="w-4 h-4" />
             </Button>
+            {seller.subscription_expires_at && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  setRemoveDaysDialog(seller);
+                  setDaysToRemove('');
+                }}
+                title="Remover dias"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         )}
 
@@ -1661,6 +1705,74 @@ SANDEL`
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Remove Days Dialog */}
+        <Dialog open={!!removeDaysDialog} onOpenChange={(open) => {
+          if (!open) {
+            setRemoveDaysDialog(null);
+            setDaysToRemove('');
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Minus className="w-5 h-5 text-destructive" />
+                Remover Dias do Plano
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Remover dias do plano de <strong>{removeDaysDialog?.full_name || removeDaysDialog?.email}</strong>
+              </p>
+              {removeDaysDialog?.subscription_expires_at && (
+                <p className="text-sm">
+                  Data de expiração atual: <strong>{format(new Date(removeDaysDialog.subscription_expires_at), 'dd/MM/yyyy')}</strong>
+                </p>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="days-to-remove">Quantidade de dias a remover</Label>
+                <Input
+                  id="days-to-remove"
+                  type="number"
+                  min="1"
+                  max="365"
+                  placeholder="Ex: 25"
+                  value={daysToRemove}
+                  onChange={(e) => setDaysToRemove(e.target.value)}
+                />
+              </div>
+              {daysToRemove && removeDaysDialog?.subscription_expires_at && (
+                <p className="text-sm text-muted-foreground">
+                  Nova data de expiração: <strong className="text-destructive">
+                    {format(addDays(new Date(removeDaysDialog.subscription_expires_at), -parseInt(daysToRemove) || 0), 'dd/MM/yyyy')}
+                  </strong>
+                </p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => {
+                  setRemoveDaysDialog(null);
+                  setDaysToRemove('');
+                }}>
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive"
+                  disabled={!daysToRemove || parseInt(daysToRemove) <= 0}
+                  onClick={() => {
+                    if (removeDaysDialog && daysToRemove) {
+                      removeDays(removeDaysDialog.id, parseInt(daysToRemove));
+                      setRemoveDaysDialog(null);
+                      setDaysToRemove('');
+                    }
+                  }}
+                >
+                  <Minus className="w-4 h-4 mr-2" />
+                  Remover {daysToRemove || 0} Dias
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </AppLayout>
