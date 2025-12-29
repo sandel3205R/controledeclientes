@@ -128,6 +128,33 @@ export type Database = {
         }
         Relationships: []
       }
+      banned_emails: {
+        Row: {
+          banned_at: string
+          banned_by: string | null
+          created_at: string
+          email: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          banned_at?: string
+          banned_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          banned_at?: string
+          banned_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       bills_to_pay: {
         Row: {
           amount: number
