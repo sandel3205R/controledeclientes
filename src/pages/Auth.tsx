@@ -6,6 +6,7 @@ import { useLoginAttempts } from '@/hooks/useLoginAttempts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -360,18 +361,14 @@ export default function Auth() {
                 <Label htmlFor="password" className="text-sm font-medium">
                   Senha <span className="text-muted-foreground text-xs">(mín. 8 caracteres + maiúscula + minúscula + número + símbolo)</span>
                 </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={handlePasswordChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <PasswordInput
+                  id="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  iconLeft={<Lock className="w-4 h-4" />}
+                  required
+                />
                 
                 {/* Password Strength Meter - Only on signup */}
                 {!isLogin && (

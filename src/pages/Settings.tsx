@@ -6,6 +6,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle, GraduationCap } from 'lucide-react';
@@ -381,9 +382,8 @@ export default function Settings() {
             <form onSubmit={handlePasswordUpdate} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="password">Nova senha</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
@@ -391,9 +391,8 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmar senha</Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Digite novamente"
