@@ -68,6 +68,8 @@ const clientSchema = z.object({
   server_id: z.string().optional(),
   is_paid: z.boolean().optional(),
   screens: z.string().optional(),
+  premium_email: z.string().optional(),
+  premium_password: z.string().optional(),
 });
 
 type ClientForm = z.infer<typeof clientSchema>;
@@ -236,6 +238,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_id: client.server_id || '',
         is_paid: client.is_paid !== false,
         screens: client.screens?.toString() || '1',
+        premium_email: client.account_type === 'premium' ? (client.login || '') : '',
+        premium_password: client.account_type === 'premium' ? (client.password || '') : '',
       });
     } else {
       setSelectedDevices([]);
@@ -270,6 +274,8 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
         server_id: '',
         is_paid: true,
         screens: '1',
+        premium_email: '',
+        premium_password: '',
       });
     }
   }, [open, client, reset]);
@@ -336,9 +342,13 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       const primaryServerId = selectedServers.length > 0 ? selectedServers[0] : null;
 
       // Encrypt credentials before saving
+      // For premium accounts, use premium_email and premium_password as login/password
+      const loginToSave = selectedAccountType === 'premium' ? (data.premium_email || data.login) : data.login;
+      const passwordToSave = selectedAccountType === 'premium' ? (data.premium_password || data.password) : data.password;
+      
       const encryptedCredentials = await encryptCredentials({
-        login: data.login || null,
-        password: data.password || null,
+        login: loginToSave || null,
+        password: passwordToSave || null,
         login2: data.login2 || null,
         password2: data.password2 || null,
         login3: data.login3 || null,
@@ -530,6 +540,32 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               </Select>
             </div>
           </div>
+
+          {/* Premium Account Credentials - Only shows when account type is premium */}
+          {selectedAccountType === 'premium' && (
+            <div className="grid grid-cols-2 gap-4 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+              <div className="space-y-2">
+                <Label htmlFor="premium_email" className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-yellow-500" />
+                  E-mail da Conta Premium
+                </Label>
+                <Input 
+                  id="premium_email" 
+                  {...register('premium_email')} 
+                  placeholder="email@conta.com" 
+                  type="email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="premium_password">Senha da Conta Premium</Label>
+                <Input 
+                  id="premium_password" 
+                  {...register('premium_password')} 
+                  placeholder="Senha da conta" 
+                />
+              </div>
+            </div>
+          )}
 
           {/* Payment Status */}
           <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
