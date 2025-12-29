@@ -75,7 +75,6 @@ interface ServerOption {
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 type PaymentFilter = 'all' | 'paid' | 'unpaid';
-type SlotTypeFilter = 'all' | 'p2p' | 'iptv' | 'none';
 type AccountTypeFilter = 'all' | 'premium' | 'ssh' | 'iptv' | 'p2p' | 'none';
 type SortOption = 'name' | 'expiration' | 'price';
 
@@ -109,7 +108,6 @@ export default function Clients() {
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
-  const [slotTypeFilter, setSlotTypeFilter] = useState<SlotTypeFilter>('all');
   const [accountTypeFilter, setAccountTypeFilter] = useState<AccountTypeFilter>('all');
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -263,16 +261,6 @@ export default function Clients() {
         result = result.filter((c) => c.is_paid === false);
       }
     }
-
-    // Slot type filter (P2P/IPTV for shared panels)
-    if (slotTypeFilter !== 'all') {
-      if (slotTypeFilter === 'none') {
-        result = result.filter((c) => !c.shared_slot_type);
-      } else {
-        result = result.filter((c) => c.shared_slot_type === slotTypeFilter);
-      }
-    }
-
     // Account type filter (Premium, SSH, IPTV, P2P)
     if (accountTypeFilter !== 'all') {
       if (accountTypeFilter === 'none') {
@@ -324,7 +312,7 @@ export default function Clients() {
     });
 
     return result;
-  }, [clients, search, statusFilter, serverFilter, paymentFilter, slotTypeFilter, accountTypeFilter, sortBy]);
+  }, [clients, search, statusFilter, serverFilter, paymentFilter, accountTypeFilter, sortBy]);
 
   // Calculate unpaid clients stats
   const unpaidStats = useMemo(() => {
@@ -724,24 +712,6 @@ export default function Clients() {
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="paid">Pagos</SelectItem>
               <SelectItem value="unpaid">Não Pagos</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={slotTypeFilter} onValueChange={(v) => setSlotTypeFilter(v as SlotTypeFilter)}>
-            <SelectTrigger className={cn(
-              "w-full sm:w-40",
-              slotTypeFilter === 'p2p' && "border-blue-500/50 text-blue-500",
-              slotTypeFilter === 'iptv' && "border-purple-500/50 text-purple-500"
-            )}>
-              {slotTypeFilter === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> : 
-               slotTypeFilter === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> : 
-               <Users className="w-4 h-4 mr-2" />}
-              <SelectValue placeholder="Painel" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Painéis</SelectItem>
-              <SelectItem value="p2p">P2P</SelectItem>
-              <SelectItem value="iptv">IPTV</SelectItem>
-              <SelectItem value="none">Sem Painel</SelectItem>
             </SelectContent>
           </Select>
           <Select value={accountTypeFilter} onValueChange={(v) => setAccountTypeFilter(v as AccountTypeFilter)}>
