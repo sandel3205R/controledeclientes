@@ -380,7 +380,21 @@ export default function Sellers() {
 
   const activatePlan = async (sellerId: string, days: number = 30) => {
     try {
-      const newExpiration = addDays(new Date(), days);
+      // Find the seller to check current expiration
+      const allSellers = [...sellers, ...expiredSellers];
+      const seller = allSellers.find(s => s.id === sellerId);
+      
+      let baseDate = new Date();
+      
+      // If seller has an active (future) subscription, add days to that date
+      if (seller?.subscription_expires_at) {
+        const currentExpiration = new Date(seller.subscription_expires_at);
+        if (currentExpiration > baseDate) {
+          baseDate = currentExpiration;
+        }
+      }
+      
+      const newExpiration = addDays(baseDate, days);
       const { error } = await supabase
         .from('profiles')
         .update({ subscription_expires_at: newExpiration.toISOString() })
@@ -391,6 +405,7 @@ export default function Sellers() {
       toast.success(`Plano de ${days} dias ativado com sucesso!`);
       fetchSellers();
     } catch (error: any) {
+      console.error('Erro ao ativar plano:', error);
       toast.error('Erro ao ativar plano');
     }
   };
@@ -783,10 +798,10 @@ SANDEL`
               variant="outline" 
               size="sm" 
               className="flex-1"
-              onClick={() => activatePlan(seller.id, 3)}
+              onClick={() => activatePlan(seller.id, 5)}
             >
               <Gift className="w-4 h-4 mr-1" />
-              +3 dias
+              +5 dias
             </Button>
             <Button 
               variant="gradient" 
