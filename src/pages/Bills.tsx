@@ -6,7 +6,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Phone, Calendar, DollarSign, Edit, Trash2, Check, Filter, Send } from "lucide-react";
+import { Plus, Phone, Calendar, DollarSign, Edit, Trash2, Check, Filter, Send, Copy } from "lucide-react";
 import { format, differenceInDays, addDays, isBefore, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ interface Bill {
   recipient_name: string;
   recipient_whatsapp: string | null;
   recipient_telegram: string | null;
+  recipient_pix: string | null;
   amount: number;
   due_date: string;
   is_paid: boolean;
@@ -152,6 +153,11 @@ export default function Bills() {
       `Olá ${bill.recipient_name}, tenho que te pagar dia ${formattedDate} referente a: ${bill.description} - R$ ${bill.amount.toFixed(2).replace(".", ",")}`
     );
     window.open(`https://t.me/${username}?text=${message}`, "_blank");
+  };
+
+  const handleCopyPix = (pix: string) => {
+    navigator.clipboard.writeText(pix);
+    toast.success("Chave PIX copiada!");
   };
 
   const handleEdit = (bill: Bill) => {
@@ -322,6 +328,17 @@ export default function Bills() {
                           title="Enviar Telegram"
                         >
                           <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {bill.recipient_pix && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyPix(bill.recipient_pix!)}
+                          className="text-purple-500 border-purple-500/30 hover:bg-purple-500/10"
+                          title={`Copiar PIX: ${bill.recipient_pix}`}
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
                       )}
                       {!bill.is_paid && (

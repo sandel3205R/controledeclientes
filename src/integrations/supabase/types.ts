@@ -76,6 +76,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           recipient_name: string
+          recipient_pix: string | null
           recipient_telegram: string | null
           recipient_whatsapp: string | null
           seller_id: string
@@ -91,6 +92,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           recipient_name: string
+          recipient_pix?: string | null
           recipient_telegram?: string | null
           recipient_whatsapp?: string | null
           seller_id: string
@@ -106,6 +108,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           recipient_name?: string
+          recipient_pix?: string | null
           recipient_telegram?: string | null
           recipient_whatsapp?: string | null
           seller_id?: string
