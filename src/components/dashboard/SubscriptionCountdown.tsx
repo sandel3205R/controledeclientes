@@ -6,13 +6,13 @@ import { Clock, Crown, AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function SubscriptionCountdown() {
-  const { subscription, role } = useAuth();
+  const { subscription, role, loading } = useAuth();
 
   // Don't show for admins
   if (role === 'admin') return null;
 
-  // Loading state
-  if (!subscription) {
+  // Loading state - show while auth is loading OR subscription hasn't loaded yet
+  if (loading || !subscription) {
     return (
       <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5">
         <CardContent className="p-4">
