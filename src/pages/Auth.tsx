@@ -185,6 +185,19 @@ export default function Auth() {
           navigate('/dashboard');
         }
       } else {
+        // Check if email is banned before signup
+        const { data: bannedData } = await supabase
+          .from('banned_emails')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .maybeSingle();
+
+        if (bannedData) {
+          toast.error('Este e-mail não pode ser utilizado para criar uma nova conta.');
+          setLoading(false);
+          return;
+        }
+
         const { error } = await signUp(email, password, fullName, whatsapp || undefined);
         if (error) {
           if (error.message.includes('User already registered')) {

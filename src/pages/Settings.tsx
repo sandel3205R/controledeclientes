@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle, GraduationCap } from 'lucide-react';
+import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle, GraduationCap, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationCard } from '@/modules/notifications/NotificationCard';
@@ -18,6 +18,7 @@ import BannedUsersManager from '@/components/admin/BannedUsersManager';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { DeleteAccountDialog } from '@/components/settings/DeleteAccountDialog';
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -405,6 +406,34 @@ export default function Settings() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Delete Account - Sellers Only */}
+        {!isAdmin && user?.email && (
+          <Card variant="glow" className="border-destructive/30">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-destructive/10">
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-destructive">Zona de Perigo</CardTitle>
+                  <CardDescription>
+                    Exclua sua conta permanentemente. Esta ação não pode ser desfeita.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert className="border-destructive/50 bg-destructive/10">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-destructive">
+                  Ao excluir sua conta, todos os seus dados serão removidos permanentemente e você não poderá criar uma nova conta com o mesmo e-mail.
+                </AlertDescription>
+              </Alert>
+              <DeleteAccountDialog userEmail={user.email} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );
