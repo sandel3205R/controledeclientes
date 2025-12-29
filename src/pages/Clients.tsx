@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useAccountCategories } from '@/hooks/useAccountCategories';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import ClientCard from '@/components/clients/ClientCard';
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal, Tag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -75,7 +76,6 @@ interface ServerOption {
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 type PaymentFilter = 'all' | 'paid' | 'unpaid';
-type AccountTypeFilter = 'all' | 'premium' | 'ssh' | 'iptv' | 'p2p' | 'none';
 type SortOption = 'name' | 'expiration' | 'price';
 
 interface WhatsAppTemplate {
@@ -88,6 +88,7 @@ interface WhatsAppTemplate {
 
 export default function Clients() {
   const { user } = useAuth();
+  const { allCategories } = useAccountCategories();
   const [searchParams] = useSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +109,7 @@ export default function Clients() {
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
-  const [accountTypeFilter, setAccountTypeFilter] = useState<AccountTypeFilter>('all');
+  const [accountTypeFilter, setAccountTypeFilter] = useState<string>('all');
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -714,27 +715,26 @@ export default function Clients() {
               <SelectItem value="unpaid">Não Pagos</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={accountTypeFilter} onValueChange={(v) => setAccountTypeFilter(v as AccountTypeFilter)}>
+          <Select value={accountTypeFilter} onValueChange={(v) => setAccountTypeFilter(v)}>
             <SelectTrigger className={cn(
               "w-full sm:w-40",
-              accountTypeFilter === 'premium' && "border-yellow-500/50 text-yellow-500",
-              accountTypeFilter === 'ssh' && "border-green-500/50 text-green-500",
-              accountTypeFilter === 'iptv' && "border-purple-500/50 text-purple-500",
-              accountTypeFilter === 'p2p' && "border-blue-500/50 text-blue-500"
+              accountTypeFilter !== 'all' && accountTypeFilter !== 'none' && "border-primary/50"
             )}>
               {accountTypeFilter === 'premium' ? <Crown className="w-4 h-4 mr-2" /> : 
                accountTypeFilter === 'ssh' ? <Terminal className="w-4 h-4 mr-2" /> :
                accountTypeFilter === 'iptv' ? <Tv className="w-4 h-4 mr-2" /> :
                accountTypeFilter === 'p2p' ? <Radio className="w-4 h-4 mr-2" /> :
+               accountTypeFilter !== 'all' && accountTypeFilter !== 'none' ? <Tag className="w-4 h-4 mr-2" /> :
                <Filter className="w-4 h-4 mr-2" />}
               <SelectValue placeholder="Tipo Conta" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos Tipos</SelectItem>
-              <SelectItem value="premium">Contas Premium</SelectItem>
-              <SelectItem value="ssh">SSH</SelectItem>
-              <SelectItem value="iptv">IPTV</SelectItem>
-              <SelectItem value="p2p">P2P</SelectItem>
+              {allCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
               <SelectItem value="none">Sem Tipo</SelectItem>
             </SelectContent>
           </Select>
