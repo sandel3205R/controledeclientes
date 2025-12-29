@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellOff, Loader2, Save, Send, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Bell, BellOff, Loader2, Save, Send, CheckCircle, XCircle, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -10,6 +10,8 @@ import { useNotifications } from './useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+
+const SOUND_ENABLED_KEY = 'expiration_alert_sound_enabled';
 
 const DAYS_OPTIONS = [
   { value: 1, label: '1 dia' },
@@ -39,6 +41,17 @@ export function NotificationCard() {
   const [loadingPrefs, setLoadingPrefs] = useState(true);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const stored = localStorage.getItem(SOUND_ENABLED_KEY);
+    return stored !== 'false'; // Default to true
+  });
+
+  // Toggle sound preference
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    localStorage.setItem(SOUND_ENABLED_KEY, enabled ? 'true' : 'false');
+    toast.success(enabled ? 'Som de alerta ativado' : 'Som de alerta desativado');
+  };
 
   // Carregar preferências
   useEffect(() => {
@@ -218,6 +231,27 @@ export function NotificationCard() {
 
         {/* Configurações de Dias */}
         <div className="space-y-4 pt-4 border-t">
+          {/* Som de Alerta */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {soundEnabled ? (
+                <Volume2 className="h-5 w-5 text-primary" />
+              ) : (
+                <VolumeX className="h-5 w-5 text-muted-foreground" />
+              )}
+              <div>
+                <Label>Som de Alerta</Label>
+                <p className="text-sm text-muted-foreground">
+                  Toca um som quando houver vencimentos urgentes
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={soundEnabled}
+              onCheckedChange={handleSoundToggle}
+            />
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <Label>Receber Alertas de Vencimento</Label>

@@ -120,11 +120,17 @@ function DashboardContent() {
   const [refreshing, setRefreshing] = useState(false);
   const isAdmin = role === 'admin';
   
+  // Get sound preference from localStorage
+  const getSoundEnabled = () => {
+    const stored = localStorage.getItem('expiration_alert_sound_enabled');
+    return stored !== 'false'; // Default to true
+  };
+  
   // Use expiration alerts hook for seller dashboard
   useExpirationAlerts({
     clients,
     enabled: !isAdmin && clients.length > 0,
-    soundEnabled: true,
+    soundEnabled: getSoundEnabled(),
     checkIntervalMinutes: 30,
   });
 
