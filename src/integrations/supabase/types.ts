@@ -212,6 +212,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          account_type: string | null
           app_name: string | null
           created_at: string | null
           device: string | null
@@ -251,6 +252,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          account_type?: string | null
           app_name?: string | null
           created_at?: string | null
           device?: string | null
@@ -290,6 +292,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          account_type?: string | null
           app_name?: string | null
           created_at?: string | null
           device?: string | null
