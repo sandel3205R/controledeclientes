@@ -15,6 +15,7 @@ interface ExpiringClient {
 
 interface NotificationBadgeData {
   count: number;
+  expiringToday: ExpiringClient[];
   expiringIn1Day: ExpiringClient[];
   expiringIn2Days: ExpiringClient[];
   expiringIn3Days: ExpiringClient[];
@@ -25,6 +26,7 @@ export function useNotificationBadge() {
   const { user } = useAuth();
   const [badgeData, setBadgeData] = useState<NotificationBadgeData>({
     count: 0,
+    expiringToday: [],
     expiringIn1Day: [],
     expiringIn2Days: [],
     expiringIn3Days: [],
@@ -36,6 +38,7 @@ export function useNotificationBadge() {
     if (!user) {
       setBadgeData({
         count: 0,
+        expiringToday: [],
         expiringIn1Day: [],
         expiringIn2Days: [],
         expiringIn3Days: [],
@@ -49,16 +52,15 @@ export function useNotificationBadge() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Start from tomorrow (1 day) to 3 days from now
-      const tomorrow = addDays(today, 1);
+      // From today to 3 days from now (includes today)
       const in3Days = addDays(today, 3);
       
-      // Fetch clients expiring in 1-3 days
+      // Fetch clients expiring today to 3 days
       const { data: clients, error } = await supabase
         .from('clients')
         .select('id, name, phone, expiration_date, plan_price')
         .eq('seller_id', user.id)
-        .gte('expiration_date', tomorrow.toISOString().split('T')[0])
+        .gte('expiration_date', today.toISOString().split('T')[0])
         .lte('expiration_date', in3Days.toISOString().split('T')[0])
         .order('expiration_date', { ascending: true });
 
@@ -78,6 +80,7 @@ export function useNotificationBadge() {
         (messagedClients || []).map(m => `${m.client_id}-${m.expiration_date}`)
       );
 
+      const expiringToday: ExpiringClient[] = [];
       const expiringIn1Day: ExpiringClient[] = [];
       const expiringIn2Days: ExpiringClient[] = [];
       const expiringIn3Days: ExpiringClient[] = [];
@@ -88,11 +91,12 @@ export function useNotificationBadge() {
         const trackingKey = `${client.id}-${client.expiration_date}`;
         if (messagedSet.has(trackingKey)) return;
 
-        const expDate = new Date(client.expiration_date);
+        const expDate = new Date(client.expiration_date + 'T00:00:00');
         const daysRemaining = differenceInDays(expDate, today);
         
         let urgency: 'critical' | 'high' | 'medium' | 'low' = 'low';
-        if (daysRemaining === 1) urgency = 'critical';
+        if (daysRemaining === 0) urgency = 'critical';
+        else if (daysRemaining === 1) urgency = 'critical';
         else if (daysRemaining === 2) urgency = 'high';
         else if (daysRemaining === 3) urgency = 'medium';
 
@@ -104,7 +108,9 @@ export function useNotificationBadge() {
 
         totalAmount += client.plan_price || 0;
 
-        if (daysRemaining === 1) {
+        if (daysRemaining === 0) {
+          expiringToday.push(expiringClient);
+        } else if (daysRemaining === 1) {
           expiringIn1Day.push(expiringClient);
         } else if (daysRemaining === 2) {
           expiringIn2Days.push(expiringClient);
@@ -113,10 +119,11 @@ export function useNotificationBadge() {
         }
       });
 
-      const count = expiringIn1Day.length + expiringIn2Days.length + expiringIn3Days.length;
+      const count = expiringToday.length + expiringIn1Day.length + expiringIn2Days.length + expiringIn3Days.length;
 
       setBadgeData({
         count,
+        expiringToday,
         expiringIn1Day,
         expiringIn2Days,
         expiringIn3Days,
