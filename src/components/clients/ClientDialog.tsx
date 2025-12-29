@@ -522,7 +522,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="premium">Contas Premium</SelectItem>
                   <SelectItem value="ssh">SSH</SelectItem>
                   <SelectItem value="iptv">IPTV</SelectItem>
                   <SelectItem value="p2p">P2P</SelectItem>
