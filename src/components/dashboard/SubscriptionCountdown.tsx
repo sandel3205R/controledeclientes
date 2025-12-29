@@ -2,11 +2,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Crown, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, Crown, AlertTriangle, CheckCircle, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const ADMIN_WHATSAPP = '+5531998518865';
+
 export function SubscriptionCountdown() {
-  const { subscription, role, loading } = useAuth();
+  const { subscription, role, loading, user } = useAuth();
 
   // Don't show for admins
   if (role === 'admin') return null;
@@ -25,6 +28,37 @@ export function SubscriptionCountdown() {
   }
 
   const { isPermanent, isExpired, daysRemaining, hoursRemaining } = subscription;
+
+  const handleRequestRenewal = () => {
+    const phone = ADMIN_WHATSAPP.replace(/\D/g, '');
+    const userEmail = user?.email || 'não informado';
+    
+    let message = '';
+    if (isExpired) {
+      message = `Olá! 👋
+
+Meu plano expirou e gostaria de renovar meu acesso ao painel.
+
+📧 Meu e-mail: ${userEmail}
+
+Por favor, me envie as opções de planos disponíveis.
+
+Obrigado!`;
+    } else {
+      message = `Olá! 👋
+
+Gostaria de renovar meu plano antes do vencimento.
+
+📧 Meu e-mail: ${userEmail}
+⏰ Dias restantes: ${daysRemaining}
+
+Por favor, me envie as opções de renovação.
+
+Obrigado!`;
+    }
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   // Permanent user
   if (isPermanent) {
@@ -55,21 +89,32 @@ export function SubscriptionCountdown() {
   // Expired
   if (isExpired) {
     return (
-      <Card className="border-destructive/50 bg-gradient-to-r from-destructive/10 to-destructive/5 animate-pulse">
+      <Card className="border-destructive/50 bg-gradient-to-r from-destructive/10 to-destructive/5">
         <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-destructive to-destructive/80 shadow-lg">
-              <AlertTriangle className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg text-destructive">Período Expirado</h3>
-                <Badge variant="destructive">Inativo</Badge>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-destructive to-destructive/80 shadow-lg animate-pulse">
+                <AlertTriangle className="w-6 h-6 text-white" />
               </div>
-              <p className="text-sm text-destructive/80">
-                Seu período de acesso expirou. Entre em contato para renovar.
-              </p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg text-destructive">Período Expirado</h3>
+                  <Badge variant="destructive">Inativo</Badge>
+                </div>
+                <p className="text-sm text-destructive/80">
+                  Seu período de acesso expirou. Renove agora!
+                </p>
+              </div>
             </div>
+            <Button 
+              variant="whatsapp" 
+              size="sm"
+              onClick={handleRequestRenewal}
+              className="w-full sm:w-auto"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Renovar Agora
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -106,67 +151,82 @@ export function SubscriptionCountdown() {
   return (
     <Card className={cn("bg-gradient-to-r", getStatusColor())}>
       <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <div className={cn("p-3 rounded-xl bg-gradient-to-br shadow-lg", getIconGradient())}>
-            {isUrgent ? (
-              <AlertTriangle className="w-6 h-6 text-white" />
-            ) : daysRemaining !== null && daysRemaining > 10 ? (
-              <CheckCircle className="w-6 h-6 text-white" />
-            ) : (
-              <Clock className="w-6 h-6 text-white" />
-            )}
-          </div>
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg">
-                  {daysRemaining !== null ? (
-                    daysRemaining === 0 ? (
-                      hoursRemaining !== null && hoursRemaining > 0 ? (
-                        `${hoursRemaining}h restantes`
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4 flex-1 w-full">
+            <div className={cn("p-3 rounded-xl bg-gradient-to-br shadow-lg shrink-0", getIconGradient())}>
+              {isUrgent ? (
+                <AlertTriangle className="w-6 h-6 text-white" />
+              ) : daysRemaining !== null && daysRemaining > 10 ? (
+                <CheckCircle className="w-6 h-6 text-white" />
+              ) : (
+                <Clock className="w-6 h-6 text-white" />
+              )}
+            </div>
+            <div className="flex-1 space-y-2 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-lg">
+                    {daysRemaining !== null ? (
+                      daysRemaining === 0 ? (
+                        hoursRemaining !== null && hoursRemaining > 0 ? (
+                          `${hoursRemaining}h restantes`
+                        ) : (
+                          'Expira hoje!'
+                        )
+                      ) : daysRemaining === 1 ? (
+                        '1 dia restante'
                       ) : (
-                        'Expira hoje!'
+                        `${daysRemaining} dias restantes`
                       )
-                    ) : daysRemaining === 1 ? (
-                      '1 dia restante'
                     ) : (
-                      `${daysRemaining} dias restantes`
-                    )
-                  ) : (
-                    'Acesso ativo'
+                      'Acesso ativo'
+                    )}
+                  </h3>
+                  {isUrgent && (
+                    <Badge variant="destructive" className="animate-pulse">
+                      Urgente!
+                    </Badge>
                   )}
-                </h3>
-                {isUrgent && (
-                  <Badge variant="destructive" className="animate-pulse">
-                    Urgente!
-                  </Badge>
-                )}
-                {!isUrgent && isWarning && (
-                  <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
-                    Atenção
-                  </Badge>
+                  {!isUrgent && isWarning && (
+                    <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+                      Atenção
+                    </Badge>
+                  )}
+                </div>
+                {daysRemaining !== null && (
+                  <span className="text-sm font-medium text-muted-foreground shrink-0">
+                    {Math.round(progressPercentage)}%
+                  </span>
                 )}
               </div>
               {daysRemaining !== null && (
-                <span className="text-sm font-medium text-muted-foreground">
-                  {Math.round(progressPercentage)}%
-                </span>
+                <Progress 
+                  value={progressPercentage} 
+                  className={cn("h-2", getProgressColor())}
+                />
               )}
+              <p className="text-xs text-muted-foreground">
+                {isUrgent 
+                  ? 'Renove agora para não perder o acesso!' 
+                  : isWarning 
+                    ? 'Seu período de acesso está acabando' 
+                    : 'Aproveite seu acesso ao sistema'}
+              </p>
             </div>
-            {daysRemaining !== null && (
-              <Progress 
-                value={progressPercentage} 
-                className={cn("h-2", getProgressColor())}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              {isUrgent 
-                ? 'Renove agora para não perder o acesso!' 
-                : isWarning 
-                  ? 'Seu período de acesso está acabando' 
-                  : 'Aproveite seu acesso ao sistema'}
-            </p>
           </div>
+          
+          {/* Show renewal button when warning or urgent */}
+          {isWarning && (
+            <Button 
+              variant="whatsapp" 
+              size="sm"
+              onClick={handleRequestRenewal}
+              className="w-full sm:w-auto shrink-0"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Renovar
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
