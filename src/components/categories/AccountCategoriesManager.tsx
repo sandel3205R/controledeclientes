@@ -29,8 +29,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, Tag, Crown, Terminal, Tv, Radio, Loader2, Lock } from 'lucide-react';
+import { Plus, Edit, Trash2, Tag, Crown, Terminal, Tv, Radio, Loader2, Lock, Sparkles, Settings, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const ICON_OPTIONS = [
   { id: 'tag', label: 'Tag', icon: Tag },
@@ -214,9 +215,23 @@ export default function AccountCategoriesManager() {
               )}
 
               {categories.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Você ainda não criou nenhuma categoria personalizada.
-                </p>
+                <Alert className="border-primary/30 bg-primary/5">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <AlertDescription className="text-sm">
+                    <strong className="text-primary">Bem-vindo!</strong> Aqui você pode criar suas próprias categorias de conta personalizadas. 
+                    <br /><br />
+                    <div className="space-y-2 mt-2">
+                      <div className="flex items-start gap-2">
+                        <Settings className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <span><strong>Onde encontrar:</strong> Você está na página certa! Clique em <span className="text-primary font-semibold">"Nova Categoria"</span> acima.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MessageSquare className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <span><strong>Templates:</strong> Após criar, vá em <span className="text-primary font-semibold">Templates</span> no menu para criar mensagens personalizadas para cada categoria.</span>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           )}
