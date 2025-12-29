@@ -6,7 +6,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Phone, Calendar, DollarSign, Edit, Trash2, Check, Filter } from "lucide-react";
+import { Plus, Phone, Calendar, DollarSign, Edit, Trash2, Check, Filter, Send } from "lucide-react";
 import { format, differenceInDays, addDays, isBefore, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ interface Bill {
   description: string;
   recipient_name: string;
   recipient_whatsapp: string | null;
+  recipient_telegram: string | null;
   amount: number;
   due_date: string;
   is_paid: boolean;
@@ -142,6 +143,15 @@ export default function Bills() {
       `Olá ${bill.recipient_name}! Gostaria de tratar sobre o pagamento de R$ ${bill.amount.toFixed(2).replace(".", ",")} referente a: ${bill.description}`
     );
     window.open(`https://wa.me/55${phone}?text=${message}`, "_blank");
+  };
+
+  const handleTelegramClick = (telegram: string, bill: Bill) => {
+    const username = telegram.replace(/^@/, '');
+    const formattedDate = format(new Date(bill.due_date), "dd/MM/yyyy");
+    const message = encodeURIComponent(
+      `Olá ${bill.recipient_name}, tenho que te pagar dia ${formattedDate} referente a: ${bill.description} - R$ ${bill.amount.toFixed(2).replace(".", ",")}`
+    );
+    window.open(`https://t.me/${username}?text=${message}`, "_blank");
   };
 
   const handleEdit = (bill: Bill) => {
@@ -296,8 +306,22 @@ export default function Bills() {
                             handleWhatsAppClick(bill.recipient_whatsapp!, bill)
                           }
                           className="text-green-500 border-green-500/30 hover:bg-green-500/10"
+                          title="Enviar WhatsApp"
                         >
                           <Phone className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {bill.recipient_telegram && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleTelegramClick(bill.recipient_telegram!, bill)
+                          }
+                          className="text-sky-500 border-sky-500/30 hover:bg-sky-500/10"
+                          title="Enviar Telegram"
+                        >
+                          <Send className="h-4 w-4" />
                         </Button>
                       )}
                       {!bill.is_paid && (
