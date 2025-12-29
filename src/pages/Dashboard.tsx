@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { ValueVisibilityProvider, useValueVisibility } from '@/hooks/useValueVisibility';
 import AdminMessagesManager from '@/components/admin/AdminMessagesManager';
 import AdminMessagesBanner from '@/components/admin/AdminMessagesBanner';
+import { SubscriptionCountdown } from '@/components/dashboard/SubscriptionCountdown';
 
 interface SellerDashboardStats {
   totalClients: number;
@@ -618,6 +619,9 @@ ${ADMIN_NAME}`;
       <div className="space-y-6">
         {/* Admin Messages Banner */}
         <AdminMessagesBanner />
+
+        {/* Subscription Countdown */}
+        <SubscriptionCountdown />
 
         <div className="flex items-center justify-between">
           <div>
