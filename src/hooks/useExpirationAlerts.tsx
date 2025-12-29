@@ -91,13 +91,13 @@ export function useExpirationAlerts({
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     
+    const expiringToday: Client[] = [];
     const expiringIn1Day: Client[] = [];
     const expiringIn2Days: Client[] = [];
     const expiringIn3Days: Client[] = [];
 
     clients.forEach((client) => {
-      const expDate = new Date(client.expiration_date);
-      expDate.setHours(0, 0, 0, 0);
+      const expDate = new Date(client.expiration_date + 'T00:00:00');
       const daysUntil = differenceInDays(expDate, now);
       const notificationKey = `${client.id}-${client.expiration_date}`;
 
@@ -107,8 +107,11 @@ export function useExpirationAlerts({
       // Skip if client was already messaged (sent renewal message)
       if (messagedClients.has(notificationKey)) return;
 
-      // Only show notifications for clients expiring in 1, 2, or 3 days
-      if (daysUntil === 1) {
+      // Show notifications for clients expiring today, 1, 2, or 3 days
+      if (daysUntil === 0) {
+        expiringToday.push(client);
+        notifiedClientsRef.current.add(notificationKey);
+      } else if (daysUntil === 1) {
         expiringIn1Day.push(client);
         notifiedClientsRef.current.add(notificationKey);
       } else if (daysUntil === 2) {
@@ -120,8 +123,23 @@ export function useExpirationAlerts({
       }
     });
 
-    // Show notifications
+    // Show notifications in order: today first, then tomorrow, then 2-3 days
     let shouldPlaySound = false;
+
+    if (expiringToday.length > 0) {
+      shouldPlaySound = true;
+      if (expiringToday.length === 1) {
+        toast.error(`Cliente "${expiringToday[0].name}" vence HOJE!`, {
+          duration: 15000,
+          description: 'Urgente! Renove agora.',
+        });
+      } else {
+        toast.error(`${expiringToday.length} clientes vencem HOJE!`, {
+          duration: 15000,
+          description: 'Urgente! Renove agora.',
+        });
+      }
+    }
 
     if (expiringIn1Day.length > 0) {
       shouldPlaySound = true;
