@@ -731,7 +731,7 @@ export default function Clients() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos Tipos</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
+              <SelectItem value="premium">Contas Premium</SelectItem>
               <SelectItem value="ssh">SSH</SelectItem>
               <SelectItem value="iptv">IPTV</SelectItem>
               <SelectItem value="p2p">P2P</SelectItem>
