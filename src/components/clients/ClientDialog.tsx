@@ -46,6 +46,7 @@ const DEVICE_OPTIONS = [
 const clientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   phone: z.string().optional(),
+  telegram: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   device: z.string().optional(),
   login: z.string().optional(),
@@ -83,6 +84,7 @@ interface ClientDialogProps {
     id: string;
     name: string;
     phone: string | null;
+    telegram?: string | null;
     email?: string | null;
     device: string | null;
     login: string | null;
@@ -209,6 +211,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       reset({
         name: client.name,
         phone: client.phone || '',
+        telegram: (client as any).telegram || '',
         email: (client as any).email || '',
         device: client.device || '',
         login: client.login || '',
@@ -241,6 +244,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       reset({
         name: '',
         phone: '',
+        telegram: '',
         email: '',
         device: '',
         login: '',
@@ -344,6 +348,7 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
       const clientData = {
         name: data.name,
         phone: data.phone || null,
+        telegram: data.telegram || null,
         email: data.email || null,
         device: deviceString || null,
         login: encryptedCredentials.login || null,
@@ -446,15 +451,24 @@ export default function ClientDialog({ open, onOpenChange, client, onSuccess }: 
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="telegram">Telegram</Label>
               <Input 
-                id="email" 
-                type="email"
-                {...register('email')} 
-                placeholder="email@exemplo.com" 
+                id="telegram" 
+                {...register('telegram')} 
+                placeholder="@usuario" 
               />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input 
+              id="email" 
+              type="email"
+              {...register('email')} 
+              placeholder="email@exemplo.com" 
+            />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
 
           <div className="grid grid-cols-3 gap-4">

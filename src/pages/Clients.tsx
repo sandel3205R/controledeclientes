@@ -41,6 +41,7 @@ interface Client {
   id: string;
   name: string;
   phone: string | null;
+  telegram: string | null;
   device: string | null;
   login: string | null;
   password: string | null;

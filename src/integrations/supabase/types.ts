@@ -206,6 +206,7 @@ export type Database = {
           server_name: string | null
           shared_panel_id: string | null
           shared_slot_type: string | null
+          telegram: string | null
           updated_at: string | null
         }
         Insert: {
@@ -244,6 +245,7 @@ export type Database = {
           server_name?: string | null
           shared_panel_id?: string | null
           shared_slot_type?: string | null
+          telegram?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -282,6 +284,7 @@ export type Database = {
           server_name?: string | null
           shared_panel_id?: string | null
           shared_slot_type?: string | null
+          telegram?: string | null
           updated_at?: string | null
         }
         Relationships: [
