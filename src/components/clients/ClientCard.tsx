@@ -61,6 +61,7 @@ interface ClientCardProps {
     shared_panel_id?: string | null;
     has_app?: boolean | null;
     app_type?: string | null;
+    account_type?: string | null;
   };
   servers?: { id: string; name: string }[];
   onEdit: () => void;
@@ -305,11 +306,13 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
       message = replaceVariablesWithCredential(customTemplate.message, login, password);
     } else {
       const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
+      const isPremiumAccount = client.account_type === 'premium';
+      const credentialLabel = isPremiumAccount ? 'E-mail' : 'Usuário';
       const defaultMessages = {
         billing: `Olá ${client.name}! 👋\n\n*${brandName}* informa: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 *${brandName}* - Sua melhor experiência!`,
-        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
-        renewal: `Olá ${client.name}! ✅\n\n*${brandName}* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: *${formattedExpDate}*\n\nAgradecemos pela confiança!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
-        reminder: `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à *${brandName}*!\n\nSeu plano: *${planName}*\n📅 Vencimento: *${formattedExpDate}*\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        renewal: `Olá ${client.name}! ✅\n\n*${brandName}* informa: Seu plano *${planName}* foi renovado com sucesso!\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: *${formattedExpDate}*\n\nAgradecemos pela confiança!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
+        reminder: `Olá ${client.name}! ⏰\n\n*${brandName}* lembra: Seu plano *${planName}* vence em *${formattedExpDate}*.\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 *${brandName}* - Sua melhor experiência!`,
       };
       message = defaultMessages[type];
     }
@@ -399,11 +402,13 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
       message = replaceVariablesWithCredential(customTemplate.message, login, password);
     } else {
       const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
+      const isPremiumAccount = client.account_type === 'premium';
+      const credentialLabel = isPremiumAccount ? 'E-mail' : 'Usuário';
       const defaultMessages = {
         billing: `Olá ${client.name}! 👋\n\n${brandName} informa: Seu plano ${planName} vence em ${formattedExpDate}.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 ${brandName} - Sua melhor experiência!`,
-        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à ${brandName}!\n\nSeu plano: ${planName}\n📅 Vencimento: ${formattedExpDate}\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 ${brandName} - Sua melhor experiência!`,
-        renewal: `Olá ${client.name}! ✅\n\n${brandName} informa: Seu plano ${planName} foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: ${formattedExpDate}\n\nAgradecemos pela confiança!\n\n🎬 ${brandName} - Sua melhor experiência!`,
-        reminder: `Olá ${client.name}! ⏰\n\n${brandName} lembra: Seu plano ${planName} vence em ${formattedExpDate}.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à ${brandName}!\n\nSeu plano: ${planName}\n📅 Vencimento: ${formattedExpDate}\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        renewal: `Olá ${client.name}! ✅\n\n${brandName} informa: Seu plano ${planName} foi renovado com sucesso!\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: ${formattedExpDate}\n\nAgradecemos pela confiança!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        reminder: `Olá ${client.name}! ⏰\n\n${brandName} lembra: Seu plano ${planName} vence em ${formattedExpDate}.\n\nSeus dados de acesso:\n📧 ${credentialLabel}: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 ${brandName} - Sua melhor experiência!`,
       };
       message = defaultMessages[type];
     }
