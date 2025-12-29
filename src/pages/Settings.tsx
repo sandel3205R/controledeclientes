@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { User, Lock, Save, Palette, Check, ShieldCheck, AlertTriangle, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { NotificationCard } from '@/modules/notifications/NotificationCard';
@@ -16,6 +16,7 @@ import { MyPlanCard } from '@/components/settings/MyPlanCard';
 import AccountCategoriesManager from '@/components/categories/AccountCategoriesManager';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -32,6 +33,7 @@ const passwordSchema = z.object({
 export default function Settings() {
   const { user, role } = useAuth();
   const { theme, setTheme, themes } = useTheme();
+  const { resetTour, hasCompletedTour } = useOnboardingTour();
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -195,6 +197,31 @@ export default function Settings() {
 
         {/* Account Categories - Sellers Only */}
         {!isAdmin && <AccountCategoriesManager />}
+
+        {/* Onboarding Tour - Sellers Only */}
+        {!isAdmin && hasCompletedTour && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <GraduationCap className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Tour do Sistema</CardTitle>
+                    <CardDescription>
+                      Reveja o guia interativo com as funcionalidades do sistema
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button variant="outline" onClick={resetTour}>
+                  <GraduationCap className="w-4 h-4 mr-2" />
+                  Refazer Tour
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
 
         {/* First Admin Signup - Admin Only */}
         {isAdmin && (
