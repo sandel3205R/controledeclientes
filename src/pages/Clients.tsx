@@ -213,9 +213,14 @@ export default function Clients() {
   }, [user]);
 
   const getClientStatus = (expDate: string): StatusFilter => {
-    const date = new Date(expDate);
-    if (isPast(date)) return 'expired';
-    if (differenceInDays(date, new Date()) <= 7) return 'expiring';
+    const date = new Date(expDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = differenceInDays(date, today);
+    
+    if (daysUntil < 0) return 'expired';
+    // Expiring: 0 (today), 1 (tomorrow), 2, or 3 days
+    if (daysUntil <= 3) return 'expiring';
     return 'active';
   };
 
@@ -285,6 +290,12 @@ export default function Clients() {
       // If both are recent, sort by created_at (newest first)
       if (aRecent && bRecent) {
         return new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime();
+      }
+      
+      // For "expiring" filter, always sort by expiration date (soonest first)
+      // This ensures order: today → tomorrow → 2 days → 3 days
+      if (statusFilter === 'expiring') {
+        return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
       }
       
       // Normal sorting for non-recent clients
