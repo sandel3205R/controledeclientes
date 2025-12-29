@@ -6,11 +6,29 @@ const corsHeaders = {
 };
 
 const MAX_FAILED_ATTEMPTS = 10;
+const MAX_EMAIL_LENGTH = 255;
+
+// Email validation regex - checks for valid format
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface RequestBody {
   email: string;
   action: 'check' | 'register_failure' | 'register_success';
   ip_address?: string;
+}
+
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  if (email.length > MAX_EMAIL_LENGTH) return false;
+  if (!EMAIL_REGEX.test(email)) return false;
+  // Check for control characters
+  if (/[\x00-\x1F\x7F]/.test(email)) return false;
+  return true;
+}
+
+function sanitizeEmail(email: string): string {
+  // Remove any control characters and trim
+  return email.toLowerCase().trim().replace(/[\x00-\x1F\x7F]/g, '');
 }
 
 Deno.serve(async (req) => {
@@ -27,14 +45,24 @@ Deno.serve(async (req) => {
     
     const { email, action, ip_address }: RequestBody = await req.json();
     
-    if (!email) {
+    // Validate email format
+    if (!isValidEmail(email)) {
+      console.log(`Invalid email format rejected: ${email?.substring(0, 50)}...`);
       return new Response(
-        JSON.stringify({ error: 'Email is required' }),
+        JSON.stringify({ error: 'Valid email is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    // Validate action
+    if (!['check', 'register_failure', 'register_success'].includes(action)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid action' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const normalizedEmail = sanitizeEmail(email);
 
     // Get failed attempts count for this email
     const { data: attempts, error: countError } = await supabase
