@@ -4,7 +4,7 @@ project_id = "ahrzjgkjlhixqubmpoya"
 verify_jwt = true
 
 [functions.cleanup-trash]
-verify_jwt = false
+verify_jwt = true
 
 [functions.crypto]
 verify_jwt = true
