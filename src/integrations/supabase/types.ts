@@ -670,6 +670,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_permanent: boolean | null
+          needs_password_update: boolean | null
           pro_export_expires_at: string | null
           seller_plan_id: string | null
           subscription_expires_at: string | null
@@ -688,6 +689,7 @@ export type Database = {
           id: string
           is_active?: boolean | null
           is_permanent?: boolean | null
+          needs_password_update?: boolean | null
           pro_export_expires_at?: string | null
           seller_plan_id?: string | null
           subscription_expires_at?: string | null
@@ -706,6 +708,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_permanent?: boolean | null
+          needs_password_update?: boolean | null
           pro_export_expires_at?: string | null
           seller_plan_id?: string | null
           subscription_expires_at?: string | null
