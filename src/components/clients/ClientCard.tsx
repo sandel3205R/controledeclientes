@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Phone, Edit, Trash2, MessageCircle, PartyPopper, Calendar, Monitor, 
   User, Lock, Eye, EyeOff, RefreshCw, Bell, CheckCircle, Smartphone, 
-  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail, Tv, Radio, Cloud 
+  Server, Wifi, Copy, MoreHorizontal, DollarSign, AlertCircle, Loader2, Mail, Tv, Radio, Cloud, Send
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import WhatsAppCredentialSelector from './WhatsAppCredentialSelector';
+import MessageTypeSelector from './MessageTypeSelector';
 import { useCrypto } from '@/hooks/useCrypto';
 
 interface ClientCardProps {
@@ -33,6 +34,7 @@ interface ClientCardProps {
     id: string;
     name: string;
     phone: string | null;
+    telegram?: string | null;
     email?: string | null;
     device: string | null;
     login: string | null;
@@ -102,7 +104,9 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
   const [credentialSelectorOpen, setCredentialSelectorOpen] = useState(false);
   const [pendingMessageType, setPendingMessageType] = useState<'billing' | 'welcome' | 'renewal' | 'reminder'>('billing');
   const [sellerName, setSellerName] = useState<string>('');
-  
+  const [messageTypeSelectorOpen, setMessageTypeSelectorOpen] = useState(false);
+  const [pendingPlatform, setPendingPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
+  const [pendingAction, setPendingAction] = useState<'billing' | 'welcome' | 'renewal' | 'reminder'>('billing');
   const expirationDate = new Date(client.expiration_date);
   const daysUntilExpiration = differenceInDays(expirationDate, new Date());
   const isExpired = isPast(expirationDate);
@@ -344,6 +348,98 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     sendWhatsAppWithCredential(pendingMessageType, login, password);
   };
 
+  // Send Telegram message with credential
+  const sendTelegramWithCredential = (type: 'billing' | 'welcome' | 'renewal' | 'reminder', login: string | null, password: string | null, useTemplate: boolean) => {
+    if (!client.telegram) return;
+    
+    // Format telegram username (remove @ if present)
+    const telegramUser = client.telegram.replace('@', '');
+    
+    if (!useTemplate) {
+      // Open empty chat
+      window.open(`https://t.me/${telegramUser}`, '_blank');
+      return;
+    }
+    
+    const planName = client.plan_name || 'seu plano';
+    const brandName = sellerName || 'Nossa equipe';
+    
+    const customTemplate = templates.find(t => t.type === type && t.is_default);
+    
+    let message: string;
+    
+    if (customTemplate) {
+      message = replaceVariablesWithCredential(customTemplate.message, login, password);
+    } else {
+      const formattedExpDate = format(expirationDate, 'dd/MM/yyyy');
+      const defaultMessages = {
+        billing: `Olá ${client.name}! 👋\n\n${brandName} informa: Seu plano ${planName} vence em ${formattedExpDate}.\n\nDeseja renovar? Entre em contato para mais informações.\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        welcome: `Olá ${client.name}! 🎉\n\nSeja bem-vindo(a) à ${brandName}!\n\nSeu plano: ${planName}\n📅 Vencimento: ${formattedExpDate}\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nQualquer dúvida, estamos à disposição!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        renewal: `Olá ${client.name}! ✅\n\n${brandName} informa: Seu plano ${planName} foi renovado com sucesso!\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\n📅 Nova data de vencimento: ${formattedExpDate}\n\nAgradecemos pela confiança!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+        reminder: `Olá ${client.name}! ⏰\n\n${brandName} lembra: Seu plano ${planName} vence em ${formattedExpDate}.\n\nSeus dados de acesso:\n👤 Usuário: ${login || 'N/A'}\n🔑 Senha: ${password || 'N/A'}\n\nEvite a interrupção do serviço renovando antecipadamente!\n\n🎬 ${brandName} - Sua melhor experiência!`,
+      };
+      message = defaultMessages[type];
+    }
+
+    window.open(`https://t.me/${telegramUser}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // Handle message action click (both WhatsApp and Telegram)
+  const handleMessageClick = (platform: 'whatsapp' | 'telegram', type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
+    setPendingPlatform(platform);
+    setPendingAction(type);
+    setMessageTypeSelectorOpen(true);
+  };
+
+  // Handle message type selection
+  const handleMessageTypeSelect = async (useTemplate: boolean) => {
+    // Decrypt credentials before sending
+    let creds = decryptedCredentials;
+    if (!creds && useTemplate) {
+      try {
+        creds = await decryptCredentials({
+          login: client.login,
+          password: client.password,
+          login2: client.login2,
+          password2: client.password2,
+          login3: client.login3,
+          password3: client.password3,
+          login4: client.login4,
+          password4: client.password4,
+          login5: client.login5,
+          password5: client.password5,
+        }) as any;
+        setDecryptedCredentials(creds);
+      } catch (error) {
+        console.error('Decryption error:', error);
+      }
+    }
+
+    if (pendingPlatform === 'telegram') {
+      const login = creds?.login || client.login;
+      const password = creds?.password || client.password;
+      sendTelegramWithCredential(pendingAction, login, password, useTemplate);
+    } else {
+      if (!useTemplate) {
+        // Open empty WhatsApp chat
+        if (client.phone) {
+          const phone = formatPhone(client.phone);
+          window.open(`https://wa.me/55${phone}`, '_blank');
+        }
+      } else {
+        // If has multiple credentials, show selector
+        if (hasMultipleCredentials) {
+          setPendingMessageType(pendingAction);
+          setCredentialSelectorOpen(true);
+        } else {
+          const login = creds?.login || client.login;
+          const password = creds?.password || client.password;
+          sendWhatsAppWithCredential(pendingAction, login, password);
+        }
+      }
+    }
+  };
+
   const handleRenew = async () => {
     if (!onRenew) return;
     
@@ -568,49 +664,114 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
           )}
         </div>
 
-        {/* WhatsApp Actions */}
-        {client.phone && (
-          <div className="p-3 pt-0">
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleWhatsAppClick('billing')}
-                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Cobrar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleWhatsAppClick('renewal')}
-                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                Renovar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleWhatsAppClick('reminder')}
-                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
-              >
-                <Bell className="w-3.5 h-3.5" />
-                Lembrar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleWhatsAppClick('welcome')}
-                className="h-9 px-3 text-xs bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-start gap-2"
-              >
-                <PartyPopper className="w-3.5 h-3.5" />
-                Boas-vindas
-              </Button>
-            </div>
+        {/* Messaging Actions */}
+        {(client.phone || client.telegram) && (
+          <div className="p-3 pt-0 space-y-2">
+            {/* WhatsApp Actions */}
+            {client.phone && (
+              <>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                  <MessageCircle className="w-3 h-3 text-green-500" />
+                  WhatsApp
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('whatsapp', 'billing')}
+                    className="h-8 px-2 text-[10px] bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-center gap-1"
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    Cobrar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('whatsapp', 'renewal')}
+                    className="h-8 px-2 text-[10px] bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-center gap-1"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    Renovar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('whatsapp', 'reminder')}
+                    className="h-8 px-2 text-[10px] bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-center gap-1"
+                  >
+                    <Bell className="w-3 h-3" />
+                    Lembrar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('whatsapp', 'welcome')}
+                    className="h-8 px-2 text-[10px] bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 hover:text-green-400 justify-center gap-1"
+                  >
+                    <PartyPopper className="w-3 h-3" />
+                    Bem-vindo
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* Telegram Actions */}
+            {client.telegram && (
+              <>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mt-2">
+                  <Send className="w-3 h-3 text-sky-500" />
+                  Telegram ({client.telegram})
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('telegram', 'billing')}
+                    className="h-8 px-2 text-[10px] bg-sky-500/10 border-sky-500/20 text-sky-500 hover:bg-sky-500/20 hover:text-sky-400 justify-center gap-1"
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    Cobrar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('telegram', 'renewal')}
+                    className="h-8 px-2 text-[10px] bg-sky-500/10 border-sky-500/20 text-sky-500 hover:bg-sky-500/20 hover:text-sky-400 justify-center gap-1"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    Renovar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('telegram', 'reminder')}
+                    className="h-8 px-2 text-[10px] bg-sky-500/10 border-sky-500/20 text-sky-500 hover:bg-sky-500/20 hover:text-sky-400 justify-center gap-1"
+                  >
+                    <Bell className="w-3 h-3" />
+                    Lembrar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessageClick('telegram', 'welcome')}
+                    className="h-8 px-2 text-[10px] bg-sky-500/10 border-sky-500/20 text-sky-500 hover:bg-sky-500/20 hover:text-sky-400 justify-center gap-1"
+                  >
+                    <PartyPopper className="w-3 h-3" />
+                    Bem-vindo
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
+
+        {/* Message Type Selector Dialog */}
+        <MessageTypeSelector
+          open={messageTypeSelectorOpen}
+          onOpenChange={setMessageTypeSelectorOpen}
+          platform={pendingPlatform}
+          onSelect={handleMessageTypeSelect}
+        />
 
         {/* Credential Selector Dialog */}
         <WhatsAppCredentialSelector
