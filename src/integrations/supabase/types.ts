@@ -175,6 +175,41 @@ export type Database = {
           },
         ]
       }
+      client_message_tracking: {
+        Row: {
+          client_id: string
+          created_at: string
+          expiration_date: string
+          id: string
+          messaged_at: string
+          seller_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          expiration_date: string
+          id?: string
+          messaged_at?: string
+          seller_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          expiration_date?: string
+          id?: string
+          messaged_at?: string
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_message_tracking_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           app_name: string | null

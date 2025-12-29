@@ -28,6 +28,7 @@ import {
 import WhatsAppCredentialSelector from './WhatsAppCredentialSelector';
 import MessageTypeSelector from './MessageTypeSelector';
 import { useCrypto } from '@/hooks/useCrypto';
+import { useMessageTracking } from '@/hooks/useMessageTracking';
 
 interface ClientCardProps {
   client: {
@@ -84,6 +85,7 @@ interface Credential {
 export default function ClientCard({ client, servers = [], onEdit, onDelete, onRenew }: ClientCardProps) {
   const { user } = useAuth();
   const { decryptCredentials } = useCrypto();
+  const { markAsMessaged } = useMessageTracking();
   const [showPassword, setShowPassword] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
@@ -313,6 +315,11 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     }
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    
+    // Mark client as messaged to stop renewal notifications
+    if (type === 'billing' || type === 'reminder') {
+      markAsMessaged(client.id, client.expiration_date);
+    }
   };
 
   const handleWhatsAppClick = async (type: 'billing' | 'welcome' | 'renewal' | 'reminder') => {
@@ -402,6 +409,11 @@ export default function ClientCard({ client, servers = [], onEdit, onDelete, onR
     }
 
     window.open(`https://t.me/${telegramUser}?text=${encodeURIComponent(message)}`, '_blank');
+    
+    // Mark client as messaged to stop renewal notifications
+    if (type === 'billing' || type === 'reminder') {
+      markAsMessaged(client.id, client.expiration_date);
+    }
   };
 
   // Handle message action click (both WhatsApp and Telegram)
