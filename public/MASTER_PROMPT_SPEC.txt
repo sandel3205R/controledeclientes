@@ -1,0 +1,429 @@
+# MASTER PROMPT - Controle de Clientes
+# Documento de Especificação Técnica Completa
+# Versão: 1.0 | Data: 2025-12-29
+# Objetivo: Recriar exatamente o mesmo aplicativo em um novo projeto
+
+================================================================================
+VISÃO GERAL DO PROJETO
+================================================================================
+
+Sistema de gestão de clientes para revendedores de serviços de streaming (IPTV).
+PWA (Progressive Web App) com:
+
+1. Administrador: Gerenciar vendedores, planos, relatórios, backup
+2. Vendedores: Gerenciar clientes, servidores, templates, cupons, indicações
+
+TECNOLOGIAS:
+- Frontend: React 18 + Vite + TypeScript
+- Estilização: Tailwind CSS + shadcn/ui
+- Backend: Supabase (Auth, Database, Edge Functions, RLS)
+- Estado: TanStack Query (React Query)
+- Roteamento: React Router DOM v6
+- PWA: vite-plugin-pwa
+- Gráficos: Recharts
+- Data: date-fns
+- Notificações: Sonner (toasts)
+
+================================================================================
+SISTEMA DE AUTENTICAÇÃO E AUTORIZAÇÃO
+================================================================================
+
+ROLES:
+- admin: Primeiro usuário registrado. Acesso total
+- seller: Demais usuários. Acesso apenas aos próprios dados
+
+SQL - Tipo de Role:
+CREATE TYPE public.app_role AS ENUM ('admin', 'seller');
+
+SQL - Tabela de Roles:
+CREATE TABLE public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role NOT NULL DEFAULT 'seller',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE (user_id, role)
+);
+
+SQL - Função has_role (Security Definer):
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role) $$;
+
+POLÍTICAS DE SENHA:
+- Mínimo 8 caracteres
+- Maiúscula, minúscula, número, símbolo especial
+- Verificação de vazamento via HaveIBeenPwned
+- Vendedores com senhas fracas são forçados a atualizar
+- Admins isentos
+
+PROTEÇÃO FORÇA BRUTA:
+- 10 tentativas falhas = ban
+- Edge Function check-login-attempt valida
+- Admin pode desbanir em Settings
+
+================================================================================
+TABELA DE PERFIS (profiles)
+================================================================================
+
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  email TEXT NOT NULL,
+  full_name TEXT,
+  whatsapp TEXT,
+  commission_percentage NUMERIC DEFAULT 0,
+  subscription_expires_at TIMESTAMP WITH TIME ZONE,
+  is_permanent BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  temp_password_expires_at TIMESTAMP WITH TIME ZONE,
+  needs_password_update BOOLEAN DEFAULT true,
+  seller_plan_id UUID REFERENCES seller_plans(id),
+  has_unlimited_clients BOOLEAN DEFAULT false,
+  has_pro_export BOOLEAN DEFAULT false,
+  pro_export_expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+TRIGGER - Novos Usuários:
+- Cria profile com trial de 5 dias
+- Primeiro usuário vira admin permanente
+- Demais viram seller
+
+================================================================================
+TABELA DE CLIENTES (clients)
+================================================================================
+
+CREATE TABLE public.clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seller_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT,
+  telegram TEXT,
+  email TEXT,
+  device TEXT,
+  mac_address TEXT,
+  expiration_date DATE NOT NULL,
+  plan_id UUID REFERENCES plans(id),
+  plan_name TEXT,
+  plan_price NUMERIC,
+  server_id UUID REFERENCES servers(id),
+  server_ids UUID[] DEFAULT '{}',
+  server_name TEXT,
+  login TEXT, password TEXT,
+  login2 TEXT, password2 TEXT,
+  login3 TEXT, password3 TEXT,
+  login4 TEXT, password4 TEXT,
+  login5 TEXT, password5 TEXT,
+  is_paid BOOLEAN DEFAULT true,
+  is_annual_paid BOOLEAN DEFAULT false,
+  payment_notes TEXT,
+  referral_code TEXT UNIQUE,
+  referred_by UUID REFERENCES clients(id),
+  shared_panel_id UUID REFERENCES shared_panels(id),
+  shared_slot_type TEXT,
+  account_type TEXT,
+  app_name TEXT,
+  screens INTEGER DEFAULT 1,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+NOTA: Campos login/password são CRIPTOGRAFADOS com AES-256-GCM
+
+================================================================================
+CRIPTOGRAFIA DE CREDENCIAIS
+================================================================================
+
+- Algoritmo: AES-256-GCM
+- Chave: ENCRYPTION_KEY (secret Supabase)
+- Edge Function: crypto
+
+Campos Criptografados:
+- login, password (1 ao 5)
+- Credenciais de client_apps
+
+Hook useCrypto:
+const { encryptCredentials, decryptCredentials, decryptSingle } = useCrypto();
+
+================================================================================
+OUTRAS TABELAS
+================================================================================
+
+servers (Servidores):
+- id, seller_id, name, monthly_cost, credit_cost, credit_recharge_cost
+- total_credits, used_credits, payment_due_date, is_active, notes
+
+plans (Planos de Cliente):
+- id, name, description, price, duration_days, is_active
+
+shared_panels (Créditos Compartilhados):
+- id, seller_id, name, total_slots, p2p_slots, iptv_slots
+
+whatsapp_templates (Templates):
+- id, seller_id, name, type, message, is_default
+
+coupons (Cupons):
+- id, seller_id, code, name, discount_type, discount_value
+- max_uses, current_uses, min_plan_value, expires_at, is_active
+
+coupon_usages (Uso de Cupons):
+- id, coupon_id, client_id, seller_id, original_price, discount_applied, final_price
+
+referrals (Indicações):
+- id, seller_id, referrer_client_id, referred_client_id
+- discount_percentage, coupon_id, status, completed_at
+
+bills_to_pay (Contas a Pagar):
+- id, seller_id, description, recipient_name, recipient_whatsapp
+- recipient_telegram, recipient_pix, amount, due_date, is_paid, paid_at, notes
+
+client_apps (Aplicativos de Cliente):
+- id, client_id, seller_id, app_type, email, password (criptografado)
+- mac_address, device_id, app_price, activation_date, expiration_date, notes
+
+app_types (Tipos de Aplicativo):
+- id, seller_id, name, uses_email (true=email/password, false=MAC/ID)
+
+message_history (Histórico de Mensagens):
+- id, seller_id, client_id, client_name, client_phone
+- message_type, message_content, delivery_status, sent_at, delivered_at
+
+client_message_tracking (Rastreamento):
+- id, client_id, seller_id, expiration_date, messaged_at
+
+admin_messages (Mensagens Admin):
+- id, title, message, priority, is_active, expires_at
+
+login_attempts (Tentativas Login):
+- id, email, ip_address, is_successful, attempted_at
+
+notification_preferences (Preferências):
+- id, user_id (UNIQUE), days_before, is_enabled
+
+push_subscriptions (Push):
+- id, user_id (UNIQUE), endpoint, p256dh, auth
+
+seller_plans (Planos Vendedor):
+- id, name, slug, max_clients, price_monthly, is_best_value, is_active
+
+account_categories (Categorias):
+- id, seller_id, name, icon, color
+
+app_settings (Configurações):
+- id, key (UNIQUE), value
+
+================================================================================
+POLÍTICAS RLS
+================================================================================
+
+Padrão para tabelas de vendedor:
+
+-- Vendedores veem apenas seus dados
+CREATE POLICY "Sellers view own" ON public.TABELA FOR SELECT USING (auth.uid() = seller_id);
+CREATE POLICY "Sellers insert own" ON public.TABELA FOR INSERT WITH CHECK (auth.uid() = seller_id);
+CREATE POLICY "Sellers update own" ON public.TABELA FOR UPDATE USING (auth.uid() = seller_id);
+CREATE POLICY "Sellers delete own" ON public.TABELA FOR DELETE USING (auth.uid() = seller_id);
+
+-- Admins veem tudo
+CREATE POLICY "Admins view all" ON public.TABELA FOR SELECT USING (has_role(auth.uid(), 'admin'));
+
+================================================================================
+EDGE FUNCTIONS
+================================================================================
+
+1. crypto - Criptografia (verify_jwt: true)
+   Ações: encrypt, decrypt, encrypt_batch, decrypt_batch
+   Usa: ENCRYPTION_KEY
+
+2. check-login-attempt - Verificação Login (verify_jwt: false)
+   Ações: check, register_failure, register_success
+   Limite: 10 falhas = ban
+
+3. create-seller - Criar Vendedor (verify_jwt: true, requer admin)
+
+4. change-seller-password - Alterar Senha (verify_jwt: true, requer admin)
+
+5. generate-temp-password - Senha Temporária (verify_jwt: true, requer admin)
+   Validade: 4 horas
+
+6. cleanup-trash - Limpar Lixeira (verify_jwt: true, requer admin)
+
+7. backup-data - Backup (verify_jwt: true, requer admin)
+
+8. restore-data - Restaurar (verify_jwt: true, requer admin)
+
+9. send-push-notifications - Push (verify_jwt: false)
+   Usa: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+
+10. get-vapid-public-key - Chave VAPID (verify_jwt: false)
+
+11. test-push-notification - Testar Push (verify_jwt: true)
+
+================================================================================
+ESTRUTURA DE ROTAS
+================================================================================
+
+PÚBLICAS:
+/auth - Login/Registro
+/install - Instruções PWA
+
+PROTEGIDAS (qualquer autenticado):
+/dashboard - Dashboard (diferente admin/seller)
+/clients - Clientes (seller)
+/servers - Servidores (seller)
+/bills - Contas a pagar (seller)
+/coupons - Cupons (seller)
+/referrals - Indicações (seller)
+/templates - Templates
+/messages - Histórico mensagens
+/settings - Configurações
+
+ADMIN ONLY:
+/sellers - Vendedores
+/reports - Relatórios
+/plans - Planos
+/backup - Backup
+
+================================================================================
+TEMAS
+================================================================================
+
+DARK: netflix (padrão), neon-blue, emerald, purple-galaxy, sunset-orange,
+      cyberpunk, ocean-deep, gold-luxury, aurora-violet
+
+LIGHT: citrus-light, mint-fresh, sky-breeze, rose-garden, lavender-dream
+
+SAZONAIS: christmas, newyear, carnival, clients-control
+
+================================================================================
+FUNCIONALIDADES - VENDEDORES
+================================================================================
+
+1. Gestão de Clientes
+   - CRUD, filtros (ativos/vencendo/vencidos/não pagos)
+   - Busca, ordenação, cards coloridos
+   - Importação CSV/Excel, criptografia automática
+
+2. Mensagens WhatsApp/Telegram
+   - Templates personalizáveis
+   - Variáveis: {nome}, {login}, {senha}, {vencimento}, {preco}
+   - Envio individual ou massa (modo manual)
+   - Histórico completo
+
+3. Créditos Compartilhados
+   - Painéis com slots P2P/IPTV
+   - Badge na sidebar
+   - Ações: cobrar, lembrar, boas-vindas, desvincular
+
+4. Servidores
+   - Custo fixo ou crédito
+   - Alertas créditos baixos (80%, 95%)
+
+5. Contas a Pagar
+   - Destinatário, valor, vencimento
+   - Contatos: WhatsApp, Telegram, PIX
+
+6. Cupons
+   - Percentual ou fixo
+   - Limite usos, valor mínimo, expiração
+   - Relatório com CSV
+
+7. Indicações
+   - Código único por cliente
+   - Desconto automático
+
+8. Aplicativos de Cliente
+   - Tipos customizáveis
+   - Credenciais: email/senha ou MAC/ID
+
+9. Dashboard
+   - Cards estatísticas, receita, custos, lucro
+   - Gráficos, alertas
+
+================================================================================
+FUNCIONALIDADES - ADMINISTRADORES
+================================================================================
+
+1. Gestão de Vendedores
+   - Criar com email/senha
+   - Estados: Ativos, Expirados, Lixeira
+   - Ações: +5 dias, +30 dias, permanente
+
+2. Senhas Temporárias
+   - 8 caracteres, 4 horas validade
+   - Envio WhatsApp
+
+3. Mensagens Broadcast
+   - Avisos para vendedores
+   - Prioridades, expiração
+
+4. Backup/Restauração
+
+5. Usuários Banidos
+   - Visualizar e desbanir
+
+================================================================================
+PWA CONFIGURATION
+================================================================================
+
+vite-plugin-pwa:
+- registerType: 'autoUpdate'
+- Manifest: name, short_name, theme_color, icons
+- Atualização silenciosa (sem prompts)
+- Botão "Forçar Atualização"
+
+================================================================================
+SECRETS SUPABASE
+================================================================================
+
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_DB_URL
+ENCRYPTION_KEY (AES-256-GCM)
+VAPID_PUBLIC_KEY (Push)
+VAPID_PRIVATE_KEY (Push)
+
+================================================================================
+VARIÁVEIS DE TEMPLATE
+================================================================================
+
+{nome} - Nome cliente
+{login}, {senha} - Credenciais principais
+{login2} a {login5}, {senha2} a {senha5} - Adicionais
+{vencimento} - Data (DD/MM/YYYY)
+{vencimento_dinamico} - "hoje", "amanhã", "em X dias"
+{preco} - Preço plano
+{dias_restantes} - Dias até vencer
+{servidor} - Nome servidor
+{app} - Nome aplicativo
+
+================================================================================
+REGRAS DE NEGÓCIO
+================================================================================
+
+1. Status pago/não pago persiste em renovações
+2. Clientes não pagos recebem aviso sobre 2 meses
+3. Terminologia: "Créditos Compartilhados" (nunca painéis)
+4. Admin NUNCA vê senha real, só gera temporárias
+5. Renovação: dias adicionados à data futura
+6. Primeiro usuário = admin permanente
+7. Trial vendedor = 5 dias
+8. WhatsApp Admin: +5531998518865 (SANDEL)
+
+================================================================================
+COMO RECRIAR
+================================================================================
+
+1. Criar novo projeto Lovable
+2. Habilitar Cloud (Supabase)
+3. Adicionar este documento como Knowledge
+4. Solicitar: "Recrie o aplicativo seguindo o Master Prompt"
+5. Configurar secrets: ENCRYPTION_KEY, VAPID keys
+6. Testar funcionalidades
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================
