@@ -3,18 +3,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export function usePasswordUpdateCheck() {
-  const { user, role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const [needsPasswordUpdate, setNeedsPasswordUpdate] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const checkPasswordStatus = useCallback(async () => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       setNeedsPasswordUpdate(false);
       setLoading(false);
       return;
     }
 
-    // Only check for sellers, not admins
+    // Admins are exempt from forced password update
     if (role === 'admin') {
       setNeedsPasswordUpdate(false);
       setLoading(false);
@@ -26,7 +31,7 @@ export function usePasswordUpdateCheck() {
         .from('profiles')
         .select('needs_password_update')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error checking password status:', error);
@@ -40,7 +45,7 @@ export function usePasswordUpdateCheck() {
     } finally {
       setLoading(false);
     }
-  }, [user, role]);
+  }, [user, role, authLoading]);
 
   useEffect(() => {
     checkPasswordStatus();
