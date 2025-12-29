@@ -7,6 +7,7 @@ import ThemeSwitcher from '@/components/ThemeSwitcher';
 import ThemeBackground from '@/components/ThemeBackground';
 import SubscriptionExpiredDialog from '@/components/SubscriptionExpiredDialog';
 import { ForceUpdateButton } from '@/components/ForceUpdateButton';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSharedPanels } from '@/hooks/useSharedPanels';
@@ -337,6 +338,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Subscription Expired Dialog */}
       <SubscriptionExpiredDialog />
+
+      {/* Onboarding Tour for new sellers */}
+      {!isAdmin && <OnboardingTour />}
     </div>
   );
 }
