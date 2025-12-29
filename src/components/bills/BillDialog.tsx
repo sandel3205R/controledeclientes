@@ -37,6 +37,7 @@ const billSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória").max(200),
   recipient_name: z.string().min(1, "Nome do destinatário é obrigatório").max(100),
   recipient_whatsapp: z.string().optional(),
+  recipient_telegram: z.string().optional(),
   amount: z.string().min(1, "Valor é obrigatório"),
   due_date: z.date({ required_error: "Data de vencimento é obrigatória" }),
   notes: z.string().optional(),
@@ -49,6 +50,7 @@ interface Bill {
   description: string;
   recipient_name: string;
   recipient_whatsapp: string | null;
+  recipient_telegram: string | null;
   amount: number;
   due_date: string;
   notes: string | null;
@@ -71,6 +73,7 @@ export default function BillDialog({ open, onOpenChange, bill }: BillDialogProps
       description: "",
       recipient_name: "",
       recipient_whatsapp: "",
+      recipient_telegram: "",
       amount: "",
       notes: "",
     },
@@ -82,6 +85,7 @@ export default function BillDialog({ open, onOpenChange, bill }: BillDialogProps
         description: bill.description,
         recipient_name: bill.recipient_name,
         recipient_whatsapp: bill.recipient_whatsapp || "",
+        recipient_telegram: bill.recipient_telegram || "",
         amount: bill.amount.toString(),
         due_date: new Date(bill.due_date),
         notes: bill.notes || "",
@@ -91,6 +95,7 @@ export default function BillDialog({ open, onOpenChange, bill }: BillDialogProps
         description: "",
         recipient_name: "",
         recipient_whatsapp: "",
+        recipient_telegram: "",
         amount: "",
         notes: "",
       });
@@ -104,6 +109,7 @@ export default function BillDialog({ open, onOpenChange, bill }: BillDialogProps
         description: data.description.trim(),
         recipient_name: data.recipient_name.trim(),
         recipient_whatsapp: data.recipient_whatsapp?.trim() || null,
+        recipient_telegram: data.recipient_telegram?.trim().replace(/^@/, '') || null,
         amount: parseFloat(data.amount.replace(",", ".")),
         due_date: format(data.due_date, "yyyy-MM-dd"),
         notes: data.notes?.trim() || null,
@@ -188,6 +194,20 @@ export default function BillDialog({ open, onOpenChange, bill }: BillDialogProps
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="recipient_telegram"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Telegram</FormLabel>
+                  <FormControl>
+                    <Input placeholder="@usuario" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
