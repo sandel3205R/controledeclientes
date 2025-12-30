@@ -453,16 +453,31 @@ export default function Clients() {
             password5: client.password5,
           });
           
+          // Helper to check if value looks like encrypted base64 data
+          const isEncrypted = (val: string | null | undefined): boolean => {
+            if (!val || val.length < 20) return false;
+            // Base64 encrypted data typically contains special chars and is long
+            const base64Regex = /^[A-Za-z0-9+/]+=*$/;
+            return base64Regex.test(val) && (val.includes('+') || val.includes('/') || val.length > 40);
+          };
+          
+          // Clean credential - return empty if still encrypted
+          const cleanValue = (val: string | null | undefined): string => {
+            if (!val) return '';
+            if (isEncrypted(val)) return '';
+            return val;
+          };
+          
           // Parse server names (can be comma-separated)
           const serverNames = client.server_name?.split(',').map(s => s.trim()).filter(Boolean) || [''];
           
-          // Credential pairs (login/password)
+          // Credential pairs (login/password) - cleaned
           const credentials = [
-            { login: decrypted.login || '', password: decrypted.password || '' },
-            { login: decrypted.login2 || '', password: decrypted.password2 || '' },
-            { login: decrypted.login3 || '', password: decrypted.password3 || '' },
-            { login: decrypted.login4 || '', password: decrypted.password4 || '' },
-            { login: decrypted.login5 || '', password: decrypted.password5 || '' },
+            { login: cleanValue(decrypted.login), password: cleanValue(decrypted.password) },
+            { login: cleanValue(decrypted.login2), password: cleanValue(decrypted.password2) },
+            { login: cleanValue(decrypted.login3), password: cleanValue(decrypted.password3) },
+            { login: cleanValue(decrypted.login4), password: cleanValue(decrypted.password4) },
+            { login: cleanValue(decrypted.login5), password: cleanValue(decrypted.password5) },
           ].filter(c => c.login || c.password);
           
           const planPrice = client.plan_price ? String(client.plan_price) : '';
@@ -487,21 +502,22 @@ export default function Clients() {
             allRows.push({
               name: client.name || '',
               phone: client.phone || '',
-              login: credentials[0]?.login || decrypted.login || '',
-              password: credentials[0]?.password || decrypted.password || '',
+              login: credentials[0]?.login || cleanValue(decrypted.login) || '',
+              password: credentials[0]?.password || cleanValue(decrypted.password) || '',
               account_type: client.account_type || '',
               server_name: serverNames[0] || '',
               plan_price: planPrice,
               expiration_date: expirationDate,
             });
           }
-        } catch {
-          // If decryption fails, use original values
+        } catch (err) {
+          console.error('CSV export decryption error for client:', client.name, err);
+          // If decryption fails, add client with empty credentials (don't expose encrypted data)
           allRows.push({
             name: client.name || '',
             phone: client.phone || '',
-            login: client.login || '',
-            password: client.password || '',
+            login: '[erro na descriptografia]',
+            password: '[erro na descriptografia]',
             account_type: client.account_type || '',
             server_name: client.server_name || '',
             plan_price: client.plan_price ? String(client.plan_price) : '',
