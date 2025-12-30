@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { useCrypto } from '@/hooks/useCrypto';
 import { toast } from 'sonner';
 import { Copy, FileText, Loader2, AlertTriangle } from 'lucide-react';
 
@@ -22,25 +23,22 @@ interface BulkImportDialogProps {
 
 interface ParsedClient {
   name: string;
-  app_name: string | null;
-  login: string | null;
-  expiration_date: string;
   phone: string | null;
+  login: string | null;
+  password: string | null;
+  server_name: string | null;
+  plan_price: number | null;
+  expiration_date: string;
   isDuplicate?: boolean;
   duplicateReason?: string;
 }
 
-const EXAMPLE_FORMAT = `Nome: Maria Santos
-Servidor: ULTRA TV PLUS
-Usuário: 123456789
-Vencimento: 20/01/2026
-WhatsApp: +55 11 91234-5678
+const EXAMPLE_FORMAT = `Nome,Telefone,Usuário,Senha,Servidor,Valor,Data
+Maria Santos,11912345678,maria123,senha123,ULTRA TV,25,20/01/2026
+Carlos Oliveira,21987654321,carlos456,minhasenha,MEGA PLAY,30,15/02/2026
+João Silva,31999887766,joao789,123456,IPTV PREMIUM,35,10/03/2026`;
 
-Nome: Carlos Oliveira
-Servidor: MEGA PLAY HD
-Usuário: 987654321
-Vencimento: 15/02/2026
-WhatsApp: +55 21 98765-4321`;
+const HEADER_LINE = 'Nome,Telefone,Usuário,Senha,Servidor,Valor,Data';
 
 export default function BulkImportDialog({ 
   open, 
@@ -51,8 +49,15 @@ export default function BulkImportDialog({
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ParsedClient[]>([]);
+  const { encryptCredentials } = useCrypto();
 
   const parseDate = (dateStr: string): string => {
+    if (!dateStr || !dateStr.trim()) {
+      const date = new Date();
+      date.setDate(date.getDate() + 30);
+      return date.toISOString().split('T')[0];
+    }
+    
     // Handle DD/MM/YYYY or DD-MM-YYYY format
     const parts = dateStr.trim().split(/[\/\-]/);
     if (parts.length === 3) {
@@ -67,52 +72,65 @@ export default function BulkImportDialog({
     return date.toISOString().split('T')[0];
   };
 
+  const cleanPhone = (phone: string): string | null => {
+    if (!phone) return null;
+    // Remove all non-numeric characters
+    const cleaned = phone.replace(/\D/g, '');
+    if (!cleaned || cleaned.length < 8) return null;
+    // Add Brazil country code if not present
+    if (cleaned.length <= 11 && !cleaned.startsWith('55')) {
+      return '+55' + cleaned;
+    }
+    return '+' + cleaned;
+  };
+
   const parseClients = (inputText: string): ParsedClient[] => {
     const clients: ParsedClient[] = [];
+    const lines = inputText.trim().split('\n').filter(line => line.trim());
     
-    // Split by double line breaks or by "Nome:" to separate clients
-    const blocks = inputText.split(/\n\s*\n|(?=Nome:)/gi).filter(block => block.trim());
-    
-    for (const block of blocks) {
-      const lines = block.trim().split('\n');
-      const client: ParsedClient = {
-        name: '',
-        app_name: null,
-        login: null,
-        expiration_date: '',
-        phone: null,
-      };
-
-      for (const line of lines) {
-        const [key, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        
-        if (!key || !value) continue;
-
-        const keyLower = key.trim().toLowerCase();
-
-        if (keyLower === 'nome' || keyLower === 'name' || keyLower === 'cliente') {
-          client.name = value;
-        } else if (keyLower === 'servidor' || keyLower === 'server' || keyLower === 'app' || keyLower === 'aplicativo') {
-          client.app_name = value;
-        } else if (keyLower === 'usuário' || keyLower === 'usuario' || keyLower === 'user' || keyLower === 'login') {
-          client.login = value;
-        } else if (keyLower === 'vencimento' || keyLower === 'expiration' || keyLower === 'data' || keyLower === 'validade') {
-          client.expiration_date = parseDate(value);
-        } else if (keyLower === 'whatsapp' || keyLower === 'telefone' || keyLower === 'phone' || keyLower === 'celular') {
-          client.phone = value;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip header line
+      if (line.toLowerCase().startsWith('nome,') || 
+          line.toLowerCase() === HEADER_LINE.toLowerCase()) {
+        continue;
+      }
+      
+      // Parse CSV line - handle quoted values
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
         }
       }
-
-      if (client.name) {
-        // If no expiration date, set default 30 days
-        if (!client.expiration_date) {
-          const date = new Date();
-          date.setDate(date.getDate() + 30);
-          client.expiration_date = date.toISOString().split('T')[0];
-        }
-        clients.push(client);
-      }
+      values.push(current.trim());
+      
+      // Expected format: Nome,Telefone,Usuário,Senha,Servidor,Valor,Data
+      const [name, phone, login, password, serverName, valorStr, dataStr] = values;
+      
+      if (!name || !name.trim()) continue;
+      
+      const valor = valorStr ? parseFloat(valorStr.replace(',', '.')) : null;
+      
+      clients.push({
+        name: name.trim(),
+        phone: cleanPhone(phone || ''),
+        login: login?.trim() || null,
+        password: password?.trim() || null,
+        server_name: serverName?.trim() || null,
+        plan_price: valor && !isNaN(valor) ? valor : null,
+        expiration_date: parseDate(dataStr || ''),
+      });
     }
 
     return clients;
@@ -193,12 +211,12 @@ export default function BulkImportDialog({
       for (const client of clients) {
         // Try to match server by name
         let serverId: string | null = null;
-        let serverName = client.app_name;
+        let serverName = client.server_name;
         
-        if (client.app_name) {
+        if (client.server_name) {
           const matchedServer = servers.find(s => 
-            s.name.toLowerCase().includes(client.app_name!.toLowerCase()) ||
-            client.app_name!.toLowerCase().includes(s.name.toLowerCase())
+            s.name.toLowerCase().includes(client.server_name!.toLowerCase()) ||
+            client.server_name!.toLowerCase().includes(s.name.toLowerCase())
           );
           if (matchedServer) {
             serverId = matchedServer.id;
@@ -206,15 +224,34 @@ export default function BulkImportDialog({
           }
         }
 
+        // Encrypt credentials if present
+        let encryptedLogin = client.login;
+        let encryptedPassword = client.password;
+        
+        if (client.login || client.password) {
+          try {
+            const encrypted = await encryptCredentials({
+              login: client.login,
+              password: client.password,
+            });
+            encryptedLogin = encrypted.login;
+            encryptedPassword = encrypted.password;
+          } catch (err) {
+            console.error('Encryption error:', err);
+            // Continue with unencrypted if encryption fails
+          }
+        }
+
         const { error } = await supabase.from('clients').insert({
           seller_id: user.id,
           name: client.name,
-          app_name: client.app_name,
-          login: client.login,
-          expiration_date: client.expiration_date,
           phone: client.phone,
+          login: encryptedLogin,
+          password: encryptedPassword,
           server_id: serverId,
           server_name: serverName,
+          plan_price: client.plan_price,
+          expiration_date: client.expiration_date,
         });
 
         if (error) {
@@ -257,7 +294,7 @@ export default function BulkImportDialog({
             Importar Clientes em Massa
           </DialogTitle>
           <DialogDescription>
-            Cole os dados dos clientes no formato abaixo. Cada cliente deve ser separado por uma linha em branco.
+            Cole os dados no formato CSV. Cada linha é um cliente.
           </DialogDescription>
         </DialogHeader>
 
@@ -265,7 +302,7 @@ export default function BulkImportDialog({
           {/* Example format */}
           <div className="rounded-lg bg-muted/50 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium text-muted-foreground">Formato:</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Formato CSV:</Label>
               <Button
                 type="button"
                 variant="ghost"
@@ -277,9 +314,12 @@ export default function BulkImportDialog({
                 Copiar
               </Button>
             </div>
-            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-background/50 p-2 rounded">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-background/50 p-2 rounded overflow-x-auto">
 {EXAMPLE_FORMAT}
             </pre>
+            <p className="text-[10px] text-muted-foreground">
+              Colunas: Nome, Telefone, Usuário, Senha, Servidor, Valor, Data (DD/MM/AAAA)
+            </p>
           </div>
 
           {/* Text input */}
@@ -320,11 +360,12 @@ export default function BulkImportDialog({
                       {client.isDuplicate && <AlertTriangle className="h-3 w-3 text-destructive" />}
                       {client.name}
                     </div>
-                    <div className="text-muted-foreground">
-                      {client.app_name && <span>{client.app_name} • </span>}
-                      {client.login && <span>User: {client.login} • </span>}
+                    <div className="text-muted-foreground flex flex-wrap gap-1">
+                      {client.phone && <span>{client.phone} •</span>}
+                      {client.login && <span>User: {client.login} •</span>}
+                      {client.server_name && <span>{client.server_name} •</span>}
+                      {client.plan_price && <span>R${client.plan_price} •</span>}
                       <span>Venc: {new Date(client.expiration_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                      {client.phone && <span> • {client.phone}</span>}
                     </div>
                     {client.isDuplicate && (
                       <div className="text-destructive text-[10px] mt-1">{client.duplicateReason}</div>
