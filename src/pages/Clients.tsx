@@ -435,40 +435,76 @@ export default function Clients() {
     toast.info('Descriptografando dados... Aguarde.');
     
     try {
-      // Decrypt all clients credentials - only login and password for simplicity
-      const decryptedClients = await Promise.all(
-        filteredClients.map(async (client) => {
-          try {
-            const decrypted = await decryptCredentials({
-              login: client.login,
-              password: client.password,
+      // Decrypt all clients credentials including multi-server credentials
+      const allRows: { name: string; phone: string; login: string; password: string; account_type: string; server_name: string }[] = [];
+      
+      for (const client of filteredClients) {
+        try {
+          const decrypted = await decryptCredentials({
+            login: client.login,
+            password: client.password,
+            login2: client.login2,
+            password2: client.password2,
+            login3: client.login3,
+            password3: client.password3,
+            login4: client.login4,
+            password4: client.password4,
+            login5: client.login5,
+            password5: client.password5,
+          });
+          
+          // Parse server names (can be comma-separated)
+          const serverNames = client.server_name?.split(',').map(s => s.trim()).filter(Boolean) || [''];
+          
+          // Credential pairs (login/password)
+          const credentials = [
+            { login: decrypted.login || '', password: decrypted.password || '' },
+            { login: decrypted.login2 || '', password: decrypted.password2 || '' },
+            { login: decrypted.login3 || '', password: decrypted.password3 || '' },
+            { login: decrypted.login4 || '', password: decrypted.password4 || '' },
+            { login: decrypted.login5 || '', password: decrypted.password5 || '' },
+          ].filter(c => c.login || c.password);
+          
+          // If client has multiple credentials, create one row per credential
+          if (credentials.length > 1) {
+            credentials.forEach((cred, index) => {
+              allRows.push({
+                name: client.name || '',
+                phone: client.phone || '',
+                login: cred.login,
+                password: cred.password,
+                account_type: client.account_type || '',
+                server_name: serverNames[index] || serverNames[0] || '',
+              });
             });
-            return {
+          } else {
+            // Single credential or no credentials
+            allRows.push({
               name: client.name || '',
               phone: client.phone || '',
-              login: decrypted.login || '',
-              password: decrypted.password || '',
+              login: credentials[0]?.login || '',
+              password: credentials[0]?.password || '',
               account_type: client.account_type || '',
-              server_name: client.server_name || '',
-            };
-          } catch {
-            // If decryption fails, use original values
-            return {
-              name: client.name || '',
-              phone: client.phone || '',
-              login: client.login || '',
-              password: client.password || '',
-              account_type: client.account_type || '',
-              server_name: client.server_name || '',
-            };
+              server_name: serverNames[0] || '',
+            });
           }
-        })
-      );
+        } catch {
+          // If decryption fails, use original values
+          allRows.push({
+            name: client.name || '',
+            phone: client.phone || '',
+            login: client.login || '',
+            password: client.password || '',
+            account_type: client.account_type || '',
+            server_name: client.server_name || '',
+          });
+        }
+      }
 
       // Create CSV content with BOM for Excel UTF-8 compatibility
       const BOM = '\uFEFF';
       const header = 'Nome,Telefone,Login,Senha,Categoria,Servidor';
-      const rows = decryptedClients.map((c) => {
+      const rows = allRows.map((c) => {
         // Escape fields that may contain commas or quotes
         const escape = (val: string) => {
           if (!val) return '';
@@ -501,7 +537,7 @@ export default function Clients() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast.success(`CSV exportado com ${decryptedClients.length} clientes!`);
+      toast.success(`CSV exportado com ${allRows.length} linhas (${filteredClients.length} clientes)!`);
     } catch (error) {
       console.error('Export CSV error:', error);
       toast.error('Erro ao exportar CSV');
