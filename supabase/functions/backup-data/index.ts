@@ -42,6 +42,10 @@ function isLikelyEncrypted(value: string): boolean {
 }
 
 async function decrypt(ciphertext: string): Promise<string> {
+  if (!ciphertext || typeof ciphertext !== 'string') {
+    return ciphertext;
+  }
+  
   if (!isLikelyEncrypted(ciphertext)) {
     return ciphertext;
   }
@@ -60,7 +64,7 @@ async function decrypt(ciphertext: string): Promise<string> {
     
     return new TextDecoder().decode(decrypted);
   } catch (error) {
-    console.log('Decrypt failed, returning original:', error);
+    console.log('Decrypt failed for value, returning original:', error);
     return ciphertext;
   }
 }
@@ -71,11 +75,50 @@ async function decryptClientCredentials(client: Record<string, unknown>): Promis
   for (const field of CREDENTIAL_FIELDS) {
     const value = client[field];
     if (value && typeof value === 'string') {
-      decryptedClient[field] = await decrypt(value);
+      try {
+        decryptedClient[field] = await decrypt(value);
+      } catch (e) {
+        console.log(`Failed to decrypt ${field}, keeping original`);
+        decryptedClient[field] = value;
+      }
     }
   }
   
   return decryptedClient;
+}
+
+// Clean client for universal export - remove project-specific references
+function cleanClientForExport(client: Record<string, unknown>): Record<string, unknown> {
+  return {
+    // Keep only essential, portable fields
+    name: client.name || '',
+    phone: client.phone || null,
+    email: client.email || null,
+    telegram: client.telegram || null,
+    device: client.device || null,
+    login: client.login || null,
+    password: client.password || null,
+    login2: client.login2 || null,
+    password2: client.password2 || null,
+    login3: client.login3 || null,
+    password3: client.password3 || null,
+    login4: client.login4 || null,
+    password4: client.password4 || null,
+    login5: client.login5 || null,
+    password5: client.password5 || null,
+    mac_address: client.mac_address || null,
+    expiration_date: client.expiration_date || null,
+    plan_name: client.plan_name || null,
+    plan_price: client.plan_price || null,
+    server_name: client.server_name || null,
+    app_name: client.app_name || null,
+    account_type: client.account_type || null,
+    screens: client.screens || 1,
+    notes: client.notes || null,
+    payment_notes: client.payment_notes || null,
+    is_paid: client.is_paid ?? true,
+    is_annual_paid: client.is_annual_paid ?? false,
+  };
 }
 
 serve(async (req) => {
@@ -167,18 +210,30 @@ serve(async (req) => {
     if (plansError) console.log('Plans error:', plansError);
     if (templatesError) console.log('Templates error:', templatesError);
 
-    // Decrypt client credentials if requested
-    let processedClients = clients || [];
-    if (decryptData && clients) {
-      console.log('Decrypting client credentials...');
-      processedClients = await Promise.all(
-        clients.map((client: Record<string, unknown>) => decryptClientCredentials(client))
-      );
-      console.log('Decryption completed for', processedClients.length, 'clients');
+    // Process clients - decrypt if requested and clean for universal export
+    let processedClients: Record<string, unknown>[] = [];
+    if (clients && clients.length > 0) {
+      console.log('Processing', clients.length, 'clients...');
+      
+      for (const client of clients) {
+        let processedClient = client as Record<string, unknown>;
+        
+        // Decrypt if requested
+        if (decryptData) {
+          processedClient = await decryptClientCredentials(processedClient);
+        }
+        
+        // Clean for universal export
+        processedClient = cleanClientForExport(processedClient);
+        processedClients.push(processedClient);
+      }
+      
+      console.log('Processed', processedClients.length, 'clients');
     }
 
     const backupData = {
-      version: '1.0',
+      version: '2.0',
+      format: 'universal',
       created_at: new Date().toISOString(),
       decrypted: decryptData,
       tables: {
@@ -201,12 +256,12 @@ serve(async (req) => {
     console.log('Backup completed successfully. Metadata:', backupData.metadata);
 
     return new Response(
-      JSON.stringify(backupData),
+      JSON.stringify(backupData, null, 2),
       { 
         status: 200, 
         headers: { 
           ...corsHeaders, 
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
         } 
       }
     );
