@@ -485,6 +485,15 @@ export default function Clients() {
                 Mensagem
               </Button>
               <Button
+                variant="outline"
+                size="sm"
+                className="text-xs sm:text-sm px-2 sm:px-3"
+                onClick={() => setBulkImportOpen(true)}
+              >
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Importar
+              </Button>
+              <Button
                 variant="gradient"
                 size="sm"
                 className="text-xs sm:text-sm px-2 sm:px-3"
