@@ -436,7 +436,7 @@ export default function Clients() {
     
     try {
       // Decrypt all clients credentials including multi-server credentials
-      const allRows: { name: string; phone: string; login: string; password: string; account_type: string; server_name: string }[] = [];
+      const allRows: { name: string; phone: string; login: string; password: string; account_type: string; server_name: string; plan_price: string; expiration_date: string }[] = [];
       
       for (const client of filteredClients) {
         try {
@@ -465,6 +465,9 @@ export default function Clients() {
             { login: decrypted.login5 || '', password: decrypted.password5 || '' },
           ].filter(c => c.login || c.password);
           
+          const planPrice = client.plan_price ? String(client.plan_price) : '';
+          const expirationDate = client.expiration_date || '';
+          
           // If client has multiple credentials, create one row per credential
           if (credentials.length > 1) {
             credentials.forEach((cred, index) => {
@@ -475,6 +478,8 @@ export default function Clients() {
                 password: cred.password,
                 account_type: client.account_type || '',
                 server_name: serverNames[index] || serverNames[0] || '',
+                plan_price: planPrice,
+                expiration_date: expirationDate,
               });
             });
           } else {
@@ -486,6 +491,8 @@ export default function Clients() {
               password: credentials[0]?.password || '',
               account_type: client.account_type || '',
               server_name: serverNames[0] || '',
+              plan_price: planPrice,
+              expiration_date: expirationDate,
             });
           }
         } catch {
@@ -497,13 +504,15 @@ export default function Clients() {
             password: client.password || '',
             account_type: client.account_type || '',
             server_name: client.server_name || '',
+            plan_price: client.plan_price ? String(client.plan_price) : '',
+            expiration_date: client.expiration_date || '',
           });
         }
       }
 
       // Create CSV content with BOM for Excel UTF-8 compatibility
       const BOM = '\uFEFF';
-      const header = 'Nome,Telefone,Login,Senha,Categoria,Servidor';
+      const header = 'Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade';
       const rows = allRows.map((c) => {
         // Escape fields that may contain commas or quotes
         const escape = (val: string) => {
@@ -521,6 +530,8 @@ export default function Clients() {
           escape(c.password),
           escape(c.account_type),
           escape(c.server_name),
+          escape(c.plan_price),
+          escape(c.expiration_date),
         ].join(',');
       });
 
