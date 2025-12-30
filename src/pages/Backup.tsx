@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, Database, AlertTriangle, CheckCircle, FileJson } from 'lucide-react';
+import { Download, Upload, Database, AlertTriangle, CheckCircle, FileJson, Unlock, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +43,10 @@ export default function Backup() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [lastBackupInfo, setLastBackupInfo] = useState<BackupMetadata | null>(null);
   const [restoreResults, setRestoreResults] = useState<RestoreResults | null>(null);
+  const [decryptBackup, setDecryptBackup] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = async () => {
+  const handleExport = async (decrypt: boolean = false) => {
     if (!user) return;
     
     setExporting(true);
@@ -60,6 +63,7 @@ export default function Backup() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        body: { decrypt },
       });
 
       if (response.error) {
@@ -70,17 +74,18 @@ export default function Backup() {
       setLastBackupInfo(backupData.metadata);
 
       // Create and download the backup file
+      const suffix = decrypt ? '_DESCRIPTOGRAFADO' : '';
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup_clientes_control_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `backup_clientes_control${suffix}_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success('Backup exportado com sucesso!');
+      toast.success(decrypt ? 'Backup descriptografado exportado!' : 'Backup exportado com sucesso!');
     } catch (error: any) {
       console.error('Export error:', error);
       toast.error(error.message || 'Erro ao exportar backup');
@@ -189,6 +194,40 @@ export default function Backup() {
               </div>
             </div>
 
+            {/* Decrypt Option */}
+            <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-warning/50 bg-warning/5">
+              <div className="flex items-center gap-3">
+                {decryptBackup ? (
+                  <Unlock className="w-5 h-5 text-warning" />
+                ) : (
+                  <Lock className="w-5 h-5 text-muted-foreground" />
+                )}
+                <div>
+                  <Label htmlFor="decrypt-toggle" className="text-sm font-medium cursor-pointer">
+                    Exportar Descriptografado
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Senhas e logins dos clientes serão exportados em texto limpo
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="decrypt-toggle"
+                checked={decryptBackup}
+                onCheckedChange={setDecryptBackup}
+              />
+            </div>
+
+            {decryptBackup && (
+              <Alert className="border-warning/50 bg-warning/10">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning/80 text-sm">
+                  <strong>Atenção:</strong> O backup descriptografado contém senhas em texto limpo. 
+                  Armazene com segurança e não compartilhe!
+                </AlertDescription>
+              </Alert>
+            )}
+
             {lastBackupInfo && (
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                 <div className="p-2 rounded bg-muted/30">
@@ -215,13 +254,17 @@ export default function Backup() {
             )}
 
             <Button 
-              variant="gradient" 
-              onClick={handleExport} 
+              variant={decryptBackup ? "destructive" : "gradient"}
+              onClick={() => handleExport(decryptBackup)} 
               disabled={exporting}
               className="w-full"
             >
-              <Download className="w-4 h-4 mr-2" />
-              {exporting ? 'Exportando...' : 'Exportar Backup'}
+              {decryptBackup ? (
+                <Unlock className="w-4 h-4 mr-2" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {exporting ? 'Exportando...' : decryptBackup ? 'Exportar Descriptografado' : 'Exportar Backup'}
             </Button>
           </CardContent>
         </Card>
