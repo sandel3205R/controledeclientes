@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountCategories } from '@/hooks/useAccountCategories';
+import { useCrypto } from '@/hooks/useCrypto';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import ClientCard from '@/components/clients/ClientCard';
@@ -22,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal, Tag } from 'lucide-react';
+import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal, Tag, FileDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -90,7 +91,9 @@ interface WhatsAppTemplate {
 export default function Clients() {
   const { user } = useAuth();
   const { allCategories } = useAccountCategories();
+  const { decryptCredentials } = useCrypto();
   const [searchParams] = useSearchParams();
+  const [exportingCSV, setExportingCSV] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -424,6 +427,79 @@ export default function Clients() {
     toast.success('Arquivo exportado com sucesso!');
   };
 
+  // Export CSV with decrypted credentials
+  const exportToCSVDecrypted = async () => {
+    if (exportingCSV) return;
+    
+    setExportingCSV(true);
+    toast.info('Descriptografando dados... Aguarde.');
+    
+    try {
+      // Decrypt all clients credentials
+      const decryptedClients = await Promise.all(
+        filteredClients.map(async (client) => {
+          const decrypted = await decryptCredentials({
+            login: client.login,
+            password: client.password,
+            login2: client.login2,
+            password2: client.password2,
+            login3: client.login3,
+            password3: client.password3,
+            login4: client.login4,
+            password4: client.password4,
+            login5: client.login5,
+            password5: client.password5,
+          });
+          return { ...client, ...decrypted };
+        })
+      );
+
+      // Create CSV content with BOM for Excel UTF-8 compatibility
+      const BOM = '\uFEFF';
+      const header = 'Nome,Telefone,Login,Senha,Categoria,Servidor';
+      const rows = decryptedClients.map((c) => {
+        // Escape fields that may contain commas or quotes
+        const escape = (val: string | null | undefined) => {
+          if (!val) return '';
+          const str = String(val);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+        
+        return [
+          escape(c.name),
+          escape(c.phone),
+          escape(c.login),
+          escape(c.password),
+          escape(c.account_type),
+          escape(c.server_name),
+        ].join(',');
+      });
+
+      const csvContent = BOM + header + '\n' + rows.join('\n');
+      
+      // Download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `clientes_descriptografados_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`CSV exportado com ${decryptedClients.length} clientes!`);
+    } catch (error) {
+      console.error('Export CSV error:', error);
+      toast.error('Erro ao exportar CSV');
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -614,7 +690,17 @@ export default function Clients() {
               </Button>
               <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3" onClick={exportToExcel}>
                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Exportar
+                Excel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-purple-500/10 border-purple-500/30 text-purple-500 hover:bg-purple-500/20 text-xs sm:text-sm px-2 sm:px-3"
+                onClick={exportToCSVDecrypted}
+                disabled={exportingCSV}
+              >
+                <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                {exportingCSV ? 'Exportando...' : 'CSV Limpo'}
               </Button>
               <label>
                 <input
