@@ -8,6 +8,7 @@ import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import BulkImportDialog from '@/components/clients/BulkImportDialog';
+import SanplayCSVImportDialog from '@/components/clients/SanplayCSVImportDialog';
 import { SharedPanelsManager } from '@/components/shared-panels/SharedPanelsManager';
 import { ClientAppsManager } from '@/components/apps/ClientAppsManager';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -114,6 +115,7 @@ export default function Clients() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [sanplayImportOpen, setSanplayImportOpen] = useState(false);
   const [sellerName, setSellerName] = useState('');
   const [panelsOpen, setPanelsOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
@@ -637,6 +639,15 @@ export default function Clients() {
                 <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Em Massa
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-green-600/10 border-green-600/30 text-green-600 hover:bg-green-600/20 text-xs sm:text-sm px-2 sm:px-3"
+                onClick={() => setSanplayImportOpen(true)}
+              >
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Sanplay
+              </Button>
               <Button
                 variant="gradient"
                 size="sm"
@@ -899,6 +910,14 @@ export default function Clients() {
         <BulkImportDialog
           open={bulkImportOpen}
           onOpenChange={setBulkImportOpen}
+          onSuccess={fetchClients}
+          servers={servers}
+        />
+
+        {/* Sanplay CSV Import Dialog */}
+        <SanplayCSVImportDialog
+          open={sanplayImportOpen}
+          onOpenChange={setSanplayImportOpen}
           onSuccess={fetchClients}
           servers={servers}
         />
