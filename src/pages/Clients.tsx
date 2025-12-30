@@ -9,7 +9,6 @@ import ClientCard from '@/components/clients/ClientCard';
 import ClientDialog from '@/components/clients/ClientDialog';
 import BulkMessageDialog from '@/components/clients/BulkMessageDialog';
 import BulkImportDialog from '@/components/clients/BulkImportDialog';
-import SanplayCSVImportDialog from '@/components/clients/SanplayCSVImportDialog';
 import { SharedPanelsManager } from '@/components/shared-panels/SharedPanelsManager';
 import { ClientAppsManager } from '@/components/apps/ClientAppsManager';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -23,12 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Download, Upload, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal, Tag, FileDown } from 'lucide-react';
+import { Plus, Search, Filter, Send, Server, Trash2, X, CheckSquare, FileText, DollarSign, AlertCircle, Eye, EyeOff, Users, ChevronDown, Tv, Radio, Cloud, Crown, Terminal, Tag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { differenceInDays, isPast, differenceInMinutes } from 'date-fns';
-import * as XLSX from 'xlsx';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,7 +92,6 @@ export default function Clients() {
   const { allCategories } = useAccountCategories();
   const { decryptCredentials } = useCrypto();
   const [searchParams] = useSearchParams();
-  const [exportingCSV, setExportingCSV] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,7 +116,6 @@ export default function Clients() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
-  const [sanplayImportOpen, setSanplayImportOpen] = useState(false);
   const [sellerName, setSellerName] = useState('');
   const [panelsOpen, setPanelsOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
@@ -405,280 +402,6 @@ export default function Clients() {
     setIsSelectionMode(false);
   };
 
-  const exportToExcel = () => {
-    const exportData = filteredClients.map((c) => ({
-      Nome: c.name,
-      Telefone: c.phone || '',
-      Plano: c.plan_name || '',
-      Valor: c.plan_price || 0,
-      Vencimento: c.expiration_date,
-      Dispositivo: c.device || '',
-      Login: c.login || '',
-      Senha: c.password || '',
-      Aplicativo: c.app_name || '',
-      MAC: c.mac_address || '',
-      Servidor: c.server_name || '',
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-    XLSX.writeFile(wb, 'clientes.xlsx');
-    toast.success('Arquivo exportado com sucesso!');
-  };
-
-  // Export CSV with decrypted credentials
-  const exportToCSVDecrypted = async () => {
-    if (exportingCSV) return;
-    
-    setExportingCSV(true);
-    toast.info('Descriptografando dados... Aguarde.');
-    
-    try {
-      // Decrypt all clients credentials including multi-server credentials
-      const allRows: { name: string; phone: string; login: string; password: string; account_type: string; server_name: string; plan_price: string; expiration_date: string }[] = [];
-      
-      for (const client of filteredClients) {
-        try {
-          const decrypted = await decryptCredentials({
-            login: client.login,
-            password: client.password,
-            login2: client.login2,
-            password2: client.password2,
-            login3: client.login3,
-            password3: client.password3,
-            login4: client.login4,
-            password4: client.password4,
-            login5: client.login5,
-            password5: client.password5,
-          });
-          
-          // Helper to check if value looks like encrypted base64 data
-          const isEncrypted = (val: string | null | undefined): boolean => {
-            if (!val || val.length < 20) return false;
-            // Base64 encrypted data typically contains special chars and is long
-            const base64Regex = /^[A-Za-z0-9+/]+=*$/;
-            return base64Regex.test(val) && (val.includes('+') || val.includes('/') || val.length > 40);
-          };
-          
-          // Clean credential - return empty if still encrypted
-          const cleanValue = (val: string | null | undefined): string => {
-            if (!val) return '';
-            if (isEncrypted(val)) return '';
-            return val;
-          };
-          
-          // Parse server names (can be comma-separated)
-          const serverNames = client.server_name?.split(',').map(s => s.trim()).filter(Boolean) || [''];
-          
-          // Credential pairs (login/password) - cleaned
-          const credentials = [
-            { login: cleanValue(decrypted.login), password: cleanValue(decrypted.password) },
-            { login: cleanValue(decrypted.login2), password: cleanValue(decrypted.password2) },
-            { login: cleanValue(decrypted.login3), password: cleanValue(decrypted.password3) },
-            { login: cleanValue(decrypted.login4), password: cleanValue(decrypted.password4) },
-            { login: cleanValue(decrypted.login5), password: cleanValue(decrypted.password5) },
-          ].filter(c => c.login || c.password);
-          
-          const planPrice = client.plan_price ? String(client.plan_price) : '';
-          const expirationDate = client.expiration_date || '';
-          
-          // If client has multiple credentials, create one row per credential
-          if (credentials.length > 1) {
-            credentials.forEach((cred, index) => {
-              allRows.push({
-                name: client.name || '',
-                phone: client.phone || '',
-                login: cred.login,
-                password: cred.password,
-                account_type: client.account_type || '',
-                server_name: serverNames[index] || serverNames[0] || '',
-                plan_price: planPrice,
-                expiration_date: expirationDate,
-              });
-            });
-          } else {
-            // Single credential or no credentials - always add the client row
-            allRows.push({
-              name: client.name || '',
-              phone: client.phone || '',
-              login: credentials[0]?.login || cleanValue(decrypted.login) || '',
-              password: credentials[0]?.password || cleanValue(decrypted.password) || '',
-              account_type: client.account_type || '',
-              server_name: serverNames[0] || '',
-              plan_price: planPrice,
-              expiration_date: expirationDate,
-            });
-          }
-        } catch (err) {
-          console.error('CSV export decryption error for client:', client.name, err);
-          // If decryption fails, add client with empty credentials (don't expose encrypted data)
-          allRows.push({
-            name: client.name || '',
-            phone: client.phone || '',
-            login: '[erro na descriptografia]',
-            password: '[erro na descriptografia]',
-            account_type: client.account_type || '',
-            server_name: client.server_name || '',
-            plan_price: client.plan_price ? String(client.plan_price) : '',
-            expiration_date: client.expiration_date || '',
-          });
-        }
-      }
-
-      // Create CSV content with BOM for Excel UTF-8 compatibility
-      const BOM = '\uFEFF';
-      const header = 'Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade';
-      const rows = allRows.map((c) => {
-        // Escape fields that may contain commas or quotes
-        const escape = (val: string) => {
-          if (!val) return '';
-          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-            return `"${val.replace(/"/g, '""')}"`;
-          }
-          return val;
-        };
-        
-        return [
-          escape(c.name),
-          escape(c.phone),
-          escape(c.login),
-          escape(c.password),
-          escape(c.account_type),
-          escape(c.server_name),
-          escape(c.plan_price),
-          escape(c.expiration_date),
-        ].join(',');
-      });
-
-      const csvContent = BOM + header + '\n' + rows.join('\n');
-      
-      // Download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `clientes_descriptografados_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast.success(`CSV exportado com ${allRows.length} linhas (${filteredClients.length} clientes)!`);
-    } catch (error) {
-      console.error('Export CSV error:', error);
-      toast.error('Erro ao exportar CSV');
-    } finally {
-      setExportingCSV(false);
-    }
-  };
-
-  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-      if (jsonData.length === 0) {
-        toast.error('Planilha vazia ou formato inválido');
-        return;
-      }
-
-      let importedCount = 0;
-      let errorCount = 0;
-
-      for (const row of jsonData as Record<string, unknown>[]) {
-        const name = String(row['Nome'] || row['nome'] || '').trim();
-        const expirationDate = row['Vencimento'] || row['vencimento'] || row['Data Vencimento'];
-        
-        if (!name) {
-          errorCount++;
-          continue;
-        }
-
-        // Parse expiration date
-        let parsedDate: string;
-        if (typeof expirationDate === 'number') {
-          // Excel date serial number
-          const date = new Date((expirationDate - 25569) * 86400 * 1000);
-          parsedDate = date.toISOString().split('T')[0];
-        } else if (typeof expirationDate === 'string') {
-          // Try to parse string date
-          const parts = expirationDate.split(/[\/\-]/);
-          if (parts.length === 3) {
-            // Assume DD/MM/YYYY or DD-MM-YYYY format for Brazilian dates
-            if (parts[0].length <= 2) {
-              parsedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-            } else {
-              parsedDate = expirationDate;
-            }
-          } else {
-            parsedDate = new Date().toISOString().split('T')[0];
-          }
-        } else {
-          // Default to today + 30 days
-          const date = new Date();
-          date.setDate(date.getDate() + 30);
-          parsedDate = date.toISOString().split('T')[0];
-        }
-
-        // Find server by name if provided
-        let serverId: string | null = null;
-        const serverName = String(row['Servidor'] || row['servidor'] || '').trim();
-        if (serverName) {
-          const matchedServer = servers.find(s => s.name.toLowerCase() === serverName.toLowerCase());
-          if (matchedServer) {
-            serverId = matchedServer.id;
-          }
-        }
-
-        const clientData = {
-          seller_id: user.id,
-          name,
-          phone: String(row['Telefone'] || row['telefone'] || '').trim() || null,
-          plan_name: String(row['Plano'] || row['plano'] || '').trim() || null,
-          plan_price: Number(row['Valor'] || row['valor'] || 0) || null,
-          expiration_date: parsedDate,
-          device: String(row['Dispositivo'] || row['dispositivo'] || '').trim() || null,
-          login: String(row['Login'] || row['login'] || '').trim() || null,
-          password: String(row['Senha'] || row['senha'] || '').trim() || null,
-          app_name: String(row['Aplicativo'] || row['aplicativo'] || row['App'] || '').trim() || null,
-          mac_address: String(row['MAC'] || row['mac'] || row['Mac Address'] || '').trim() || null,
-          server_id: serverId,
-          server_name: serverName || null,
-        };
-
-        const { error } = await supabase.from('clients').insert(clientData);
-        
-        if (error) {
-          console.error('Error importing client:', name, error);
-          errorCount++;
-        } else {
-          importedCount++;
-        }
-      }
-
-      if (importedCount > 0) {
-        toast.success(`${importedCount} cliente(s) importado(s) com sucesso!`);
-        fetchClients();
-      }
-      if (errorCount > 0) {
-        toast.error(`${errorCount} cliente(s) não puderam ser importados`);
-      }
-    } catch (error) {
-      console.error('Import error:', error);
-      toast.error('Erro ao processar a planilha');
-    }
-
-    // Reset the input
-    event.target.value = '';
-  };
-
   if (loading) {
     return (
       <AppLayout>
@@ -760,52 +483,6 @@ export default function Clients() {
               >
                 <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Mensagem
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3" onClick={exportToExcel}>
-                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Excel
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="bg-purple-500/10 border-purple-500/30 text-purple-500 hover:bg-purple-500/20 text-xs sm:text-sm px-2 sm:px-3"
-                onClick={exportToCSVDecrypted}
-                disabled={exportingCSV}
-              >
-                <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                {exportingCSV ? 'Exportando...' : 'CSV Limpo'}
-              </Button>
-              <label>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleImportExcel}
-                  className="hidden"
-                />
-                <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3" asChild>
-                  <span className="cursor-pointer">
-                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    Excel
-                  </span>
-                </Button>
-              </label>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20 text-xs sm:text-sm px-2 sm:px-3"
-                onClick={() => setBulkImportOpen(true)}
-              >
-                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Em Massa
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="bg-green-600/10 border-green-600/30 text-green-600 hover:bg-green-600/20 text-xs sm:text-sm px-2 sm:px-3"
-                onClick={() => setSanplayImportOpen(true)}
-              >
-                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Sanplay
               </Button>
               <Button
                 variant="gradient"
@@ -1069,14 +746,6 @@ export default function Clients() {
         <BulkImportDialog
           open={bulkImportOpen}
           onOpenChange={setBulkImportOpen}
-          onSuccess={fetchClients}
-          servers={servers}
-        />
-
-        {/* Sanplay CSV Import Dialog */}
-        <SanplayCSVImportDialog
-          open={sanplayImportOpen}
-          onOpenChange={setSanplayImportOpen}
           onSuccess={fetchClients}
           servers={servers}
         />
