@@ -483,12 +483,12 @@ export default function Clients() {
               });
             });
           } else {
-            // Single credential or no credentials
+            // Single credential or no credentials - always add the client row
             allRows.push({
               name: client.name || '',
               phone: client.phone || '',
-              login: credentials[0]?.login || '',
-              password: credentials[0]?.password || '',
+              login: credentials[0]?.login || decrypted.login || '',
+              password: credentials[0]?.password || decrypted.password || '',
               account_type: client.account_type || '',
               server_name: serverNames[0] || '',
               plan_price: planPrice,
