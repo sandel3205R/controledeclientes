@@ -435,22 +435,33 @@ export default function Clients() {
     toast.info('Descriptografando dados... Aguarde.');
     
     try {
-      // Decrypt all clients credentials
+      // Decrypt all clients credentials - only login and password for simplicity
       const decryptedClients = await Promise.all(
         filteredClients.map(async (client) => {
-          const decrypted = await decryptCredentials({
-            login: client.login,
-            password: client.password,
-            login2: client.login2,
-            password2: client.password2,
-            login3: client.login3,
-            password3: client.password3,
-            login4: client.login4,
-            password4: client.password4,
-            login5: client.login5,
-            password5: client.password5,
-          });
-          return { ...client, ...decrypted };
+          try {
+            const decrypted = await decryptCredentials({
+              login: client.login,
+              password: client.password,
+            });
+            return {
+              name: client.name || '',
+              phone: client.phone || '',
+              login: decrypted.login || '',
+              password: decrypted.password || '',
+              account_type: client.account_type || '',
+              server_name: client.server_name || '',
+            };
+          } catch {
+            // If decryption fails, use original values
+            return {
+              name: client.name || '',
+              phone: client.phone || '',
+              login: client.login || '',
+              password: client.password || '',
+              account_type: client.account_type || '',
+              server_name: client.server_name || '',
+            };
+          }
         })
       );
 
@@ -459,13 +470,12 @@ export default function Clients() {
       const header = 'Nome,Telefone,Login,Senha,Categoria,Servidor';
       const rows = decryptedClients.map((c) => {
         // Escape fields that may contain commas or quotes
-        const escape = (val: string | null | undefined) => {
+        const escape = (val: string) => {
           if (!val) return '';
-          const str = String(val);
-          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-            return `"${str.replace(/"/g, '""')}"`;
+          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return `"${val.replace(/"/g, '""')}"`;
           }
-          return str;
+          return val;
         };
         
         return [
